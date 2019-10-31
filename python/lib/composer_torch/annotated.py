@@ -19,6 +19,7 @@ class TorchTensorSplit(SplitType):
     def __init__(self):
         self.slice_col = False
         self.merge = False
+        self.gpu = True
 
     def combine(self, values):
         if self.merge:
@@ -52,13 +53,24 @@ class TorchTensorSplit(SplitType):
                 return value.shape[0]
             return value.shape[-1]
 
+    def to_device(self, value):
+        if isinstance(value, np.ndarray) or isinstance(value, torch.Tensor):
+            return value.to(torch.device('cuda'))
+        else:
+            return value
+
+    def to_host(self, value):
+        if isinstance(value, np.ndarray) or isinstance(value, torch.Tensor):
+            return value.to(torch.device('cpu'))
+        else:
+            return value
+
     def __str__(self):
         return "TorchTensorSplit"
 
 _args = (TorchTensorSplit(), TorchTensorSplit())
 _kwargs = { 'out' : mut(TorchTensorSplit()), 'axis': Broadcast() }
 _ret = TorchTensorSplit()
-
 
 # Binary ops.
 add      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.add)

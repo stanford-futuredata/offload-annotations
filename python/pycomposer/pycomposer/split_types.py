@@ -21,6 +21,9 @@ class SplitType(ABC):
 
     """
 
+    # Whether the split type can be transferred to the GPU.
+    gpu = False
+
     def __init__(self):
         """Initialize a new split type."""
         pass
@@ -30,7 +33,7 @@ class SplitType(ABC):
 
     def elements(self, value):
         """ Returns the number of elements that this value will emit.
-        
+
         This function should return `None` if the splitter will emit elements
         indefinitely.
 
@@ -48,12 +51,22 @@ class SplitType(ABC):
     @abstractmethod
     def split(self, obj):
         """Returns disjoint split objects based on obj.
-        
+
         split can return any iterable object, but will preferably return a
         generator that lazily yields split values from the source object.
-        
+
         """
         pass
+
+    def to_device(self, value):
+        """Transfer the split value to the GPU.
+        """
+        raise SplitTypeError("to_device must be implemented for split types on the GPU")
+
+    def to_host(self, value):
+        """Transfer the split value to the host.
+        """
+        raise SplitTypeError("to_host must be implemented for split types on the GPU")
 
     def __eq__(self, other):
         """ Check whether two types are equal. """
@@ -61,7 +74,7 @@ class SplitType(ABC):
             return False
         return self.__dict__ == other.__dict__() and\
                 type(self).__name__ == type(other).__name__
-    
+
     def __ne__(self, other):
         """ Check whether two types are not equal. """
         if other is None:
@@ -109,7 +122,7 @@ class GenericType(SplitType):
     Generic types are the only ones that do not have an associated split and
     combine implementation.  Instead, these types are placeholders that are
     replaced with a concrete type before execution.
-    
+
     """
 
     def __init__(self, name):
