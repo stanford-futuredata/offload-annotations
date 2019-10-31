@@ -2,7 +2,7 @@
 from collections import defaultdict
 import pickle
 
-import multiprocessing
+import torch.multiprocessing as multiprocessing
 #import multiprocessing.dummy as multiprocessing
 
 import threading
@@ -35,7 +35,7 @@ def _worker(worker_id, index_range):
     ----------
 
     worker_id : the thread ID of this worker.
-    index_range : A range 
+    index_range : A range
     and the master.
 
     """
@@ -44,7 +44,7 @@ def _worker(worker_id, index_range):
 
 def _run_program(worker_id, index_range):
     """Runs the global program to completion and return partial values.
-    
+
     Parameters
     ----------
 
@@ -63,7 +63,7 @@ def _run_program(worker_id, index_range):
     if just_parallel:
         _BATCH_SIZE = index_range[1] - index_range[0]
         piece_start = index_range[0]
-        piece_end = index_range[1] 
+        piece_end = index_range[1]
     else:
         piece_start = index_range[0]
         piece_end = piece_start + _BATCH_SIZE
@@ -154,7 +154,7 @@ class Driver:
             ranges.append((thread_start, thread_end))
 
         return ranges
-        
+
     def run(self, program, values):
         """ Executes the program with the provided values. """
         elements = program.elements(values)
@@ -209,7 +209,7 @@ class Driver:
                             # Don't add unnecessary None values.
                             if value is not None:
                                 result[key].append(value)
-                
+
                 _merge(program, result)
 
                 # Reinstate non-mutable values, broadcast values, etc.
