@@ -31,7 +31,7 @@ class Split(Instruction):
     An instruction that splits the inputs to an operation.
     """
 
-    def __init__(self, target, ty):
+    def __init__(self, target, ty, gpu):
         """
         A Split instruction takes an argument and split type and applies
         the splitter on the argument.
@@ -45,6 +45,7 @@ class Split(Instruction):
         self.target = target
         self.ty = ty
         self.splitter = None
+        self.gpu = gpu
 
     def __str__(self):
         return "v{} = split {}:{}".format(self.target, self.target, self.ty)
@@ -68,8 +69,10 @@ class Split(Instruction):
 
         if isinstance(result, str) and result == STOP_ITERATION:
             return STOP_ITERATION
-        else:
-            context[self.target].append(result)
+
+        if self.gpu:
+            result = self.ty.to_device(result)
+        context[self.target].append(result)
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
@@ -100,7 +103,7 @@ class Call(Instruction):
         """
         Evaluates a function call by gathering arguments and calling the
         function.
-        
+
         """
         args = self.get_args(context)
         kwargs = self.get_kwargs(context)

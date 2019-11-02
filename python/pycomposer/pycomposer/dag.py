@@ -368,7 +368,7 @@ class LogicalPlan:
                     valnum = vm.register_value(arg)
                     ty = op.split_type_of(i)
                     setattr(ty, "mutable", op.is_mutable(i))
-                    vm.program.insts.append(Split(valnum, ty))
+                    vm.program.insts.append(Split(valnum, ty, vm.gpu))
                 args.append(valnum)
 
             for (key, value) in op.kwargs.items():
@@ -377,7 +377,7 @@ class LogicalPlan:
                     valnum = vm.register_value(value)
                     ty = op.split_type_of(key)
                     setattr(ty, "mutable", op.is_mutable(key))
-                    vm.program.insts.append(Split(valnum, ty))
+                    vm.program.insts.append(Split(valnum, ty, vm.gpu))
                 kwargs[key] = valnum
 
             result = vm.register_value(op)
