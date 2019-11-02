@@ -21,7 +21,7 @@ class Operation:
 
     """
 
-    def __init__(self, func, args, kwargs, annotation, owner_ref): 
+    def __init__(self, func, args, kwargs, annotation, owner_ref):
         """Initialize an operation.
 
         Parameters
@@ -88,7 +88,7 @@ class Operation:
     def is_mutable(self, index):
         """ Returns whether the argument at the given index is mutable. """
         return index in self.annotation.mutables
-        
+
     def dependency_of(self, other):
         """ Returns whether self is a dependency of other. """
         if self in other.args:
@@ -158,12 +158,12 @@ class LogicalPlan:
     """ A logical plan representing dataflow.
 
     The plan is evaluated from leaves to the root.
-    
+
     """
 
     def __init__(self):
         """Initialize a logical DAG.
-        
+
         The DAG is meant to be used as a singleton for registering tasks.
 
         """
@@ -173,7 +173,7 @@ class LogicalPlan:
     def clear(self):
         """ Clear the operators in this DAG by removing its nodes. """
         self.roots = []
-    
+
     def register(self, func, args, kwargs, annotation):
         """ Register a function invocation along with its annotation.
 
@@ -274,7 +274,7 @@ class LogicalPlan:
 
     def infer_types(self):
         """ Infer concrete types for each argument in the DAG. """
-        
+
         def uniquify_generics(op, ident):
             """ Give each generic type an annotation-local identifier. """
             for ty in op.annotation.types():
@@ -338,6 +338,20 @@ class LogicalPlan:
 
         Returns a list of VMs, sorted by pipeline.
         """
+        def mark_gpus(op, vms):
+            vm = vms[1][op.pipeline]
+            added = vms[0]
+
+            if op in added:
+                return
+
+            for (i, _) in enumerate(op.args):
+                vm.gpu &= op.split_type_of(i).gpu
+            for (key, _) in op.kwargs.items():
+                vm.gpu &= op.split_type_of(key).gpu
+            vm.gpu &= op.annotation.return_type.gpu
+            added.add(op)
+
         def construct(op, vms):
             vm = vms[1][op.pipeline]
             added = vms[0]
@@ -374,9 +388,10 @@ class LogicalPlan:
 
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
-        vms = (set(), defaultdict(lambda: VM()))
-        self.walk(construct, vms, mode="bottomup")
-        return sorted(list(vms[1].items()))
+        vms = defaultdict(lambda: VM())
+        self.walk(mark_gpus, (set(), vms), mode="bottomup")
+        self.walk(construct, (set(), vms), mode="bottomup")
+        return sorted(list(vms.items()))
 
 
     @staticmethod

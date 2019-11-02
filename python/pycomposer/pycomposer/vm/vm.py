@@ -12,6 +12,8 @@ class VM:
         self.program = Program()
         # Values, mapping argID -> values
         self.values = dict()
+        # Weather the VM can be computed on the GPU
+        self.gpu = True
 
     def get(self, value):
         """
