@@ -21,9 +21,13 @@ class TorchTensorSplit(SplitType):
         self.merge = False
         self.gpu = True
 
-    def combine(self, values):
+    def combine(self, values, original=None):
         if self.merge:
             return torch.cat(values)
+        if original is not None:
+            assert isinstance(original, torch.Tensor)
+            original.data = torch.cat(values)
+            return original
 
     def split(self, start, end, value):
         if isinstance(value, np.ndarray) or isinstance(value, torch.Tensor):

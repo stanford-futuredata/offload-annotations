@@ -422,7 +422,7 @@ def evaluate_dag(dag, workers=1, batch_size=DEFAULT_BATCH_SIZE, profile=False):
         # print(vm.program)
 
         driver = Driver(workers=workers, batch_size=batch_size, optimize_single=True, profile=profile)
-        results = driver.run(vm.program, vm.values)
+        results = driver.run(vm.program, vm.values, vm.gpu)
 
         dag.commit(vm.values, results)
         # TODO We need to update vm.values in the remaining programs to use the

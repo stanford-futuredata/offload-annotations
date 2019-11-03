@@ -39,10 +39,11 @@ def _worker(worker_id, index_range):
     and the master.
 
     """
+    #TODO(ygina): multiprocessing
     result = _run_program(worker_id, index_range)
     return result
 
-def _run_program(worker_id, index_range):
+def _run_program(worker_id, index_range, values, gpu):
     """Runs the global program to completion and return partial values.
 
     Parameters
@@ -83,10 +84,9 @@ def _run_program(worker_id, index_range):
     process_end = time.time()
 
     # Free non-shared memory on this worker.
-    _merge(_PROGRAM, context)
+    _merge(_PROGRAM, context, values, gpu)
 
     merge_end = time.time()
-
     print("Thread {}\t processing: {:.3f}\t merge: {:.3f}\t total:{:.3f}\t".format(
             worker_id,
             process_end - start,
@@ -95,7 +95,7 @@ def _run_program(worker_id, index_range):
 
     return context
 
-def _merge(program, context):
+def _merge(program, context, values, gpu):
     """
     Merge a context that was generated with the given program.
     """
@@ -110,7 +110,15 @@ def _merge(program, context):
             merged.add(inst.target)
             if inst.ty is not None:
                 if inst.ty.mutable:
-                    context[inst.target] = inst.ty.combine(context[inst.target])
+                    from .. import dag
+                    if isinstance(values[inst.target], dag.Operation) or not gpu:
+                        context[inst.target] = inst.ty.combine(context[inst.target])
+                    else:
+                        # Since we operated on a copy of the original data, we need to
+                        # replace the original pointer with the new data in combine()
+                        original = values[inst.target]
+                        context[inst.target] = inst.ty.combine(context[inst.target], original=original)
+                        context[inst.target] = inst.ty.to_host(context[inst.target])
                 else:
                     # No need to merge values and send the result back: it's immutable,
                     # and should not have changed on the master process.
@@ -155,7 +163,7 @@ class Driver:
 
         return ranges
 
-    def run(self, program, values):
+    def run(self, program, values, gpu):
         """ Executes the program with the provided values. """
         elements = program.elements(values)
         ranges = self.get_partitions(elements)
@@ -176,12 +184,12 @@ class Driver:
                 cProfile.runctx("_run_program(0, ranges[0])", globals(), locals())
                 print("Finished profiling! exiting...")
                 sys.exit(1)
-            result = _run_program(0, ranges[0])
+            result = _run_program(0, ranges[0], values, gpu)
         elif self.workers > 1 and ranges[1] is None:
             # We should really dynamically adjust the number of processes
             # (i.e., self.workers should be the maximum allowed workers), but
             # for now its 1 or all to make evaluation easier.
-            result = _run_program(0, ranges[0])
+            result = _run_program(0, ranges[0], values, gpu)
         else:
             # This needs to go after the assignment to _VALUES, so
             # the process snapshot sees the updated variable. The advantage of
@@ -210,7 +218,7 @@ class Driver:
                             if value is not None:
                                 result[key].append(value)
 
-                _merge(program, result)
+                _merge(program, result, values, gpu)
 
                 # Reinstate non-mutable values, broadcast values, etc.
                 for value_key in _VALUES:

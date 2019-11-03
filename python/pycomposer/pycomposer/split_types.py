@@ -44,7 +44,7 @@ class SplitType(ABC):
         return len(value)
 
     @abstractmethod
-    def combine(self, values):
+    def combine(self, values, original=None):
         """Combine a list of values into a single merged value."""
         pass
 
