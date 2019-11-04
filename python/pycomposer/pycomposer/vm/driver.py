@@ -118,7 +118,6 @@ def _merge(program, context, values, gpu):
                         # replace the original pointer with the new data in combine()
                         original = values[inst.target]
                         context[inst.target] = inst.ty.combine(context[inst.target], original=original)
-                        context[inst.target] = inst.ty.to_host(context[inst.target])
                 else:
                     # No need to merge values and send the result back: it's immutable,
                     # and should not have changed on the master process.

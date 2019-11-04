@@ -355,6 +355,7 @@ class LogicalPlan:
         def construct(op, vms):
             vm = vms[1][op.pipeline]
             added = vms[0]
+            to_host = vms[2][op.pipeline]
 
             # Already processed this op.
             if op in added:
@@ -369,6 +370,7 @@ class LogicalPlan:
                     ty = op.split_type_of(i)
                     setattr(ty, "mutable", op.is_mutable(i))
                     vm.program.insts.append(Split(valnum, ty, vm.gpu))
+                    to_host.insert(0, ToHost(valnum, ty))
                 args.append(valnum)
 
             for (key, value) in op.kwargs.items():
@@ -378,6 +380,7 @@ class LogicalPlan:
                     ty = op.split_type_of(key)
                     setattr(ty, "mutable", op.is_mutable(key))
                     vm.program.insts.append(Split(valnum, ty, vm.gpu))
+                    to_host.insert(0, ToHost(valnum, ty))
                 kwargs[key] = valnum
 
             result = vm.register_value(op)
@@ -389,8 +392,11 @@ class LogicalPlan:
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
         vms = defaultdict(lambda: VM())
+        to_hosts = defaultdict(lambda: [])
         self.walk(mark_gpus, (set(), vms), mode="bottomup")
-        self.walk(construct, (set(), vms), mode="bottomup")
+        self.walk(construct, (set(), vms, to_hosts), mode="bottomup")
+        for pipeline, to_host in to_hosts.items():
+            vms[pipeline].program.insts += to_host
         return sorted(list(vms.items()))
 
 

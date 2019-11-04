@@ -108,3 +108,16 @@ class Call(Instruction):
         args = self.get_args(context)
         kwargs = self.get_kwargs(context)
         context[self.target].append(self.func(*args, **kwargs))
+
+class ToHost(Instruction):
+    def __init__(self, target, ty):
+        self.target = target
+        self.ty = ty
+
+    def __str__(self):
+        return "v{} to_host:{}".format(self.target, str(self.ty))
+
+    def evaluate(self, _thread, _start, _end, _values, context):
+        device_value = context[self.target][-1]
+        host_value = self.ty.to_host(device_value)
+        context[self.target][-1] = host_value
