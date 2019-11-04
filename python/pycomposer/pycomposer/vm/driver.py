@@ -104,7 +104,7 @@ def _merge(program, context, values, gpu):
         # Reverse list to obtain the last split type assigned to each target.
         # For now, given the way pipelines are set up, this shouldn't matter
         # since the split type of each target won't change.
-        if inst.target in merged:
+        if inst.target in merged or inst.target is None:
             continue
         else:
             merged.add(inst.target)

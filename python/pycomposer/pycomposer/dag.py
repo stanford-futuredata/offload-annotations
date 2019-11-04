@@ -397,6 +397,7 @@ class LogicalPlan:
         self.walk(construct, (set(), vms, to_hosts), mode="bottomup")
         for pipeline, to_host in to_hosts.items():
             vms[pipeline].program.insts += to_host
+            vms[pipeline].program.remove_unused_outputs()
         return sorted(list(vms.items()))
 
 

@@ -1,6 +1,6 @@
 
 from .driver import STOP_ITERATION
-from .instruction import Split
+from .instruction import Call, Split
 
 class Program:
     """
@@ -18,7 +18,7 @@ class Program:
         # Instruction list.
         self.insts = []
         # Registered values. Maps SSA value to real value.
-        self.registered = {} 
+        self.registered = {}
 
     def get(self, value):
         """
@@ -63,6 +63,20 @@ class Program:
                 else:
                     elements = e
         return elements
+
+    def remove_unused_outputs(self):
+        visited = set()
+        for i in range(len(self.insts) - 1, -1, -1):
+            inst = self.insts[i]
+            if isinstance(inst, Call):
+                visited.update(inst.args)
+                visited.update([valnum for (_, valnum) in inst.kwargs.items()])
+            if inst.target in visited:
+                continue
+
+            # The instruction result is not used in any following instructions.
+            if isinstance(inst, Call):
+                inst.remove_target()
 
     def __str__(self):
         return "\n".join([str(i) for i in self.insts])

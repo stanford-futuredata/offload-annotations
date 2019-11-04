@@ -91,7 +91,11 @@ class Call(Instruction):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))
         kwargs = list(map(lambda v: "{}=v{}".format(v[0], v[1]), self.kwargs.items()))
         arguments = ", ".join([args] + kwargs)
-        return "v{} = call {}({}):{}".format(self.target, self.func.__name__, arguments, str(self.ty))
+        if self.target is None:
+            prefix = ""
+        else:
+            prefix = "v{} = ".format(self.target)
+        return prefix + "call {}({}):{}".format(self.func.__name__, arguments, str(self.ty))
 
     def get_args(self, context):
         return [ context[target][-1] for target in self.args ]
@@ -107,7 +111,12 @@ class Call(Instruction):
         """
         args = self.get_args(context)
         kwargs = self.get_kwargs(context)
-        context[self.target].append(self.func(*args, **kwargs))
+        result = self.func(*args, **kwargs)
+        if self.target is not None:
+            context[self.target].append(result)
+
+    def remove_target(self):
+        self.target = None
 
 class ToHost(Instruction):
     def __init__(self, target, ty):
