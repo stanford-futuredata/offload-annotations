@@ -1,10 +1,9 @@
 
 from collections import defaultdict
-import pickle
 
+import logging
 import torch.multiprocessing as multiprocessing
-#import multiprocessing.dummy as multiprocessing
-
+# import multiprocessing
 import threading
 import time
 
@@ -56,7 +55,7 @@ def _run_program(worker_id, index_range, values, gpu):
     global _PROGRAM
     global _BATCH_SIZE
 
-    print("Thread", worker_id, "range:", index_range, "batch size:", _BATCH_SIZE)
+    logging.debug("Thread", worker_id, "range:", index_range, "batch size:", _BATCH_SIZE)
     start = time.time()
 
     context = defaultdict(list)
@@ -87,7 +86,8 @@ def _run_program(worker_id, index_range, values, gpu):
     _merge(_PROGRAM, context, values, gpu)
 
     merge_end = time.time()
-    print("Thread {}\t processing: {:.3f}\t merge: {:.3f}\t total:{:.3f}\t".format(
+
+    logging.debug("Thread {}\t processing: {:.3f}\t merge: {:.3f}\t total:{:.3f}\t".format(
             worker_id,
             process_end - start,
             merge_end - process_end,
@@ -177,12 +177,6 @@ class Driver:
         _BATCH_SIZE = self.batch_size
 
         if self.workers == 1 and self.optimize_single:
-            if self.profile:
-                import cProfile
-                import sys
-                cProfile.runctx("_run_program(0, ranges[0])", globals(), locals())
-                print("Finished profiling! exiting...")
-                sys.exit(1)
             result = _run_program(0, ranges[0], values, gpu)
         elif self.workers > 1 and ranges[1] is None:
             # We should really dynamically adjust the number of processes
@@ -227,7 +221,7 @@ class Driver:
                 result = partial_results[0]
 
             end = time.time()
-            print("Final merge time:", end - start)
+            logging.debug("Final merge time:", end - start)
             pool.terminate()
 
         _VALUES = None

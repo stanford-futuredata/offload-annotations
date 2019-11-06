@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 import copy
-import numpy as np
 
 class SplitTypeError(TypeError):
     """ Custom type error for when annotation types cannot be propagated.
@@ -35,17 +34,30 @@ class SplitType(ABC):
         """ Returns the number of elements that this value will emit.
 
         This function should return `None` if the splitter will emit elements
-        indefinitely.
-
-        The default implementation calls `len` on value. If this is not
-        suitable, the split type should override this method.
+        indefinitely. The default implementation calls `len` on value. If this
+        is not suitable, the split type should override this method.
 
         """
         return len(value)
 
     @abstractmethod
     def combine(self, values, original=None):
-        """Combine a list of values into a single merged value."""
+        """Combine a list of values into a single merged value.
+
+        This method should be associative.
+
+        Parameters
+        ----------
+
+        values : list
+            A list of values that should be combined into a single value.
+
+        Returns
+        -------
+        any
+            Returns the combined value.
+
+        """
         pass
 
     @abstractmethod
@@ -54,6 +66,18 @@ class SplitType(ABC):
 
         split can return any iterable object, but will preferably return a
         generator that lazily yields split values from the source object.
+
+        Parameters
+        ----------
+
+        obj : any
+            An object that should be split into multiple objects of the same
+            type.
+
+        Returns
+        -------
+        iterable
+            An iterable that collectively represents the input object.
 
         """
         pass
@@ -69,7 +93,11 @@ class SplitType(ABC):
         raise SplitTypeError("to_host must be implemented for split types on the GPU")
 
     def __eq__(self, other):
-        """ Check whether two types are equal. """
+        """ Check whether two types are equal.
+
+        Note that two split types are equal if (a) they have the same class
+        name and (b) their attributes dictionary is equal.
+        """
         if other is None:
             return False
         return self.__dict__ == other.__dict__() and\
@@ -214,41 +242,45 @@ class Broadcast(SplitType):
         pass
 
     def combine(self, values):
+        """ A combiner that returns itself.
+
+        Parameters
+        ----------
+            values : list
+                A list that contains a single value.
+
+        Returns
+        -------
+            any
+                Returns ``values[0]``
+
+        """
         if len(values) > 0:
             return values[0]
 
-    def split(self, _start, _end, value):
+    def split(self, start, end, value):
+        """ A splitter that returns the value unmodified.
+
+        Parameters
+        ----------
+            start : int
+                Unused.
+            end : int
+                Unused.
+            value : any
+                The value to broadcast
+
+        Returns
+        -------
+            any
+                Returns ``value``.
+
+        """
         return value
 
     def elements(self, _):
+        """ Returns ``None`` to indicate infinite elements."""
         return None
 
     def __str__(self): return "broadcast"
 
-# Convinience functions for creating named generics.
-A = lambda: GenericType("A")
-B = lambda: GenericType("B")
-C = lambda: GenericType("C")
-D = lambda: GenericType("D")
-E = lambda: GenericType("E")
-F = lambda: GenericType("F")
-G = lambda: GenericType("G")
-H = lambda: GenericType("H")
-I = lambda: GenericType("I")
-J = lambda: GenericType("J")
-K = lambda: GenericType("K")
-L = lambda: GenericType("L")
-M = lambda: GenericType("M")
-N = lambda: GenericType("N")
-O = lambda: GenericType("O")
-P = lambda: GenericType("P")
-Q = lambda: GenericType("Q")
-R = lambda: GenericType("R")
-S = lambda: GenericType("S")
-T = lambda: GenericType("T")
-U = lambda: GenericType("U")
-V = lambda: GenericType("V")
-W = lambda: GenericType("V")
-X = lambda: GenericType("X")
-Y = lambda: GenericType("Y")
-Z = lambda: GenericType("Z")

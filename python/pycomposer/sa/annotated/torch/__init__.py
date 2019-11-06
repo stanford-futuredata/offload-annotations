@@ -3,4 +3,6 @@
 from torch import *
 
 from .annotated import *
-from pycomposer import evaluate
+
+# Provide an explicit evaluate function.
+from sa.annotation import evaluate

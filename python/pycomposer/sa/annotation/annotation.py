@@ -1,8 +1,7 @@
-
 import functools
+import logging
 
 from inspect import signature, Parameter, Signature
-
 from .split_types import Broadcast
 
 class Mut(object):
@@ -12,8 +11,24 @@ class Mut(object):
     def __init__(self, value):
         self.value = value
 
-# Constructor for mutables.
-mut = lambda x: Mut(x)
+def mut(x):
+    """ A function that marks an argument as mutable.
+
+    If a function mutates an argument (e.g., removing an item from a list), the
+    SA should mark the split type for that argument with this function. This
+    allows the runtime to track data dependencies among functions correctly.
+
+    Parameters
+    ----------
+    x : SplitType
+        Split type for argument that will be mutated within the annotation.
+
+    Returns
+    -------
+    SplitType
+
+    """
+    return Mut(x)
 
 class Annotation(object):
     """ An annotation on a function.
@@ -26,7 +41,7 @@ class Annotation(object):
     __slots__ = [ "mutables", "arg_types", "return_type", "kwarg_types" ]
 
     def __init__(self, func, types, kwtypes, return_type):
-        """ Initialize an annotation for a function invocation with the given
+        """Initialize an annotation for a function invocation with the given
         arguments.
 
         Parameters
@@ -62,8 +77,7 @@ class Annotation(object):
                 assert(name in kwargs)
 
         except ValueError as e:
-            pass
-            # print("WARN: Continuing without verification of annotation")
+            logging.info("Continuing without verification of annotation")
 
         # The mutable values. These are indices for positionals and string
         # names for keyword args.

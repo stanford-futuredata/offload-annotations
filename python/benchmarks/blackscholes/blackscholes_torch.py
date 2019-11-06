@@ -16,7 +16,7 @@ class Mode(Enum):
 
 def get_data(size, mode, threads):
     if mode == Mode.TORCH_COMPOSER:
-        import composer_torch as torch
+        import sa.annotated.torch as torch
     else:
         import torch
 
@@ -54,7 +54,7 @@ def bs(
     mode, threads, piece_size     # experiment configuration
 ):
     if mode == Mode.TORCH_COMPOSER:
-        import composer_torch as torch
+        import sa.annotated.torch as torch
         torch.set_num_threads(1)
     else:
         import torch
