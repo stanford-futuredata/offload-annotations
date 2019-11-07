@@ -2,6 +2,7 @@
 import numpy as np
 import scipy.special as ss
 import sharedmem
+import torch
 
 from copy import deepcopy as dc
 from sa.annotation import *
@@ -12,10 +13,15 @@ class NdArraySplit(SplitType):
     def __init__(self):
         self.slice_col = False
         self.merge = False
+        self.gpu = True
 
-    def combine(self, values):
+    def combine(self, values, original=None):
         if self.merge:
             return np.concatenate(values)
+        if original is not None:
+            assert isinstance(original, np.ndarray)
+            original.data = np.concatenate(values)
+            return original
 
     def split(self, start, end, value):
         if isinstance(value, np.ndarray):
@@ -44,6 +50,18 @@ class NdArraySplit(SplitType):
                 return value.shape[0]
             return value.shape[-1]
 
+    def to_device(self, value):
+        if isinstance(value, np.ndarray):
+            return torch.from_numpy(value).to(torch.device('cuda'))
+        else:
+            return value
+
+    def to_host(self, value):
+        if isinstance(value, torch.Tensor):
+            return value.to(torch.device('cpu')).numpy()
+        else:
+            return value
+
     def __str__(self):
         return "NdArraySplit"
 
@@ -53,23 +71,23 @@ _ret = NdArraySplit()
 
 
 # Binary ops.
-add         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add)
-subtract    = sa(dc(_args), dc(_kwargs), dc(_ret))(np.subtract)
-multiply    = sa(dc(_args), dc(_kwargs), dc(_ret))(np.multiply)
-divide      = sa(dc(_args), dc(_kwargs), dc(_ret))(np.divide)
+add         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.add)(np.add)
+subtract    = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.sub)(np.subtract)
+multiply    = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.mul)(np.multiply)
+divide      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.div)(np.divide)
 power       = sa(dc(_args), dc(_kwargs), dc(_ret))(np.power)
 
 _args = (NdArraySplit(),)
 
 # Unary ops.
 log         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.log)
-log2        = sa(dc(_args), dc(_kwargs), dc(_ret))(np.log2)
-exp         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.exp)
+log2        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.log2)(np.log2)
+exp         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.exp)(np.exp)
 sin         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.sin)
 arcsin      = sa(dc(_args), dc(_kwargs), dc(_ret))(np.arcsin)
 cos         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.cos)
-sqrt        = sa(dc(_args), dc(_kwargs), dc(_ret))(np.sqrt)
-erf         = sa(dc(_args), dc(_kwargs), dc(_ret))(ss.erf)
+sqrt        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.sqrt)(np.sqrt)
+erf         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.erf)(ss.erf)
 
 # addreduce = np.add.reduce
 addreduce = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add.reduce)
