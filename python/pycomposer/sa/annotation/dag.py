@@ -379,6 +379,7 @@ class LogicalPlan:
             if op in added:
                 return
 
+            vm.gpu &= op.annotation.gpu
             for (i, _) in enumerate(op.args):
                 vm.gpu &= op.split_type_of(i).gpu
             for (key, _) in op.kwargs.items():

@@ -79,15 +79,15 @@ def dont_call_me(*args, **kwargs):
     raise Exception('i said dont call me!!!!')
 
 # Binary ops.
-add      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu_func=torch.add)(dont_call_me)
-sub      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.sub)
-mul      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.mul)
-div      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.div)
+add      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.add)(dont_call_me)
+sub      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.sub)
+mul      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.mul)
+div      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.div)
 
 _args = (TorchTensorSplit(),)
 
 # Unary ops.
-log2     = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.log2)
-exp      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.exp)
-sqrt     = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.sqrt)
-erf      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.erf)
+log2     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.log2)
+exp      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.exp)
+sqrt     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.sqrt)
+erf      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.erf)

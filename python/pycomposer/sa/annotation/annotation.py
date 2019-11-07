@@ -38,9 +38,9 @@ class Annotation(object):
 
     """
 
-    __slots__ = [ "mutables", "arg_types", "return_type", "kwarg_types", "gpu_func" ]
+    __slots__ = [ "mutables", "arg_types", "return_type", "kwarg_types", "gpu", "gpu_func" ]
 
-    def __init__(self, func, types, kwtypes, return_type, gpu_func):
+    def __init__(self, func, types, kwtypes, return_type, gpu, gpu_func):
         """Initialize an annotation for a function invocation with the given
         arguments.
 
@@ -50,6 +50,7 @@ class Annotation(object):
         func : the function that was invoked.
         types : the split types of the non-keyword arguments and return type.
         kwtypes : the split types of the keyword arguments.
+        gpu: whether the function can run on the gpu.
         gpu_func : the gpu version of the function that was invoked, if it exists.
 
         """
@@ -107,6 +108,7 @@ class Annotation(object):
                 self.kwarg_types[key] = value
 
         # GPU function version.
+        self.gpu = gpu
         self.gpu_func = gpu_func
 
 
