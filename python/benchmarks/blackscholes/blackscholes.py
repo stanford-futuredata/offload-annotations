@@ -10,7 +10,7 @@ import time
 
 def get_data(size, composer):
     if composer:
-        import composer_numpy as np
+        import sa.annotated.numpy as np
     else:
         import numpy as np
 
@@ -19,13 +19,13 @@ def get_data(size, composer):
     t = np.ones(size, dtype="float64") * 4.0
     rate = np.ones(size, dtype="float64") * 4.0
     vol = np.ones(size, dtype="float64") * 4.0
-    
+
     return price, strike, t, rate, vol
 
 def bs(price, strike, t, rate, vol, composer, threads, piece_size):
 
     if composer:
-        import composer_numpy as np
+        import sa.annotated.numpy as np
     else:
         import numpy as np
 
