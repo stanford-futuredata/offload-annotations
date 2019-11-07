@@ -75,8 +75,11 @@ _args = (TorchTensorSplit(), TorchTensorSplit())
 _kwargs = { 'out' : mut(TorchTensorSplit()), 'axis': Broadcast() }
 _ret = TorchTensorSplit()
 
+def dont_call_me(*args, **kwargs):
+    raise Exception('i said dont call me!!!!')
+
 # Binary ops.
-add      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.add)
+add      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu_func=torch.add)(dont_call_me)
 sub      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.sub)
 mul      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.mul)
 div      = sa(dc(_args), dc(_kwargs), dc(_ret))(torch.div)

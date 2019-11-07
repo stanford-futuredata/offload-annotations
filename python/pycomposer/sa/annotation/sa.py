@@ -4,7 +4,7 @@ from .dag import LogicalPlan, evaluate_dag
 from .split_types import *
 from .vm.driver import DEFAULT_BATCH_SIZE
 
-import functools 
+import functools
 
 import copy
 
@@ -22,7 +22,7 @@ class sa(object):
 
     """
 
-    def __init__(self, types, kwtypes, return_type):
+    def __init__(self, types, kwtypes, return_type, gpu_func=None):
         """ Creates a split annotation (SA) for the provided function signature.
 
         The SA can either be used as a Python decorator or as a function that
@@ -46,13 +46,18 @@ class sa(object):
         return_type : SplitType or None
             split type of the value returned by this function.
 
+        gpu_func : callable function or None
+            the function to call on the inputs if offloaded to the gpu in
+            place if the original function, if they are different.
+
         """
         self.types = types
         self.kwtypes = kwtypes
         self.return_type = return_type
+        self.gpu_func = gpu_func
 
     def __call__(self, func):
-        annotation = Annotation(func, self.types, self.kwtypes, self.return_type)
+        annotation = Annotation(func, self.types, self.kwtypes, self.return_type, self.gpu_func)
 
         @functools.wraps(func)
         def _decorated(*args, **kwargs):

@@ -421,7 +421,12 @@ class LogicalPlan:
             # In this context, mutability just means we need to merge objects.
             if op.annotation.return_type is not None:
                 setattr(op.annotation.return_type, "mutable", not op.dontsend)
-            vm.program.insts.append(Call(result, op.func, args, kwargs, op.annotation.return_type))
+            # Choose which function to call based on whether the pipeline is on the gpu.
+            if vm.gpu and op.annotation.gpu_func is not None:
+                func = op.annotation.gpu_func
+            else:
+                func = op.func
+            vm.program.insts.append(Call(result, func, args, kwargs, op.annotation.return_type))
             added.add(op)
 
         # programs: Maps Pipeline IDs to VM Programs.
