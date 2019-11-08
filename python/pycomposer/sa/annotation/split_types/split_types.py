@@ -239,9 +239,9 @@ class GenericType(SplitType):
 class Broadcast(SplitType):
     """ A split type that broadcasts values. """
     def __init__(self):
-        pass
+        self.gpu = True
 
-    def combine(self, values):
+    def combine(self, values, original=None):
         """ A combiner that returns itself.
 
         Parameters
@@ -281,6 +281,14 @@ class Broadcast(SplitType):
     def elements(self, _):
         """ Returns ``None`` to indicate infinite elements."""
         return None
+
+    def to_device(self, value):
+        """Returns the original value."""
+        return value
+
+    def to_host(self, value):
+        """Returns the original value."""
+        return value
 
     def __str__(self): return "broadcast"
 
