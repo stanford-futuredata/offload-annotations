@@ -405,7 +405,8 @@ class LogicalPlan:
                     ty = op.split_type_of(i)
                     setattr(ty, "mutable", op.is_mutable(i))
                     vm.program.insts.append(Split(valnum, ty, vm.gpu))
-                    to_host.insert(0, ToHost(valnum, ty))
+                    if vm.gpu:
+                        to_host.insert(0, ToHost(valnum, ty))
                 args.append(valnum)
 
             for (key, value) in op.kwargs.items():
@@ -415,7 +416,8 @@ class LogicalPlan:
                     ty = op.split_type_of(key)
                     setattr(ty, "mutable", op.is_mutable(key))
                     vm.program.insts.append(Split(valnum, ty, vm.gpu))
-                    to_host.insert(0, ToHost(valnum, ty))
+                    if vm.gpu:
+                        to_host.insert(0, ToHost(valnum, ty))
                 kwargs[key] = valnum
 
             result = vm.register_value(op)
