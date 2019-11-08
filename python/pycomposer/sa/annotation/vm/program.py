@@ -64,7 +64,7 @@ class Program:
                     elements = e
         return elements
 
-    def remove_unused_outputs(self):
+    def remove_unused_outputs(self, mut_vals):
         visited = set()
         for i in range(len(self.insts) - 1, -1, -1):
             inst = self.insts[i]
@@ -72,6 +72,10 @@ class Program:
                 visited.update(inst.args)
                 visited.update([valnum for (_, valnum) in inst.kwargs.items()])
             if inst.target in visited:
+                continue
+
+            # The instruction is mutable, merged, and later used.
+            if inst.target in mut_vals:
                 continue
 
             # The instruction result is not used in any following instructions.

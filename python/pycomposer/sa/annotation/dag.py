@@ -391,6 +391,7 @@ class LogicalPlan:
             vm = vms[1][op.pipeline]
             added = vms[0]
             to_host = vms[2][op.pipeline]
+            mutable = vms[3][op.pipeline]
 
             # Already processed this op.
             if op in added:
@@ -424,6 +425,8 @@ class LogicalPlan:
             # In this context, mutability just means we need to merge objects.
             if op.annotation.return_type is not None:
                 setattr(op.annotation.return_type, "mutable", not op.dontsend)
+                if not op.dontsend:
+                    mutable.add(result)
             # Choose which function to call based on whether the pipeline is on the gpu.
             if vm.gpu and op.annotation.gpu_func is not None:
                 func = op.annotation.gpu_func
@@ -436,11 +439,12 @@ class LogicalPlan:
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
         vms = defaultdict(lambda: VM())
         to_hosts = defaultdict(lambda: [])
+        mutables = defaultdict(lambda: set())
         self.walk(mark_gpus, (set(), vms), mode="bottomup")
-        self.walk(construct, (set(), vms, to_hosts), mode="bottomup")
-        for pipeline, to_host in to_hosts.items():
-            vms[pipeline].program.insts += to_host
-            vms[pipeline].program.remove_unused_outputs()
+        self.walk(construct, (set(), vms, to_hosts, mutables), mode="bottomup")
+        for pipeline in vms:
+            vms[pipeline].program.insts += to_hosts[pipeline]
+            vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 
 
