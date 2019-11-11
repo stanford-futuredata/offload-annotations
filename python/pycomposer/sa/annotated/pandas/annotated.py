@@ -9,6 +9,7 @@ split `self` instead of the DataFrame passed in here.
 import numpy as np
 import pandas as pd
 import time
+import cudf
 
 from copy import deepcopy as dc
 from sa.annotation import *
@@ -26,14 +27,20 @@ class UniqueSplit(SplitType):
         raise ValueError
 
 class DataFrameSplit(SplitType):
-    def combine(self, values):
+    gpu = True
+
+    def combine(self, values, original=None):
         do_combine = False
         for val in values:
             if val is not None:
                 do_combine = True
 
         if do_combine and len(values) > 0:
-            return pd.concat(values)
+            result = pd.concat(values)
+            if original is not None:
+                assert isinstance(original, np.ndarray)
+                original.data = result
+            return result
 
     def split(self, start, end, value):
         if not isinstance(value, pd.DataFrame) and not isinstance(value, pd.Series):
@@ -46,12 +53,38 @@ class DataFrameSplit(SplitType):
             return None
         return len(value)
 
+    def to_device(self, value):
+        if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
+            return cudf.from_pandas(value)
+        else:
+            return value
+
+    def to_host(self, value):
+        if isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
+            return value.to_pandas()
+        else:
+            return value
+
+    def __str__(self):
+        return 'DataFrameSplit'
+
 class SumSplit(SplitType):
+    gpu = True
+
     def combine(self, values):
         return sum(values)
 
     def split(self, start, end, value):
         raise ValueError("can't split sum values")
+
+    def to_device(self, value):
+        return value
+
+    def to_host(self, value):
+        return value
+
+    def __str__(self):
+        return 'SumSplit'
 
 class GroupBySplit(SplitType):
     def combine(self, values):
@@ -82,22 +115,22 @@ def gbsize(grouped):
 def filter(df, column, target):
     return df[df[column] > target]
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def divide(series, value):
     result = (series / value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def multiply(series, value):
     result = (series * value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def subtract(series, value):
     result = (series - value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def add(series, value):
     result = (series + value)
     return result
@@ -107,17 +140,17 @@ def equal(series, value):
     result = (series == value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def greater_than(series, value):
     result = (series >= value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def less_than(series, value):
     result = (series < value)
     return result
 
-@sa((DataFrameSplit(),), {}, SumSplit())
+@sa((DataFrameSplit(),), {}, SumSplit(), gpu=True)
 def pandasum(series):
     result = series.sum()
     return result
@@ -132,7 +165,12 @@ def series_str(series):
     result = series.str
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit(), Broadcast()), {}, DataFrameSplit())
+def gpu_mask(series, cond, val):
+    clone = series.copy()
+    clone.loc[cond] = val
+    return clone
+
+@sa((DataFrameSplit(), DataFrameSplit(), Broadcast()), {}, DataFrameSplit(), gpu=True, gpu_func=gpu_mask)
 def mask(series, cond, val):
     result = series.mask(cond, val)
     return result
