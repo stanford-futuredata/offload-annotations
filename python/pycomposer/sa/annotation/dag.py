@@ -427,6 +427,8 @@ class LogicalPlan:
                 setattr(op.annotation.return_type, "mutable", not op.dontsend)
                 if not op.dontsend:
                     mutable.add(result)
+                    if vm.gpu:
+                        to_host.insert(0, ToHost(result, op.annotation.return_type))
             # Choose which function to call based on whether the pipeline is on the gpu.
             if vm.gpu and op.annotation.gpu_func is not None:
                 func = op.annotation.gpu_func
