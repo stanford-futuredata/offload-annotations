@@ -24,7 +24,7 @@ def datacleaning_pandas(requests):
     requests = requests.unique()
     return requests
 
-def datacleaning_composer(requests, threads):
+def datacleaning_composer(requests, threads, piece_size):
     # Fix requests with extra digits
     requests = pd.series_str_slice(requests, 0, 5)
     requests.dontsend = True
@@ -35,7 +35,7 @@ def datacleaning_composer(requests, threads):
     requests = pd.mask(requests, zero_zips, np.nan)
     requests.dontsend = True
     requests = pd.unique(requests)
-    pd.evaluate(workers=threads)
+    pd.evaluate(workers=threads, batch_size=piece_size)
     requests = requests.value
     return requests
 
@@ -72,7 +72,7 @@ def run():
 
     start = time.time()
     if mode == "composer":
-        result = datacleaning_composer(inputs, threads)
+        result = datacleaning_composer(inputs, threads, piece_size)
     elif mode == "naive":
         result = datacleaning_pandas(inputs)
     end = time.time()
