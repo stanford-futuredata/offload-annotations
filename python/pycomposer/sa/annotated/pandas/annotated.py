@@ -16,15 +16,36 @@ from sa.annotation import *
 from sa.annotation.split_types import *
 
 class UniqueSplit(SplitType):
+    gpu = True
+
     """ For the result of Unique """
-    def combine(self, values):
+    def combine(self, values, original=None):
         if len(values) > 0:
-            return np.unique(np.concatenate(values))
+            result = np.unique(np.concatenate(values))
         else:
-            return np.array([])
+            result = np.array([])
+        if original is not None:
+            assert isinstance(original, np.ndarray)
+            original.data = result
+        return result
 
     def split(self, values):
         raise ValueError
+
+    def to_device(self, value):
+        if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
+            return cudf.from_pandas(value)
+        else:
+            return value
+
+    def to_host(self, value):
+        if isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
+            return value.to_pandas()
+        else:
+            return value
+
+    def __str__(self):
+        return 'UniqueSplit'
 
 class DataFrameSplit(SplitType):
     gpu = True
@@ -135,7 +156,7 @@ def add(series, value):
     result = (series + value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def equal(series, value):
     result = (series == value)
     return result
@@ -155,7 +176,7 @@ def pandasum(series):
     result = series.sum()
     return result
 
-@sa((DataFrameSplit(),), {}, UniqueSplit())
+@sa((DataFrameSplit(),), {}, UniqueSplit(), gpu=True)
 def unique(series):
     result = series.unique()
     return result
@@ -175,7 +196,7 @@ def mask(series, cond, val):
     result = series.mask(cond, val)
     return result
 
-@sa((DataFrameSplit(), Broadcast(), Broadcast()), {}, DataFrameSplit())
+@sa((DataFrameSplit(), Broadcast(), Broadcast()), {}, DataFrameSplit(), gpu=True)
 def series_str_slice(series, start, end):
     result = series.str.slice(start, end)
     return result
