@@ -90,10 +90,11 @@ class Call(Instruction):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))
         kwargs = list(map(lambda v: "{}=v{}".format(v[0], v[1]), self.kwargs.items()))
         arguments = ", ".join([args] + kwargs)
-        if self.target is None:
-            prefix = ""
-        else:
-            prefix = "v{} = ".format(self.target)
+        prefix = ""
+        if self.on_gpu:
+            prefix += "(gpu) "
+        if self.target is not None:
+            prefix += "v{} = ".format(self.target)
         return prefix + "call {}({}):{}".format(self.func.__name__, arguments, str(self.ty))
 
     def get_args(self, context):
@@ -123,7 +124,7 @@ class ToGPU(Instruction):
         self.ty = ty
 
     def __str__(self):
-        return "v{} = to_gpu:{}".format(self.target, str(self.ty))
+        return "(gpu) v{} = to_gpu:{}".format(self.target, str(self.ty))
 
     def evaluate(self, _thread, _start, _end, _values, context):
         host_value = context[self.target][-1]
