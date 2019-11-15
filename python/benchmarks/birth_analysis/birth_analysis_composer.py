@@ -5,7 +5,7 @@ sys.path.append("../../lib/")
 sys.path.append("../../pycomposer/")
 
 import argparse
-import composer_pandas as pd
+import sa.annotated.pandas as pd
 import time
 
 def analyze(top1000):

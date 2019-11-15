@@ -13,7 +13,8 @@ sys.path.append("../../pycomposer")
 # Total time, roll time
 time_in_sd = [ 0.0, 0.0 ]
 
-batch_size = 2
+# Initialized with args
+piece_size = None
 
 def spatial_derivative(A, axis, out, threads):
     """
@@ -30,7 +31,7 @@ def spatial_derivative(A, axis, out, threads):
     """
 
     if mode == "composer":
-        np.evaluate(workers=threads, batch_size=batch_size)
+        np.evaluate(workers=threads, batch_size=piece_size)
 
     start = time.time()
     # XXX Avoid writing roll_1 and roll_2 across threads since they don't
@@ -118,7 +119,7 @@ def evolveEuler(eta, u, v, temporaries, threads):
         np.add(v, tmp, out=v)
 
         if composer:
-            np.evaluate(workers=threads, batch_size=batch_size)
+            np.evaluate(workers=threads, batch_size=piece_size)
 
         elapsed += dt
         yield eta, u, v, elapsed
@@ -164,7 +165,7 @@ parser.add_argument('-m', "--mode", type=str, default="naive", help="Mode (compo
 args = parser.parse_args()
 
 size = (1 << args.size)
-iterations = args.iterations 
+iterations = args.iterations
 piece_size = args.piece_size
 threads = args.threads
 loglevel = args.verbosity
@@ -188,7 +189,7 @@ else:
     raise ValueError("invalid mode", mode)
 
 if composer:
-    import composer_numpy as np
+    import sa.annotated.numpy as np
 elif mode == "bohrium":
     import bohrium as np
 else:

@@ -9,7 +9,7 @@ import time
 
 def get_data(size, composer):
     if composer:
-        import composer_numpy as np
+        import sa.annotated.numpy as np
     else:
         import numpy as np
 
@@ -17,9 +17,9 @@ def get_data(size, composer):
     lons = np.ones(size, dtype="float64") * 0.0698132
     return lats, lons
 
-def haversine(lat2, lon2, composer, threads):
+def haversine(lat2, lon2, composer, threads, piece_size):
     if composer:
-        import composer_numpy as np
+        import sa.annotated.numpy as np
     else:
         import numpy as np
 
@@ -64,7 +64,7 @@ def haversine(lat2, lon2, composer, threads):
     np.multiply(c, MILES_CONST, out=mi)
 
     if composer:
-        np.evaluate(workers=threads)
+        np.evaluate(workers=threads, batch_size=piece_size)
 
     end = time.time()
     print("Runtime:", end-start)
@@ -107,7 +107,7 @@ def run():
     print("done.")
 
 
-    mi = haversine(lats, lons, composer, threads)
+    mi = haversine(lats, lons, composer, threads, piece_size)
     print(mi)
 
 if __name__ == "__main__":
