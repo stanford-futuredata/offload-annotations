@@ -405,8 +405,8 @@ class LogicalPlan:
             for (i, arg) in enumerate(op.args):
                 valnum = vm.get(arg)
                 if valnum is None:
-                    valnum = vm.register_value(arg)
                     ty = op.split_type_of(i)
+                    valnum = vm.register_value(arg, ty)
                     setattr(ty, "mutable", op.is_mutable(i))
                     vm.program.insts.append(Split(valnum, ty))
                     if vm.gpu:
@@ -417,8 +417,8 @@ class LogicalPlan:
             for (key, value) in op.kwargs.items():
                 valnum = vm.get(value)
                 if valnum is None:
-                    valnum = vm.register_value(value)
                     ty = op.split_type_of(key)
+                    valnum = vm.register_value(value, ty)
                     setattr(ty, "mutable", op.is_mutable(key))
                     vm.program.insts.append(Split(valnum, ty))
                     if vm.gpu:
@@ -426,7 +426,7 @@ class LogicalPlan:
                         to_cpu.insert(0, ToCPU(valnum, ty))
                 kwargs[key] = valnum
 
-            result = vm.register_value(op)
+            result = vm.register_value(op, op.annotation.return_type)
             # In this context, mutability just means we need to merge objects.
             if op.annotation.return_type is not None:
                 setattr(op.annotation.return_type, "mutable", not op.dontsend)
