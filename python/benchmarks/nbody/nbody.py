@@ -228,7 +228,7 @@ parser.add_argument('-m', "--mode", type=str, required=False, help="Mode (compos
 args = parser.parse_args()
 
 size = (1 << args.size)
-iterations = args.iterations 
+iterations = args.iterations
 batch_size = args.batch_size
 threads = args.threads
 loglevel = args.verbosity
@@ -250,7 +250,7 @@ else:
     raise ValueError("invalid mode", mode)
 
 if composer:
-    import composer_numpy as np
+    import sa.annotated.numpy as np
     addreduce = np.addreduce
 else:
     import numpy as np

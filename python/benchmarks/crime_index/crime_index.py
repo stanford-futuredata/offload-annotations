@@ -9,7 +9,7 @@ sys.path.append("../../pycomposer")
 import numpy as np
 import time
 
-import composer_pandas as pd
+import sa.annotated.pandas as pd
 
 def gen_data(size):
     total_population = np.ones(size, dtype="float64") * 500000

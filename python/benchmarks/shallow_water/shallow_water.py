@@ -164,7 +164,7 @@ parser.add_argument('-m', "--mode", type=str, default="naive", help="Mode (compo
 args = parser.parse_args()
 
 size = (1 << args.size)
-iterations = args.iterations 
+iterations = args.iterations
 piece_size = args.piece_size
 threads = args.threads
 loglevel = args.verbosity
@@ -188,7 +188,7 @@ else:
     raise ValueError("invalid mode", mode)
 
 if composer:
-    import composer_numpy as np
+    import sa.annotated.numpy as np
 elif mode == "bohrium":
     import bohrium as np
 else:

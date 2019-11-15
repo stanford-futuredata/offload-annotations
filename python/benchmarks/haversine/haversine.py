@@ -9,7 +9,7 @@ import time
 
 def get_data(size, composer):
     if composer:
-        import composer_numpy as np
+        import sa.annotated.numpy as np
     else:
         import numpy as np
 
@@ -19,7 +19,7 @@ def get_data(size, composer):
 
 def haversine(lat2, lon2, composer, threads):
     if composer:
-        import composer_numpy as np
+        import sa.annotated.numpy as np
     else:
         import numpy as np
 
