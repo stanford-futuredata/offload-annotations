@@ -56,6 +56,14 @@ class Operation:
         # Children of this operation that must be evaluated first.
         self.children = []
 
+        # Whether the operation supports GPU execution based on the
+        # function annotation, and input and return types.
+        self.supports_gpu = annotation.gpu and annotation.return_type.gpu
+        for (i, _) in enumerate(args):
+            self.supports_gpu &= self.split_type_of(i).gpu
+        for (key, _) in kwargs.items():
+            self.supports_gpu &= self.split_type_of(key).gpu
+
     def all_args(self):
         """ Returns a list of all the args in this operation. """
         return tuple(self.args) + tuple(self.kwargs.values())
@@ -379,12 +387,7 @@ class LogicalPlan:
             if op in added:
                 return
 
-            vm.gpu &= op.annotation.gpu
-            for (i, _) in enumerate(op.args):
-                vm.gpu &= op.split_type_of(i).gpu
-            for (key, _) in op.kwargs.items():
-                vm.gpu &= op.split_type_of(key).gpu
-            vm.gpu &= op.annotation.return_type.gpu
+            vm.gpu &= op.supports_gpu
             added.add(op)
 
         def construct(op, vms):
@@ -436,7 +439,8 @@ class LogicalPlan:
                 func = op.annotation.gpu_func
             else:
                 func = op.func
-            vm.program.insts.append(Call(result, func, args, kwargs, op.annotation.return_type))
+            vm.program.insts.append(Call(
+                result, func, args, kwargs, op.annotation.return_type, op.supports_gpu))
             added.add(op)
 
         # programs: Maps Pipeline IDs to VM Programs.

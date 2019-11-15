@@ -73,7 +73,7 @@ class Split(Instruction):
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
-    def __init__(self,  target, func, args, kwargs, ty):
+    def __init__(self,  target, func, args, kwargs, ty, on_gpu):
         self.target = target
         # Function to call.
         self.func = func
@@ -83,6 +83,8 @@ class Call(Instruction):
         self.kwargs = kwargs
         # Return split type.
         self.ty = ty
+        # Whether the call is executed on the GPU.
+        self.on_gpu = on_gpu
 
     def __str__(self):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))
