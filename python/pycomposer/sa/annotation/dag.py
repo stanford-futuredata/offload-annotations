@@ -7,6 +7,7 @@ from .annotation import Annotation
 from .config import config
 from .split_types import *
 from .unevaluated import UNEVALUATED
+from .device import Device
 
 from .vm.instruction import *
 from .vm.vm import VM
@@ -393,8 +394,8 @@ class LogicalPlan:
         def construct(op, vms):
             vm = vms[1][op.pipeline]
             added = vms[0]
-            to_cpu = vms[2][op.pipeline]
-            mutable = vms[3][op.pipeline]
+            mutable = vms[2][op.pipeline]
+            var_locs = vms[3][op.pipeline]
 
             # Already processed this op.
             if op in added:
@@ -402,6 +403,8 @@ class LogicalPlan:
 
             args = []
             kwargs = {}
+
+            # Split the arguments if it is our first encounter
             for (i, arg) in enumerate(op.args):
                 valnum = vm.get(arg)
                 if valnum is None:
@@ -409,9 +412,6 @@ class LogicalPlan:
                     valnum = vm.register_value(arg, ty)
                     setattr(ty, "mutable", op.is_mutable(i))
                     vm.program.insts.append(Split(valnum, ty))
-                    if vm.gpu:
-                        vm.program.insts.append(ToGPU(valnum, ty))
-                        to_cpu.insert(0, ToCPU(valnum, ty))
                 args.append(valnum)
 
             for (key, value) in op.kwargs.items():
@@ -421,21 +421,37 @@ class LogicalPlan:
                     valnum = vm.register_value(value, ty)
                     setattr(ty, "mutable", op.is_mutable(key))
                     vm.program.insts.append(Split(valnum, ty))
-                    if vm.gpu:
-                        vm.program.insts.append(ToGPU(valnum, ty))
-                        to_cpu.insert(0, ToCPU(valnum, ty))
                 kwargs[key] = valnum
 
+            # Transfer arguments as necessary between devices
+            def transfer(valnum, var_locs, vm, op):
+                ty = vm.split_type_of(valnum)
+                assert ty is not None
+                if var_locs[valnum] == Device.CPU and op.supports_gpu:
+                    vm.program.insts.append(ToGPU(valnum, ty))
+                    var_locs[valnum] = Device.GPU
+                elif var_locs[valnum] == Device.GPU and not op.supports_gpu:
+                    vm.program.insts.append(ToCPU(valnum, ty))
+                    var_locs[valnum] = Device.CPU
+            for valnum in args:
+                transfer(valnum, var_locs, vm, op)
+            for _, valnum in kwargs.items():
+                transfer(valnum, var_locs, vm, op)
+
+            # Register the valnum of the return value and its device location
             result = vm.register_value(op, op.annotation.return_type)
+            if op.supports_gpu:
+                var_locs[result] = Device.GPU
+            else:
+                var_locs[result] = Device.CPU
+
             # In this context, mutability just means we need to merge objects.
             if op.annotation.return_type is not None:
                 setattr(op.annotation.return_type, "mutable", not op.dontsend)
                 if not op.dontsend:
                     mutable.add(result)
-                    if vm.gpu:
-                        to_cpu.insert(0, ToCPU(result, op.annotation.return_type))
             # Choose which function to call based on whether the pipeline is on the gpu.
-            if vm.gpu and op.annotation.gpu_func is not None:
+            if op.supports_gpu and op.annotation.gpu_func is not None:
                 func = op.annotation.gpu_func
             else:
                 func = op.func
@@ -446,12 +462,18 @@ class LogicalPlan:
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
         vms = defaultdict(lambda: VM())
-        to_cpus = defaultdict(lambda: [])
         mutables = defaultdict(lambda: set())
+        var_locs = defaultdict(lambda: defaultdict(lambda: Device.CPU))
         self.walk(mark_gpus, (set(), vms), mode="bottomup")
-        self.walk(construct, (set(), vms, to_cpus, mutables), mode="bottomup")
+        self.walk(construct, (set(), vms, mutables, var_locs), mode="bottomup")
         for pipeline in vms:
-            vms[pipeline].program.insts += to_cpus[pipeline]
+            # Move any variables still on the GPU back to the CPU
+            for valnum, device in var_locs[pipeline].items():
+                if device == Device.GPU:
+                    ty = vms[pipeline].split_type_of(valnum)
+                    if ty is None:
+                        continue
+                    vms[pipeline].program.insts.append(ToCPU(valnum, ty))
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 
