@@ -17,7 +17,7 @@ def gen_data(size):
     num_robberies = np.ones(size, dtype="float64") * 1000
     return pd.Series(total_population), pd.Series(adult_population), pd.Series(num_robberies)
 
-def crime_index_composer(total_population, adult_population, num_robberies, threads):
+def crime_index_composer(total_population, adult_population, num_robberies, threads, piece_size):
     # Get all city information with total population greater than 500,000
     big_cities = pd.greater_than(total_population, 500000.0)
     big_cities.dontsend = True
@@ -45,7 +45,7 @@ def crime_index_composer(total_population, adult_population, num_robberies, thre
     crime_index.dontsend = True
 
     result = pd.pandasum(crime_index)
-    pd.evaluate(workers=threads)
+    pd.evaluate(workers=threads, batch_size=piece_size)
     return result.value
 
 def crime_index_pandas(total_population, adult_population, num_robberies):
@@ -86,7 +86,7 @@ def run():
 
     start = time.time()
     if mode == "composer":
-        result = crime_index_composer(inputs[0], inputs[1], inputs[2], threads)
+        result = crime_index_composer(inputs[0], inputs[1], inputs[2], threads, piece_size)
     elif mode == "naive":
         result = crime_index_pandas(*inputs)
     end = time.time()
