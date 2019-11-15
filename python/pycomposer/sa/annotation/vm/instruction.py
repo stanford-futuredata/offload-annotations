@@ -31,7 +31,7 @@ class Split(Instruction):
     An instruction that splits the inputs to an operation.
     """
 
-    def __init__(self, target, ty, gpu):
+    def __init__(self, target, ty):
         """
         A Split instruction takes an argument and split type and applies
         the splitter on the argument.
@@ -45,7 +45,6 @@ class Split(Instruction):
         self.target = target
         self.ty = ty
         self.splitter = None
-        self.gpu = gpu
 
     def __str__(self):
         return "v{} = split {}:{}".format(self.target, self.target, self.ty)
@@ -70,8 +69,6 @@ class Split(Instruction):
         if isinstance(result, str) and result == STOP_ITERATION:
             return STOP_ITERATION
 
-        if self.gpu:
-            result = self.ty.to_device(result)
         context[self.target].append(result)
 
 class Call(Instruction):
@@ -117,6 +114,19 @@ class Call(Instruction):
 
     def remove_target(self):
         self.target = None
+
+class ToDevice(Instruction):
+    def __init__(self, target, ty):
+        self.target = target
+        self.ty = ty
+
+    def __str__(self):
+        return "v{} to_device:{}".format(self.target, str(self.ty))
+
+    def evaluate(self, _thread, _start, _end, _values, context):
+        host_value = context[self.target][-1]
+        device_value = self.ty.to_device(host_value)
+        context[self.target][-1] = device_value
 
 class ToHost(Instruction):
     def __init__(self, target, ty):
