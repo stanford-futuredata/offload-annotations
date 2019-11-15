@@ -50,13 +50,13 @@ class NdArraySplit(SplitType):
                 return value.shape[0]
             return value.shape[-1]
 
-    def to_device(self, value):
+    def to_gpu(self, value):
         if isinstance(value, np.ndarray):
             return torch.from_numpy(value).to(torch.device('cuda'))
         else:
             return value
 
-    def to_host(self, value):
+    def to_cpu(self, value):
         if isinstance(value, torch.Tensor):
             return value.to(torch.device('cpu')).numpy()
         else:

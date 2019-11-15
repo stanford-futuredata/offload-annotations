@@ -390,7 +390,7 @@ class LogicalPlan:
         def construct(op, vms):
             vm = vms[1][op.pipeline]
             added = vms[0]
-            to_host = vms[2][op.pipeline]
+            to_cpu = vms[2][op.pipeline]
             mutable = vms[3][op.pipeline]
 
             # Already processed this op.
@@ -407,8 +407,8 @@ class LogicalPlan:
                     setattr(ty, "mutable", op.is_mutable(i))
                     vm.program.insts.append(Split(valnum, ty))
                     if vm.gpu:
-                        vm.program.insts.append(ToDevice(valnum, ty))
-                        to_host.insert(0, ToHost(valnum, ty))
+                        vm.program.insts.append(ToGPU(valnum, ty))
+                        to_cpu.insert(0, ToCPU(valnum, ty))
                 args.append(valnum)
 
             for (key, value) in op.kwargs.items():
@@ -419,8 +419,8 @@ class LogicalPlan:
                     setattr(ty, "mutable", op.is_mutable(key))
                     vm.program.insts.append(Split(valnum, ty))
                     if vm.gpu:
-                        vm.program.insts.append(ToDevice(valnum, ty))
-                        to_host.insert(0, ToHost(valnum, ty))
+                        vm.program.insts.append(ToGPU(valnum, ty))
+                        to_cpu.insert(0, ToCPU(valnum, ty))
                 kwargs[key] = valnum
 
             result = vm.register_value(op)
@@ -430,7 +430,7 @@ class LogicalPlan:
                 if not op.dontsend:
                     mutable.add(result)
                     if vm.gpu:
-                        to_host.insert(0, ToHost(result, op.annotation.return_type))
+                        to_cpu.insert(0, ToCPU(result, op.annotation.return_type))
             # Choose which function to call based on whether the pipeline is on the gpu.
             if vm.gpu and op.annotation.gpu_func is not None:
                 func = op.annotation.gpu_func
@@ -442,12 +442,12 @@ class LogicalPlan:
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
         vms = defaultdict(lambda: VM())
-        to_hosts = defaultdict(lambda: [])
+        to_cpus = defaultdict(lambda: [])
         mutables = defaultdict(lambda: set())
         self.walk(mark_gpus, (set(), vms), mode="bottomup")
-        self.walk(construct, (set(), vms, to_hosts, mutables), mode="bottomup")
+        self.walk(construct, (set(), vms, to_cpus, mutables), mode="bottomup")
         for pipeline in vms:
-            vms[pipeline].program.insts += to_hosts[pipeline]
+            vms[pipeline].program.insts += to_cpus[pipeline]
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 

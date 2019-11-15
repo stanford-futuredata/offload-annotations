@@ -115,28 +115,28 @@ class Call(Instruction):
     def remove_target(self):
         self.target = None
 
-class ToDevice(Instruction):
+class ToGPU(Instruction):
     def __init__(self, target, ty):
         self.target = target
         self.ty = ty
 
     def __str__(self):
-        return "v{} to_device:{}".format(self.target, str(self.ty))
+        return "v{} = to_gpu:{}".format(self.target, str(self.ty))
 
     def evaluate(self, _thread, _start, _end, _values, context):
         host_value = context[self.target][-1]
-        device_value = self.ty.to_device(host_value)
+        device_value = self.ty.to_gpu(host_value)
         context[self.target][-1] = device_value
 
-class ToHost(Instruction):
+class ToCPU(Instruction):
     def __init__(self, target, ty):
         self.target = target
         self.ty = ty
 
     def __str__(self):
-        return "v{} to_host:{}".format(self.target, str(self.ty))
+        return "v{} = to_cpu:{}".format(self.target, str(self.ty))
 
     def evaluate(self, _thread, _start, _end, _values, context):
         device_value = context[self.target][-1]
-        host_value = self.ty.to_host(device_value)
+        host_value = self.ty.to_cpu(device_value)
         context[self.target][-1] = host_value

@@ -82,15 +82,15 @@ class SplitType(ABC):
         """
         pass
 
-    def to_device(self, value):
+    def to_gpu(self, value):
         """Transfer the split value to the GPU.
         """
-        raise SplitTypeError("to_device must be implemented for split types on the GPU")
+        raise SplitTypeError("to_gpu must be implemented for split types on the GPU")
 
-    def to_host(self, value):
-        """Transfer the split value to the host.
+    def to_cpu(self, value):
+        """Transfer the split value to the CPU.
         """
-        raise SplitTypeError("to_host must be implemented for split types on the GPU")
+        raise SplitTypeError("to_cpu must be implemented for split types on the GPU")
 
     def __eq__(self, other):
         """ Check whether two types are equal.
@@ -282,11 +282,11 @@ class Broadcast(SplitType):
         """ Returns ``None`` to indicate infinite elements."""
         return None
 
-    def to_device(self, value):
+    def to_gpu(self, value):
         """Returns the original value."""
         return value
 
-    def to_host(self, value):
+    def to_cpu(self, value):
         """Returns the original value."""
         return value
 

@@ -32,13 +32,13 @@ class UniqueSplit(SplitType):
     def split(self, values):
         raise ValueError
 
-    def to_device(self, value):
+    def to_gpu(self, value):
         if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
             return cudf.from_pandas(value)
         else:
             return value
 
-    def to_host(self, value):
+    def to_cpu(self, value):
         if isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
             return value.to_pandas()
         else:
@@ -74,13 +74,13 @@ class DataFrameSplit(SplitType):
             return None
         return len(value)
 
-    def to_device(self, value):
+    def to_gpu(self, value):
         if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
             return cudf.from_pandas(value)
         else:
             return value
 
-    def to_host(self, value):
+    def to_cpu(self, value):
         if isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
             return value.to_pandas()
         else:
@@ -98,10 +98,10 @@ class SumSplit(SplitType):
     def split(self, start, end, value):
         raise ValueError("can't split sum values")
 
-    def to_device(self, value):
+    def to_gpu(self, value):
         return value
 
-    def to_host(self, value):
+    def to_cpu(self, value):
         return value
 
     def __str__(self):
