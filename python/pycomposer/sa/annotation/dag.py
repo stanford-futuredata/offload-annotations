@@ -59,11 +59,12 @@ class Operation:
 
         # Whether the operation supports GPU execution based on the
         # function annotation, and input and return types.
-        self.supports_gpu = annotation.gpu and annotation.return_type.gpu
+        self.supports_gpu = annotation.gpu
+        self.supports_gpu &= Device.GPU in annotation.return_type.supported_devices
         for (i, _) in enumerate(args):
-            self.supports_gpu &= self.split_type_of(i).gpu
+            self.supports_gpu &= Device.GPU in self.split_type_of(i).supported_devices
         for (key, _) in kwargs.items():
-            self.supports_gpu &= self.split_type_of(key).gpu
+            self.supports_gpu &= Device.GPU in self.split_type_of(key).supported_devices
 
     def all_args(self):
         """ Returns a list of all the args in this operation. """

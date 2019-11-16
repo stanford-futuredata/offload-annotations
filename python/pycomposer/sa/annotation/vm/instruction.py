@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import types
 
 from .driver import STOP_ITERATION
+from ..device import Device
 
 class Instruction(ABC):
     """
@@ -127,9 +128,9 @@ class ToGPU(Instruction):
         return "(gpu) v{} = to_gpu:{}".format(self.target, str(self.ty))
 
     def evaluate(self, _thread, _start, _end, _values, context):
-        host_value = context[self.target][-1]
-        device_value = self.ty.to_gpu(host_value)
-        context[self.target][-1] = device_value
+        cpu_value = context[self.target][-1]
+        gpu_value = self.ty.to(cpu_value, Device.GPU)
+        context[self.target][-1] = gpu_value
 
 class ToCPU(Instruction):
     def __init__(self, target, ty):
@@ -140,6 +141,6 @@ class ToCPU(Instruction):
         return "v{} = to_cpu:{}".format(self.target, str(self.ty))
 
     def evaluate(self, _thread, _start, _end, _values, context):
-        device_value = context[self.target][-1]
-        host_value = self.ty.to_cpu(device_value)
-        context[self.target][-1] = host_value
+        gpu_value = context[self.target][-1]
+        cpu_value = self.ty.to(gpu_value, Device.CPU)
+        context[self.target][-1] = cpu_value

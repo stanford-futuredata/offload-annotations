@@ -1,5 +1,6 @@
 from enum import Enum
 
 class Device(Enum):
-	CPU = 0
-	GPU = 1
+	CPU = 'cpu'
+	GPU = 'gpu'
+	SCALAR = 'scalar'  # scalars are device agnostic

@@ -1,5 +1,5 @@
 
-
+from ..device import Device
 from abc import ABC, abstractmethod
 import copy
 
@@ -20,8 +20,8 @@ class SplitType(ABC):
 
     """
 
-    # Whether the split type can be transferred to the GPU.
-    gpu = False
+    # The list of supported devices the split type can be transferred to and from.
+    supported_devices = [Device.CPU]
 
     def __init__(self):
         """Initialize a new split type."""
@@ -82,15 +82,34 @@ class SplitType(ABC):
         """
         pass
 
-    def to_gpu(self, value):
-        """Transfer the split value to the GPU.
-        """
-        raise SplitTypeError("to_gpu must be implemented for split types on the GPU")
+    def device(self, value):
+        """The current device the value is on.
 
-    def to_cpu(self, value):
-        """Transfer the split value to the CPU.
+        Returns
+        -------
+        device
+            The current device the value is on.
         """
-        raise SplitTypeError("to_cpu must be implemented for split types on the GPU")
+        return Device.CPU
+
+    def to(self, value, device):
+        """Transfers the split value to another device.
+
+        Parameters
+        ----------
+
+        value : any
+            The value to transfer, originally on one of the supported devices.
+        device : Device
+            The supported device to transfer the value to.
+
+        Returns
+        -------
+        new_value
+            The value, located on the given device.
+
+        """
+        raise SplitTypeError("to must be implemented for each supported device")
 
     def __eq__(self, other):
         """ Check whether two types are equal.
@@ -239,7 +258,7 @@ class GenericType(SplitType):
 class Broadcast(SplitType):
     """ A split type that broadcasts values. """
     def __init__(self):
-        self.gpu = True
+        self.supported_devices = [Device.CPU, Device.GPU]
 
     def combine(self, values, original=None):
         """ A combiner that returns itself.
@@ -282,11 +301,11 @@ class Broadcast(SplitType):
         """ Returns ``None`` to indicate infinite elements."""
         return None
 
-    def to_gpu(self, value):
-        """Returns the original value."""
-        return value
+    def device(self, value):
+        """All broadcast types are device agnostic."""
+        return Device.SCALAR
 
-    def to_cpu(self, value):
+    def to(self, value, device):
         """Returns the original value."""
         return value
 

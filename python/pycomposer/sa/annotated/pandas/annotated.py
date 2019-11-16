@@ -14,9 +14,10 @@ import cudf
 from copy import deepcopy as dc
 from sa.annotation import *
 from sa.annotation.split_types import *
+from sa.annotation.device import Device
 
 class UniqueSplit(SplitType):
-    gpu = True
+    supported_devices = [Device.CPU, Device.GPU]
 
     """ For the result of Unique """
     def combine(self, values, original=None):
@@ -32,23 +33,32 @@ class UniqueSplit(SplitType):
     def split(self, values):
         raise ValueError
 
-    def to_gpu(self, value):
+    def device(self, value):
         if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
-            return cudf.from_pandas(value)
+            return Device.CPU
+        elif isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
+            return Device.GPU
+        elif isinstance(value, float) or isinstance(value, int) or isinstance(value, str):
+            return Device.SCALAR
         else:
-            return value
+            raise Exception('unknown device: {}'.format(type(value)))
 
-    def to_cpu(self, value):
-        if isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
+    def to(self, value, device):
+        current_device = self.device(value)
+        if current_device == Device.SCALAR or current_device == device:
+            return value
+        elif current_device == Device.CPU and device == Device.GPU:
+            return cudf.from_pandas(value)
+        elif current_device == Device.GPU and device == Device.CPU:
             return value.to_pandas()
         else:
-            return value
+            raise Exception('cannot transfer from {} to {}'.format(current_device, device))
 
     def __str__(self):
         return 'UniqueSplit'
 
 class DataFrameSplit(SplitType):
-    gpu = True
+    supported_devices = [Device.CPU, Device.GPU]
 
     def combine(self, values, original=None):
         do_combine = False
@@ -74,23 +84,32 @@ class DataFrameSplit(SplitType):
             return None
         return len(value)
 
-    def to_gpu(self, value):
+    def device(self, value):
         if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
-            return cudf.from_pandas(value)
+            return Device.CPU
+        elif isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
+            return Device.GPU
+        elif isinstance(value, float) or isinstance(value, int) or isinstance(value, str):
+            return Device.SCALAR
         else:
-            return value
+            raise Exception('unknown device: {}'.format(type(value)))
 
-    def to_cpu(self, value):
-        if isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
+    def to(self, value, device):
+        current_device = self.device(value)
+        if current_device == Device.SCALAR or current_device == device:
+            return value
+        elif current_device == Device.CPU and device == Device.GPU:
+            return cudf.from_pandas(value)
+        elif current_device == Device.GPU and device == Device.CPU:
             return value.to_pandas()
         else:
-            return value
+            raise Exception('cannot transfer from {} to {}'.format(current_device, device))
 
     def __str__(self):
         return 'DataFrameSplit'
 
 class SumSplit(SplitType):
-    gpu = True
+    supported_devices = [Device.CPU, Device.GPU]
 
     def combine(self, values):
         return sum(values)
@@ -98,11 +117,17 @@ class SumSplit(SplitType):
     def split(self, start, end, value):
         raise ValueError("can't split sum values")
 
-    def to_gpu(self, value):
-        return value
+    def device(self, value):
+        if isinstance(value, float) or isinstance(value, int):
+            return Device.SCALAR
+        else:
+            raise Exception('unknown device: {}'.format(type(value)))
 
-    def to_cpu(self, value):
-        return value
+    def to(self, value, device):
+        if self.device(value) == Device.SCALAR:
+            return value
+        else:
+            raise Exception('cannot transfer from {} to {}'.format(current_device, device))
 
     def __str__(self):
         return 'SumSplit'
