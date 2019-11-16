@@ -429,10 +429,10 @@ class LogicalPlan:
                 ty = vm.split_type_of(valnum)
                 assert ty is not None
                 if var_locs[valnum] == Device.CPU and op.supports_gpu:
-                    vm.program.insts.append(ToGPU(valnum, ty))
+                    vm.program.insts.append(To(valnum, ty, Device.GPU))
                     var_locs[valnum] = Device.GPU
                 elif var_locs[valnum] == Device.GPU and not op.supports_gpu:
-                    vm.program.insts.append(ToCPU(valnum, ty))
+                    vm.program.insts.append(To(valnum, ty, Device.CPU))
                     var_locs[valnum] = Device.CPU
             for valnum in args:
                 transfer(valnum, var_locs, vm, op)
@@ -474,7 +474,7 @@ class LogicalPlan:
                     ty = vms[pipeline].split_type_of(valnum)
                     if ty is None:
                         continue
-                    vms[pipeline].program.insts.append(ToCPU(valnum, ty))
+                    vms[pipeline].program.insts.append(To(valnum, ty, Device.CPU))
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 
