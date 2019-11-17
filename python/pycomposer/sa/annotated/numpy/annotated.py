@@ -13,7 +13,7 @@ class NdArraySplit(SplitType):
     def __init__(self):
         self.slice_col = False
         self.merge = False
-        self.gpu = True
+        self.supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):
         if self.merge:
@@ -50,17 +50,26 @@ class NdArraySplit(SplitType):
                 return value.shape[0]
             return value.shape[-1]
 
-    def to_gpu(self, value):
-        if isinstance(value, np.ndarray):
-            return torch.from_numpy(value).to(torch.device('cuda'))
+    def backend(self, value):
+        if isinstance(value, float) or isinstance(value, int) or isinstance(value, str):
+            return Backend.SCALAR
+        elif isinstance(value, np.ndarray):
+            return Backend.CPU
+        elif isinstance(value, torch.Tensor) and value.device.type == 'cuda':
+            return Backend.GPU
         else:
-            return value
+            raise Exception('unknown device: {}'.format(type(value)))
 
-    def to_cpu(self, value):
-        if isinstance(value, torch.Tensor):
+    def to(self, value, backend):
+        current_backend = self.backend(value)
+        if current_backend == Backend.SCALAR or current_backend == backend:
+            return value
+        elif current_backend == Backend.CPU and backend == Backend.GPU:
+            return torch.from_numpy(value).to(torch.device('cuda'))
+        elif current_backend == Backend.GPU and backend == Backend.CPU:
             return value.to(torch.device('cpu')).numpy()
         else:
-            return value
+            raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
     def __str__(self):
         return "NdArraySplit"
