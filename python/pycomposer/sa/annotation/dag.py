@@ -7,7 +7,7 @@ from .annotation import Annotation
 from .config import config
 from .split_types import *
 from .unevaluated import UNEVALUATED
-from .device import Device
+from .backend import Backend
 
 from .vm.instruction import *
 from .vm.vm import VM
@@ -60,11 +60,11 @@ class Operation:
         # Whether the operation supports GPU execution based on the
         # function annotation, and input and return types.
         self.supports_gpu = annotation.gpu
-        self.supports_gpu &= Device.GPU in annotation.return_type.supported_devices
+        self.supports_gpu &= Backend.GPU in annotation.return_type.supported_backends
         for (i, _) in enumerate(args):
-            self.supports_gpu &= Device.GPU in self.split_type_of(i).supported_devices
+            self.supports_gpu &= Backend.GPU in self.split_type_of(i).supported_backends
         for (key, _) in kwargs.items():
-            self.supports_gpu &= Device.GPU in self.split_type_of(key).supported_devices
+            self.supports_gpu &= Backend.GPU in self.split_type_of(key).supported_backends
 
     def all_args(self):
         """ Returns a list of all the args in this operation. """
@@ -424,27 +424,27 @@ class LogicalPlan:
                     vm.program.insts.append(Split(valnum, ty))
                 kwargs[key] = valnum
 
-            # Transfer arguments as necessary between devices
+            # Transfer arguments as necessary between backends
             def transfer(valnum, var_locs, vm, op):
                 ty = vm.split_type_of(valnum)
                 assert ty is not None
-                if var_locs[valnum] == Device.CPU and op.supports_gpu:
-                    vm.program.insts.append(To(valnum, ty, Device.GPU))
-                    var_locs[valnum] = Device.GPU
-                elif var_locs[valnum] == Device.GPU and not op.supports_gpu:
-                    vm.program.insts.append(To(valnum, ty, Device.CPU))
-                    var_locs[valnum] = Device.CPU
+                if var_locs[valnum] == Backend.CPU and op.supports_gpu:
+                    vm.program.insts.append(To(valnum, ty, Backend.GPU))
+                    var_locs[valnum] = Backend.GPU
+                elif var_locs[valnum] == Backend.GPU and not op.supports_gpu:
+                    vm.program.insts.append(To(valnum, ty, Backend.CPU))
+                    var_locs[valnum] = Backend.CPU
             for valnum in args:
                 transfer(valnum, var_locs, vm, op)
             for _, valnum in kwargs.items():
                 transfer(valnum, var_locs, vm, op)
 
-            # Register the valnum of the return value and its device location
+            # Register the valnum of the return value and its backend location
             result = vm.register_value(op, op.annotation.return_type)
             if op.supports_gpu:
-                var_locs[result] = Device.GPU
+                var_locs[result] = Backend.GPU
             else:
-                var_locs[result] = Device.CPU
+                var_locs[result] = Backend.CPU
 
             # In this context, mutability just means we need to merge objects.
             if op.annotation.return_type is not None:
@@ -464,17 +464,17 @@ class LogicalPlan:
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
         vms = defaultdict(lambda: VM())
         mutables = defaultdict(lambda: set())
-        var_locs = defaultdict(lambda: defaultdict(lambda: Device.CPU))
+        var_locs = defaultdict(lambda: defaultdict(lambda: Backend.CPU))
         self.walk(mark_gpus, (set(), vms), mode="bottomup")
         self.walk(construct, (set(), vms, mutables, var_locs), mode="bottomup")
         for pipeline in vms:
             # Move any variables still on the GPU back to the CPU
-            for valnum, device in var_locs[pipeline].items():
-                if device == Device.GPU:
+            for valnum, backend in var_locs[pipeline].items():
+                if backend == Backend.GPU:
                     ty = vms[pipeline].split_type_of(valnum)
                     if ty is None:
                         continue
-                    vms[pipeline].program.insts.append(To(valnum, ty, Device.CPU))
+                    vms[pipeline].program.insts.append(To(valnum, ty, Backend.CPU))
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 

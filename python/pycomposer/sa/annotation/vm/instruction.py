@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import types
 
 from .driver import STOP_ITERATION
-from ..device import Device
+from ..backend import Backend
 
 class Instruction(ABC):
     """
@@ -120,17 +120,17 @@ class Call(Instruction):
         self.target = None
 
 class To(Instruction):
-    def __init__(self, target, ty, device):
+    def __init__(self, target, ty, backend):
         self.target = target
         self.ty = ty
-        self.device = device
+        self.backend = backend
 
     def __str__(self):
-        prefix = "(gpu) " if self.device == Device.GPU else ""
+        prefix = "(gpu) " if self.backend == Backend.GPU else ""
         return "{}v{} = to_{}:{}".format(
-            prefix, self.target, self.device.value, str(self.ty))
+            prefix, self.target, self.backend.value, str(self.ty))
 
     def evaluate(self, _thread, _start, _end, _values, context):
         old_value = context[self.target][-1]
-        new_value = self.ty.to(old_value, self.device)
+        new_value = self.ty.to(old_value, self.backend)
         context[self.target][-1] = new_value

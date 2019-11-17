@@ -14,10 +14,10 @@ import cudf
 from copy import deepcopy as dc
 from sa.annotation import *
 from sa.annotation.split_types import *
-from sa.annotation.device import Device
+from sa.annotation.backend import Backend
 
 class UniqueSplit(SplitType):
-    supported_devices = [Device.CPU, Device.GPU]
+    supported_backends = [Backend.CPU, Backend.GPU]
 
     """ For the result of Unique """
     def combine(self, values, original=None):
@@ -33,32 +33,32 @@ class UniqueSplit(SplitType):
     def split(self, values):
         raise ValueError
 
-    def device(self, value):
+    def backend(self, value):
         if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
-            return Device.CPU
+            return Backend.CPU
         elif isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
-            return Device.GPU
+            return Backend.GPU
         elif isinstance(value, float) or isinstance(value, int) or isinstance(value, str):
-            return Device.SCALAR
+            return Backend.SCALAR
         else:
-            raise Exception('unknown device: {}'.format(type(value)))
+            raise Exception('unknown backend: {}'.format(type(value)))
 
-    def to(self, value, device):
-        current_device = self.device(value)
-        if current_device == Device.SCALAR or current_device == device:
+    def to(self, value, backend):
+        current_backend = self.backend(value)
+        if current_backend == Backend.SCALAR or current_backend == backend:
             return value
-        elif current_device == Device.CPU and device == Device.GPU:
+        elif current_backend == Backend.CPU and backend == Backend.GPU:
             return cudf.from_pandas(value)
-        elif current_device == Device.GPU and device == Device.CPU:
+        elif current_backend == Backend.GPU and backend == Backend.CPU:
             return value.to_pandas()
         else:
-            raise Exception('cannot transfer from {} to {}'.format(current_device, device))
+            raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
     def __str__(self):
         return 'UniqueSplit'
 
 class DataFrameSplit(SplitType):
-    supported_devices = [Device.CPU, Device.GPU]
+    supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):
         do_combine = False
@@ -84,32 +84,32 @@ class DataFrameSplit(SplitType):
             return None
         return len(value)
 
-    def device(self, value):
+    def backend(self, value):
         if isinstance(value, pd.DataFrame) or isinstance(value, pd.Series):
-            return Device.CPU
+            return Backend.CPU
         elif isinstance(value, cudf.DataFrame) or isinstance(value, cudf.Series):
-            return Device.GPU
+            return Backend.GPU
         elif isinstance(value, float) or isinstance(value, int) or isinstance(value, str):
-            return Device.SCALAR
+            return Backend.SCALAR
         else:
-            raise Exception('unknown device: {}'.format(type(value)))
+            raise Exception('unknown backend: {}'.format(type(value)))
 
-    def to(self, value, device):
-        current_device = self.device(value)
-        if current_device == Device.SCALAR or current_device == device:
+    def to(self, value, backend):
+        current_backend = self.backend(value)
+        if current_backend == Backend.SCALAR or current_backend == backend:
             return value
-        elif current_device == Device.CPU and device == Device.GPU:
+        elif current_backend == Backend.CPU and backend == Backend.GPU:
             return cudf.from_pandas(value)
-        elif current_device == Device.GPU and device == Device.CPU:
+        elif current_backend == Backend.GPU and backend == Backend.CPU:
             return value.to_pandas()
         else:
-            raise Exception('cannot transfer from {} to {}'.format(current_device, device))
+            raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
     def __str__(self):
         return 'DataFrameSplit'
 
 class SumSplit(SplitType):
-    supported_devices = [Device.CPU, Device.GPU]
+    supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values):
         return sum(values)
@@ -117,17 +117,17 @@ class SumSplit(SplitType):
     def split(self, start, end, value):
         raise ValueError("can't split sum values")
 
-    def device(self, value):
+    def backend(self, value):
         if isinstance(value, float) or isinstance(value, int):
-            return Device.SCALAR
+            return Backend.SCALAR
         else:
-            raise Exception('unknown device: {}'.format(type(value)))
+            raise Exception('unknown backend: {}'.format(type(value)))
 
-    def to(self, value, device):
-        if self.device(value) == Device.SCALAR:
+    def to(self, value, backend):
+        if self.backend(value) == Backend.SCALAR:
             return value
         else:
-            raise Exception('cannot transfer from {} to {}'.format(current_device, device))
+            raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
     def __str__(self):
         return 'SumSplit'

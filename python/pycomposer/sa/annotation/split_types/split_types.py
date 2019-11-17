@@ -1,5 +1,5 @@
 
-from ..device import Device
+from ..backend import Backend
 from abc import ABC, abstractmethod
 import copy
 
@@ -20,8 +20,8 @@ class SplitType(ABC):
 
     """
 
-    # The list of supported devices the split type can be transferred to and from.
-    supported_devices = [Device.CPU]
+    # The list of supported backends the split type can be transferred to and from.
+    supported_backends = [Backend.CPU]
 
     def __init__(self):
         """Initialize a new split type."""
@@ -82,34 +82,34 @@ class SplitType(ABC):
         """
         pass
 
-    def device(self, value):
-        """The current device the value is on.
+    def backend(self, value):
+        """The current backend the value is on.
 
         Returns
         -------
-        device
-            The current device the value is on.
+        backend
+            The current backend the value is on.
         """
-        return Device.CPU
+        return Backend.CPU
 
-    def to(self, value, device):
-        """Transfers the split value to another device.
+    def to(self, value, backend):
+        """Transfers the split value to another backend.
 
         Parameters
         ----------
 
         value : any
-            The value to transfer, originally on one of the supported devices.
-        device : Device
-            The supported device to transfer the value to.
+            The value to transfer, originally on one of the supported backends.
+        backend : Backend
+            The supported backend to transfer the value to.
 
         Returns
         -------
         new_value
-            The value, located on the given device.
+            The value, located on the given backend.
 
         """
-        raise SplitTypeError("to must be implemented for each supported device")
+        raise SplitTypeError("to must be implemented for each supported backend")
 
     def __eq__(self, other):
         """ Check whether two types are equal.
@@ -258,7 +258,7 @@ class GenericType(SplitType):
 class Broadcast(SplitType):
     """ A split type that broadcasts values. """
     def __init__(self):
-        self.supported_devices = [Device.CPU, Device.GPU]
+        self.supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):
         """ A combiner that returns itself.
@@ -301,11 +301,11 @@ class Broadcast(SplitType):
         """ Returns ``None`` to indicate infinite elements."""
         return None
 
-    def device(self, value):
-        """All broadcast types are device agnostic."""
-        return Device.SCALAR
+    def backend(self, value):
+        """All broadcast types are backend agnostic."""
+        return Backend.SCALAR
 
-    def to(self, value, device):
+    def to(self, value, backend):
         """Returns the original value."""
         return value
 
