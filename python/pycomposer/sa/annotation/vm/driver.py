@@ -22,7 +22,7 @@ CACHE_SIZE = 252144
 # Default batch size if we don't know anything
 DEFAULT_BATCH_SIZE = 4096 * 4 * 4
 
-def _worker(worker_id, index_range):
+def _worker(worker_id, index_range, gpu):
     """
     A multiprocessing worker.
 
@@ -39,10 +39,10 @@ def _worker(worker_id, index_range):
 
     """
     #TODO(ygina): multiprocessing
-    result = _run_program(worker_id, index_range)
+    result = _run_program(worker_id, index_range, gpu)
     return result
 
-def _run_program(worker_id, index_range, values, gpu):
+def _run_program(worker_id, index_range, gpu):
     """Runs the global program to completion and return partial values.
 
     Parameters
@@ -55,7 +55,8 @@ def _run_program(worker_id, index_range, values, gpu):
     global _PROGRAM
     global _BATCH_SIZE
 
-    logging.debug("Thread", worker_id, "range:", index_range, "batch size:", _BATCH_SIZE)
+    # logging.debug("Thread", worker_id, "range:", index_range, "batch size:", _BATCH_SIZE)
+    print("Thread {} range: {} batch size: {}".format(worker_id, index_range, _BATCH_SIZE))
     start = time.time()
 
     context = defaultdict(list)
@@ -83,7 +84,7 @@ def _run_program(worker_id, index_range, values, gpu):
     process_end = time.time()
 
     # Free non-shared memory on this worker.
-    _merge(_PROGRAM, context, values, gpu)
+    _merge(_PROGRAM, context, gpu)
 
     merge_end = time.time()
 
@@ -95,7 +96,7 @@ def _run_program(worker_id, index_range, values, gpu):
 
     return context
 
-def _merge(program, context, values, gpu):
+def _merge(program, context, gpu):
     """
     Merge a context that was generated with the given program.
     """
@@ -111,12 +112,12 @@ def _merge(program, context, values, gpu):
             if inst.ty is not None:
                 if inst.ty.mutable:
                     from .. import dag
-                    if isinstance(values[inst.target], dag.Operation) or not gpu:
+                    if isinstance(_VALUES[inst.target], dag.Operation) or not gpu:
                         context[inst.target] = inst.ty.combine(context[inst.target])
                     else:
                         # Since we operated on a copy of the original data, we need to
                         # replace the original pointer with the new data in combine()
-                        original = values[inst.target]
+                        original = _VALUES[inst.target]
                         context[inst.target] = inst.ty.combine(context[inst.target], original=original)
                 else:
                     # No need to merge values and send the result back: it's immutable,
@@ -177,12 +178,12 @@ class Driver:
         _BATCH_SIZE = self.batch_size
 
         if self.workers == 1 and self.optimize_single:
-            result = _run_program(0, ranges[0], values, gpu)
+            result = _run_program(0, ranges[0], gpu)
         elif self.workers > 1 and ranges[1] is None:
             # We should really dynamically adjust the number of processes
             # (i.e., self.workers should be the maximum allowed workers), but
             # for now its 1 or all to make evaluation easier.
-            result = _run_program(0, ranges[0], values, gpu)
+            result = _run_program(0, ranges[0], gpu)
         else:
             # This needs to go after the assignment to _VALUES, so
             # the process snapshot sees the updated variable. The advantage of
@@ -197,7 +198,8 @@ class Driver:
             # TODO Just use Pool.imap instead?
             partial_results = []
             for (i, index_range) in enumerate(ranges):
-                partial_results.append(pool.apply_async(_worker, args=(i, index_range)))
+                # import pdb; pdb.set_trace()
+                partial_results.append(pool.apply_async(_worker, args=(i, index_range, gpu)))
             for i in range(len(partial_results)):
                 partial_results[i] = partial_results[i].get()
 
@@ -211,7 +213,7 @@ class Driver:
                             if value is not None:
                                 result[key].append(value)
 
-                _merge(program, result, values, gpu)
+                _merge(program, result, gpu)
 
                 # Reinstate non-mutable values, broadcast values, etc.
                 for value_key in _VALUES:
