@@ -16,12 +16,12 @@ class NdArraySplit(SplitType):
         self.supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):
-        if self.merge:
-            return np.concatenate(values)
         if original is not None:
             assert isinstance(original, np.ndarray)
             original.data = np.concatenate(values)
             return original
+        if self.merge:
+            return np.concatenate(values)
 
     def split(self, start, end, value):
         if isinstance(value, np.ndarray):

@@ -21,12 +21,12 @@ class TorchTensorSplit(SplitType):
         self.supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):
-        if self.merge:
-            return torch.cat(values)
         if original is not None:
             assert isinstance(original, torch.Tensor)
             original.data = torch.cat(values)
             return original
+        if self.merge:
+            return torch.cat(values)
 
     def split(self, start, end, value):
         if isinstance(value, np.ndarray) or isinstance(value, torch.Tensor):
