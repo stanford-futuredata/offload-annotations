@@ -65,6 +65,7 @@ class NdArraySplit(SplitType):
         if current_backend == Backend.SCALAR or current_backend == backend:
             return value
         elif current_backend == Backend.CPU and backend == Backend.GPU:
+            self.merge = True
             return torch.from_numpy(value).to(torch.device('cuda'))
         elif current_backend == Backend.GPU and backend == Backend.CPU:
             return value.to(torch.device('cpu')).numpy()
