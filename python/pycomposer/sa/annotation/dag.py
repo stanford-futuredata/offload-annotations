@@ -382,14 +382,15 @@ class LogicalPlan:
 
         Returns a list of VMs, sorted by pipeline.
         """
-        def mark_gpus(op, vms):
+        def mark_backends(op, vms):
             vm = vms[1][op.pipeline]
             added = vms[0]
 
             if op in added:
                 return
 
-            vm.gpu &= op.supports_gpu
+            if op.supports_gpu:
+                vm.backends.add(Backend.GPU)
             added.add(op)
 
         def construct(op, vms):
@@ -465,7 +466,7 @@ class LogicalPlan:
         vms = defaultdict(lambda: VM())
         mutables = defaultdict(lambda: set())
         var_locs = defaultdict(lambda: defaultdict(lambda: Backend.CPU))
-        self.walk(mark_gpus, (set(), vms), mode="bottomup")
+        self.walk(mark_backends, (set(), vms), mode="bottomup")
         self.walk(construct, (set(), vms, mutables, var_locs), mode="bottomup")
         for pipeline in vms:
             # Move any variables still on the GPU back to the CPU

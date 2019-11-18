@@ -1,4 +1,5 @@
 
+from ..backend import Backend
 from .program import Program
 
 class VM:
@@ -14,8 +15,8 @@ class VM:
         self.values = dict()
         # Split types, mapping argID -> split type
         self.types = dict()
-        # Weather the VM can be computed on the GPU
-        self.gpu = True
+        # Backends the VM is computed on, defaults to CPU only
+        self.backends = set([Backend.CPU])
 
     def get(self, value):
         """
