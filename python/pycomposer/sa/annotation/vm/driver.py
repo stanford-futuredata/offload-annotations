@@ -22,7 +22,7 @@ CACHE_SIZE = 252144
 # Default batch size if we don't know anything
 DEFAULT_BATCH_SIZE = 4096 * 4 * 4
 
-def _worker(worker_id, index_range, gpu):
+def _worker(worker_id, index_range):
     """
     A multiprocessing worker.
 
@@ -39,10 +39,10 @@ def _worker(worker_id, index_range, gpu):
 
     """
     #TODO(ygina): multiprocessing
-    result = _run_program(worker_id, index_range, gpu)
+    result = _run_program(worker_id, index_range, replace_original=False)
     return result
 
-def _run_program(worker_id, index_range, gpu):
+def _run_program(worker_id, index_range, replace_original):
     """Runs the global program to completion and return partial values.
 
     Parameters
@@ -50,6 +50,10 @@ def _run_program(worker_id, index_range, gpu):
 
     worker_id : the ID of this worker.
     program : the program to execute.
+    replace_original: boolean
+        Whether to replace the object at a value's original pointer with the
+        merged object. Typically if the merge that occurs at the end is a
+        top-level merge.
     """
     global _VALUES
     global _PROGRAM
@@ -84,7 +88,7 @@ def _run_program(worker_id, index_range, gpu):
     process_end = time.time()
 
     # Free non-shared memory on this worker.
-    _merge(_PROGRAM, context, gpu)
+    _merge(_PROGRAM, context, replace_original=replace_original)
 
     merge_end = time.time()
 
@@ -96,9 +100,18 @@ def _run_program(worker_id, index_range, gpu):
 
     return context
 
-def _merge(program, context, gpu):
+def _merge(program, context, replace_original):
     """
     Merge a context that was generated with the given program.
+
+    Parameters
+    ----------
+
+    program : The executed program instructions.
+    context : The context of program values at the end of the execution.
+    replace_original : boolean
+        Whether to replace the object at a value's original pointer with the
+        merged object. Necessary if the object wasn't operated on shared memory.
     """
     merged = set()
     for inst in reversed(program.insts):
@@ -112,7 +125,7 @@ def _merge(program, context, gpu):
             if inst.ty is not None:
                 if inst.ty.mutable:
                     from .. import dag
-                    if isinstance(_VALUES[inst.target], dag.Operation) or not gpu:
+                    if isinstance(_VALUES[inst.target], dag.Operation) or not replace_original:
                         context[inst.target] = inst.ty.combine(context[inst.target])
                     else:
                         # Since we operated on a copy of the original data, we need to
@@ -163,7 +176,7 @@ class Driver:
 
         return ranges
 
-    def run(self, program, values, gpu):
+    def run(self, program, values):
         """ Executes the program with the provided values. """
         elements = program.elements(values)
         ranges = self.get_partitions(elements)
@@ -178,12 +191,12 @@ class Driver:
         _BATCH_SIZE = self.batch_size
 
         if self.workers == 1 and self.optimize_single:
-            result = _run_program(0, ranges[0], gpu)
+            result = _run_program(0, ranges[0], replace_original=True)
         elif self.workers > 1 and ranges[1] is None:
             # We should really dynamically adjust the number of processes
             # (i.e., self.workers should be the maximum allowed workers), but
             # for now its 1 or all to make evaluation easier.
-            result = _run_program(0, ranges[0], gpu)
+            result = _run_program(0, ranges[0], replace_original=True)
         else:
             # This needs to go after the assignment to _VALUES, so
             # the process snapshot sees the updated variable. The advantage of
@@ -199,7 +212,7 @@ class Driver:
             partial_results = []
             for (i, index_range) in enumerate(ranges):
                 # import pdb; pdb.set_trace()
-                partial_results.append(pool.apply_async(_worker, args=(i, index_range, gpu)))
+                partial_results.append(pool.apply_async(_worker, args=(i, index_range)))
             for i in range(len(partial_results)):
                 partial_results[i] = partial_results[i].get()
 
@@ -213,7 +226,7 @@ class Driver:
                             if value is not None:
                                 result[key].append(value)
 
-                _merge(program, result, gpu)
+                _merge(program, result, replace_original=True)
 
                 # Reinstate non-mutable values, broadcast values, etc.
                 for value_key in _VALUES:
