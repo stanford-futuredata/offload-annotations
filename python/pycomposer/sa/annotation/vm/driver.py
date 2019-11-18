@@ -7,6 +7,8 @@ import torch.multiprocessing as multiprocessing
 import threading
 import time
 
+from .context import Context
+
 STOP_ITERATION = "stop"
 
 # Global reference to values. These should be in read-only shared memory with
@@ -63,7 +65,7 @@ def _run_program(worker_id, index_range, replace_original):
     print("Thread {} range: {} batch size: {}".format(worker_id, index_range, _BATCH_SIZE))
     start = time.time()
 
-    context = defaultdict(list)
+    context = Context()
     just_parallel = False
     if just_parallel:
         _BATCH_SIZE = index_range[1] - index_range[0]
@@ -126,16 +128,16 @@ def _merge(program, context, replace_original):
                 if inst.ty.mutable:
                     from .. import dag
                     if isinstance(_VALUES[inst.target], dag.Operation) or not replace_original:
-                        context[inst.target] = inst.ty.combine(context[inst.target])
+                        context.set(inst.target, inst.ty.combine(context[inst.target]))
                     else:
                         # Since we operated on a copy of the original data, we need to
                         # replace the original pointer with the new data in combine()
                         original = _VALUES[inst.target]
-                        context[inst.target] = inst.ty.combine(context[inst.target], original=original)
+                        context.set(inst.target, inst.ty.combine(context[inst.target], original=original))
                 else:
                     # No need to merge values and send the result back: it's immutable,
                     # and should not have changed on the master process.
-                    context[inst.target] = None
+                    context.set(inst.target, None)
 
 class Driver:
     """
@@ -226,7 +228,7 @@ class Driver:
                             if value is not None:
                                 result[key].append(value)
 
-                _merge(program, result, replace_original=True)
+                _merge(program, Context(result), replace_original=True)
 
                 # Reinstate non-mutable values, broadcast values, etc.
                 for value_key in _VALUES:

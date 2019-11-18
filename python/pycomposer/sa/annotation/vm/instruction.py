@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 import types
 
+from .context import Context
 from .driver import STOP_ITERATION
 from ..backend import Backend
 
@@ -11,7 +12,7 @@ class Instruction(ABC):
     """
 
     @abstractmethod
-    def evaluate(self, thread, start, end, values, context):
+    def evaluate(self, thread, start, end, values, context: Context):
         """
         Evaluates an instruction.
 
@@ -22,7 +23,7 @@ class Instruction(ABC):
         start : the start index of the current split value.
         end : the end index of the current split value
         values : a global value map holding the inputs.
-        context : map holding execution state (arg ID -> value).
+        context : context holding execution state.
 
         """
         pass
@@ -70,7 +71,7 @@ class Split(Instruction):
         if isinstance(result, str) and result == STOP_ITERATION:
             return STOP_ITERATION
 
-        context[self.target].append(result)
+        context.add(self.target, result)
 
 class Merge(Instruction):
     """
@@ -116,11 +117,11 @@ class Call(Instruction):
             prefix += "v{} = ".format(self.target)
         return prefix + "call {}({}):{}".format(self.func.__name__, arguments, str(self.ty))
 
-    def get_args(self, context):
-        return [ context[target][-1] for target in self.args ]
+    def get_args(self, context: Context):
+        return [ context.get_last_value(target) for target in self.args ]
 
-    def get_kwargs(self, context):
-        return dict([ (name, context[target][-1]) for (name, target) in self.kwargs.items() ])
+    def get_kwargs(self, context: Context):
+        return dict([ (name, context.get_last_value(target)) for (name, target) in self.kwargs.items() ])
 
     def evaluate(self, _thread, _start, _end, _values, context):
         """
@@ -132,7 +133,7 @@ class Call(Instruction):
         kwargs = self.get_kwargs(context)
         result = self.func(*args, **kwargs)
         if self.target is not None:
-            context[self.target].append(result)
+            context.add(self.target, result)
 
     def remove_target(self):
         self.target = None
@@ -149,6 +150,6 @@ class To(Instruction):
             prefix, self.target, self.backend.value, str(self.ty))
 
     def evaluate(self, _thread, _start, _end, _values, context):
-        old_value = context[self.target][-1]
+        old_value = context.get_last_value(self.target)
         new_value = self.ty.to(old_value, self.backend)
-        context[self.target][-1] = new_value
+        context.set_last_value(self.target, new_value)
