@@ -413,7 +413,6 @@ class LogicalPlan:
                     ty = op.split_type_of(i)
                     valnum = vm.register_value(arg, ty)
                     setattr(ty, "mutable", op.is_mutable(i))
-                    vm.program.insts.append(Split(valnum, ty))
                 args.append(valnum)
 
             for (key, value) in op.kwargs.items():
@@ -422,19 +421,33 @@ class LogicalPlan:
                     ty = op.split_type_of(key)
                     valnum = vm.register_value(value, ty)
                     setattr(ty, "mutable", op.is_mutable(key))
-                    vm.program.insts.append(Split(valnum, ty))
                 kwargs[key] = valnum
 
-            # Transfer arguments as necessary between backends
+            # Assuming the vm backend includes both CPU and GPU, handle the
+            # first time a value appears. If the value goes on the CPU, split
+            # it. If the value goes on the GPU, transfer it without splitting.
+            #
+            # Also transfer arguments as necessary between backends.
             def transfer(valnum, var_locs, vm, op):
                 ty = vm.split_type_of(valnum)
                 assert ty is not None
-                if var_locs[valnum] == Backend.CPU and op.supports_gpu:
-                    vm.program.insts.append(To(valnum, ty, Backend.GPU))
-                    var_locs[valnum] = Backend.GPU
-                elif var_locs[valnum] == Backend.GPU and not op.supports_gpu:
-                    vm.program.insts.append(To(valnum, ty, Backend.CPU))
-                    var_locs[valnum] = Backend.CPU
+
+                if valnum not in var_locs:
+                    if op.supports_gpu:
+                        vm.program.insts.append(To(valnum, ty, Backend.GPU))
+                        var_locs[valnum] = Backend.GPU
+                    else:
+                        vm.program.insts.append(Split(valnum, ty))
+                        var_locs[valnum] = Backend.CPU
+                else:
+                    if var_locs[valnum] == Backend.CPU and op.supports_gpu:
+                        vm.program.insts.append(Merge(valnum, ty))
+                        vm.program.insts.append(To(valnum, ty, Backend.GPU))
+                        var_locs[valnum] = Backend.GPU
+                    elif var_locs[valnum] == Backend.GPU and not op.supports_gpu:
+                        vm.program.insts.append(To(valnum, ty, Backend.CPU))
+                        vm.program.insts.append(Split(valnum, ty))
+                        var_locs[valnum] = Backend.CPU
             for valnum in args:
                 transfer(valnum, var_locs, vm, op)
             for _, valnum in kwargs.items():
@@ -469,13 +482,16 @@ class LogicalPlan:
         self.walk(mark_backends, (set(), vms), mode="bottomup")
         self.walk(construct, (set(), vms, mutables, var_locs), mode="bottomup")
         for pipeline in vms:
-            # Move any variables still on the GPU back to the CPU
+            # Move any variables still on the GPU back to the CPU,
+            # and merge any variables on the CPU.
             for valnum, backend in var_locs[pipeline].items():
+                ty = vms[pipeline].split_type_of(valnum)
+                if ty is None:
+                    continue
                 if backend == Backend.GPU:
-                    ty = vms[pipeline].split_type_of(valnum)
-                    if ty is None:
-                        continue
                     vms[pipeline].program.insts.append(To(valnum, ty, Backend.CPU))
+                elif backend == Backend.CPU:
+                    vms[pipeline].program.insts.append(Merge(valnum, ty))
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 

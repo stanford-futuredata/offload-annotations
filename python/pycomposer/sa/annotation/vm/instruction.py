@@ -72,6 +72,24 @@ class Split(Instruction):
 
         context[self.target].append(result)
 
+class Merge(Instruction):
+    """
+    An instruction that merges the outputs of an operation.
+    """
+
+    def __init__(self, target, ty):
+        """
+        TODO(ygina)
+        """
+        self.target = target
+        self.ty = ty
+
+    def __str__(self):
+        return "v{} = merge {}:{}".format(self.target, self.target, self.ty)
+
+    def evaluate(self, _thread, _start, _end, _values, _context):
+        pass
+
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
     def __init__(self,  target, func, args, kwargs, ty, on_gpu):
