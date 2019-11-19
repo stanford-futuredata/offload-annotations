@@ -57,10 +57,12 @@ class Split(Instruction):
 
     def evaluate(self, thread, start, end, values, context):
         """ Returns values from the split. """
+        if len(context[self.target]) == 0:
+            context[self.target].append(values[self.target])
 
         if self.splitter is None:
             # First time - check if the splitter is actually a generator.
-            result = self.ty.split(start, end, values[self.target])
+            result = self.ty.split(start, end, context[self.target][0])
             if isinstance(result, types.GeneratorType):
                 self.splitter = result
                 result = next(self.splitter)
@@ -70,9 +72,10 @@ class Split(Instruction):
             if isinstance(self.splitter, types.GeneratorType):
                 result = next(self.splitter)
             else:
-                result = self.splitter(start, end, values[self.target])
+                result = self.splitter(start, end, context[self.target][0])
 
         if isinstance(result, str) and result == STOP_ITERATION:
+            context[self.target].pop(0)
             return STOP_ITERATION
 
         context[self.target].append(result)
