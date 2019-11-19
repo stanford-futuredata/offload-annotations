@@ -427,6 +427,12 @@ class LogicalPlan:
                     setattr(ty, "mutable", op.is_mutable(key))
                 kwargs[key] = valnum
 
+            # Determine which backend to call the operation on.
+            if Backend.GPU in op.supported_backends:
+                inst_backend = Backend.GPU
+            else:
+                inst_backend = Backend.CPU
+
             # Assuming the vm backend includes both CPU and GPU, handle the
             # first time a value appears. If the value goes on the CPU, split
             # it. If the value goes on the GPU, transfer it without splitting.
@@ -436,22 +442,21 @@ class LogicalPlan:
                 ty = vm.split_type_of(valnum)
                 assert ty is not None
 
-                supports_gpu = Backend.GPU in op.supported_backends
                 if valnum not in var_locs:
-                    if supports_gpu:
+                    if inst_backend == Backend.GPU:
                         vm.program.insts.append(To(valnum, ty, Backend.GPU))
                         var_locs[valnum] = Backend.GPU
                     else:
-                        vm.program.insts.append(Split(valnum, ty))
+                        vm.program.insts.append(Split(valnum, ty, Backend.CPU))
                         var_locs[valnum] = Backend.CPU
                 else:
-                    if var_locs[valnum] == Backend.CPU and supports_gpu:
-                        vm.program.insts.append(Merge(valnum, ty))
+                    if var_locs[valnum] == Backend.CPU and inst_backend == Backend.GPU:
                         vm.program.insts.append(To(valnum, ty, Backend.GPU))
                         var_locs[valnum] = Backend.GPU
-                    elif var_locs[valnum] == Backend.GPU and not supports_gpu:
+                        vm.program.insts.append(Merge(valnum, ty, Backend.GPU))
+                    elif var_locs[valnum] == Backend.GPU and inst_backend == Backend.CPU:
                         vm.program.insts.append(To(valnum, ty, Backend.CPU))
-                        vm.program.insts.append(Split(valnum, ty))
+                        vm.program.insts.append(Split(valnum, ty, Backend.CPU))
                         var_locs[valnum] = Backend.CPU
             for valnum in args:
                 transfer(valnum, var_locs, vm, op)
@@ -460,11 +465,7 @@ class LogicalPlan:
 
             # Register the valnum of the return value and its backend location
             result = vm.register_value(op, op.annotation.return_type)
-            supports_gpu = Backend.GPU in op.supported_backends
-            if supports_gpu:
-                var_locs[result] = Backend.GPU
-            else:
-                var_locs[result] = Backend.CPU
+            var_locs[result] = inst_backend
 
             # In this context, mutability just means we need to merge objects.
             if op.annotation.return_type is not None:
@@ -472,12 +473,12 @@ class LogicalPlan:
                 if not op.dontsend:
                     mutable.add(result)
             # Choose which function to call based on whether the pipeline is on the gpu.
-            if supports_gpu and op.annotation.gpu_func is not None:
+            if inst_backend == Backend.GPU and op.annotation.gpu_func is not None:
                 func = op.annotation.gpu_func
             else:
                 func = op.func
             vm.program.insts.append(Call(
-                result, func, args, kwargs, op.annotation.return_type, supports_gpu))
+                result, func, args, kwargs, op.annotation.return_type, inst_backend))
             added.add(op)
 
         # programs: Maps Pipeline IDs to VM Programs.
@@ -497,7 +498,7 @@ class LogicalPlan:
                 if backend == Backend.GPU:
                     vms[pipeline].program.insts.append(To(valnum, ty, Backend.CPU))
                 elif backend == Backend.CPU:
-                    vms[pipeline].program.insts.append(Merge(valnum, ty))
+                    vms[pipeline].program.insts.append(Merge(valnum, ty, Backend.CPU))
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 

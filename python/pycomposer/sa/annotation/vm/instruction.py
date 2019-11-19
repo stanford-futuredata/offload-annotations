@@ -32,7 +32,7 @@ class Split(Instruction):
     An instruction that splits the inputs to an operation.
     """
 
-    def __init__(self, target, ty):
+    def __init__(self, target, ty, backend):
         """
         A Split instruction takes an argument and split type and applies
         the splitter on the argument.
@@ -42,13 +42,16 @@ class Split(Instruction):
 
         target : the arg ID that will be split.
         ty : the split type.
+        backend : the backend the instruction is executed on.
         """
         self.target = target
         self.ty = ty
         self.splitter = None
+        self.backend = backend
 
     def __str__(self):
-        return "v{} = split {}:{}".format(self.target, self.target, self.ty)
+        return "({}) v{} = split {}:{}".format(
+            self.backend.value, self.target, self.target, self.ty)
 
     def evaluate(self, thread, start, end, values, context):
         """ Returns values from the split. """
@@ -77,22 +80,24 @@ class Merge(Instruction):
     An instruction that merges the outputs of an operation.
     """
 
-    def __init__(self, target, ty):
+    def __init__(self, target, ty, backend):
         """
         TODO(ygina)
         """
         self.target = target
         self.ty = ty
+        self.backend = backend
 
     def __str__(self):
-        return "v{} = merge {}:{}".format(self.target, self.target, self.ty)
+        return "({}) v{} = merge {}:{}".format(
+            self.backend.value, self.target, self.target, self.ty)
 
     def evaluate(self, _thread, _start, _end, _values, _context):
         pass
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
-    def __init__(self,  target, func, args, kwargs, ty, on_gpu):
+    def __init__(self,  target, func, args, kwargs, ty, backend):
         self.target = target
         # Function to call.
         self.func = func
@@ -102,19 +107,17 @@ class Call(Instruction):
         self.kwargs = kwargs
         # Return split type.
         self.ty = ty
-        # Whether the call is executed on the GPU.
-        self.on_gpu = on_gpu
+        # The backend the instruction is executed on.
+        self.backend = backend
 
     def __str__(self):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))
         kwargs = list(map(lambda v: "{}=v{}".format(v[0], v[1]), self.kwargs.items()))
         arguments = ", ".join([args] + kwargs)
-        prefix = ""
-        if self.on_gpu:
-            prefix += "(gpu) "
-        if self.target is not None:
-            prefix += "v{} = ".format(self.target)
-        return prefix + "call {}({}):{}".format(self.func.__name__, arguments, str(self.ty))
+        return "({}) {}call {}({}):{}".format(
+            self.backend.value,
+            "" if self.target is None else "v{} = ".format(self.target),
+            self.func.__name__, arguments, str(self.ty))
 
     def get_args(self, context):
         return [ context[target][-1] for target in self.args ]
@@ -144,9 +147,8 @@ class To(Instruction):
         self.backend = backend
 
     def __str__(self):
-        prefix = "(gpu) " if self.backend == Backend.GPU else ""
-        return "{}v{} = to_{}:{}".format(
-            prefix, self.target, self.backend.value, str(self.ty))
+        return "({}) v{} = to_{}:{}".format(
+            self.backend.value, self.target, self.backend.value, str(self.ty))
 
     def evaluate(self, _thread, _start, _end, _values, context):
         old_value = context[self.target][-1]
