@@ -106,8 +106,8 @@ class Merge(Instruction):
         return "({}:{}) v{} = merge {}:{}".format(
             self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
-    def evaluate(self, _thread, _start, _end, _values, _context):
-        pass
+    def evaluate(self, _thread, _start, _end, _values, context):
+        context[self.target] = self.ty.combine(context[self.target])
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
