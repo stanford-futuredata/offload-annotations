@@ -17,7 +17,14 @@ def gen_data(size):
     num_robberies = np.ones(size, dtype="float64") * 1000
     return pd.Series(total_population), pd.Series(adult_population), pd.Series(num_robberies)
 
-def crime_index_composer(total_population, adult_population, num_robberies, threads, piece_size):
+def crime_index_composer(
+    total_population,
+    adult_population,
+    num_robberies,
+    threads,
+    gpu_piece_size,
+    cpu_piece_size,
+):
     # Get all city information with total population greater than 500,000
     big_cities = pd.greater_than(total_population, 500000.0)
     big_cities.dontsend = True
@@ -44,7 +51,7 @@ def crime_index_composer(total_population, adult_population, num_robberies, thre
     crime_index.dontsend = True
 
     result = pd.pandasum(crime_index)
-    pd.evaluate(workers=threads, batch_size=piece_size)
+    pd.evaluate(workers=threads, batch_size=cpu_piece_size)
     return result.value
 
 def crime_index_pandas(total_population, adult_population, num_robberies):
@@ -60,13 +67,15 @@ def crime_index_pandas(total_population, adult_population, num_robberies):
 def run():
     parser = argparse.ArgumentParser(description="Crime Index")
     parser.add_argument('-s', "--size", type=int, default=26, help="Size of each array")
-    parser.add_argument('-p', "--piece_size", type=int, default=16384*2, help="Size of each piece.")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=524288, help="Size of each GPU piece.")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=16384*2, help="Size of each CPU piece.")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
     parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (composer|naive)")
     args = parser.parse_args()
 
     size = (1 << args.size)
-    piece_size = args.piece_size
+    gpu_piece_size = args.gpu_piece_size
+    cpu_piece_size = args.cpu_piece_size
     threads = args.threads
     mode = args.mode.strip().lower()
 
@@ -74,7 +83,8 @@ def run():
     assert threads >= 1
 
     print("Size:", size)
-    print("Piece Size:", piece_size)
+    print("GPU Piece Size:", gpu_piece_size)
+    print("CPU Piece Size:", cpu_piece_size)
     print("Threads:", threads)
     print("Mode:", mode)
 
@@ -85,7 +95,7 @@ def run():
 
     start = time.time()
     if mode == "composer":
-        result = crime_index_composer(inputs[0], inputs[1], inputs[2], threads, piece_size)
+        result = crime_index_composer(inputs[0], inputs[1], inputs[2], threads, gpu_piece_size, cpu_piece_size)
     elif mode == "naive":
         result = crime_index_pandas(*inputs)
     end = time.time()
