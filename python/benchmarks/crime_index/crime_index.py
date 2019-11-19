@@ -10,6 +10,7 @@ import numpy as np
 import time
 
 import sa.annotated.pandas as pd
+from sa.annotation import Backend
 
 def gen_data(size):
     total_population = np.ones(size, dtype="float64") * 500000
@@ -51,7 +52,11 @@ def crime_index_composer(
     crime_index.dontsend = True
 
     result = pd.pandasum(crime_index)
-    pd.evaluate(workers=threads, batch_size=cpu_piece_size)
+    batch_size = {
+        Backend.CPU: cpu_piece_size,
+        Backend.GPU: gpu_piece_size,
+    }
+    pd.evaluate(workers=threads, batch_size=batch_size)
     return result.value
 
 def crime_index_pandas(total_population, adult_population, num_robberies):

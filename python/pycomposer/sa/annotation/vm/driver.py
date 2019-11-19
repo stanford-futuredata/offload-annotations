@@ -19,8 +19,6 @@ _BATCH_SIZE = None
 
 # Size of the L2 Cache (TODO read this from somewhere)
 CACHE_SIZE = 252144
-# Default batch size if we don't know anything
-DEFAULT_BATCH_SIZE = 4096 * 4 * 4
 
 def _worker(worker_id, index_range):
     """
@@ -60,24 +58,25 @@ def _run_program(worker_id, index_range, replace_original):
     global _BATCH_SIZE
 
     # logging.debug("Thread", worker_id, "range:", index_range, "batch size:", _BATCH_SIZE)
+    from ..backend import Backend
     print("Thread {} range: {} batch size: {}".format(worker_id, index_range, _BATCH_SIZE))
     start = time.time()
 
     context = defaultdict(list)
     just_parallel = False
     if just_parallel:
-        _BATCH_SIZE = index_range[1] - index_range[0]
+        _BATCH_SIZE = { Backend.CPU: index_range[1] - index_range[0] }
         piece_start = index_range[0]
         piece_end = index_range[1]
     else:
         piece_start = index_range[0]
-        piece_end = piece_start + _BATCH_SIZE
+        piece_end = piece_start + _BATCH_SIZE[Backend.CPU]
 
     _PROGRAM.set_range_end(index_range[1])
 
     while _PROGRAM.step(worker_id, piece_start, piece_end, _VALUES, context):
-        piece_start += _BATCH_SIZE
-        piece_end += _BATCH_SIZE
+        piece_start += _BATCH_SIZE[Backend.CPU]
+        piece_end += _BATCH_SIZE[Backend.CPU]
         # Clamp to the range assigned to this thread.
 
         if piece_start >= index_range[1]:
@@ -144,7 +143,7 @@ class Driver:
 
     __slots__ = [ "workers", "batch_size", "optimize_single", "profile" ]
 
-    def __init__(self, workers=1, batch_size=DEFAULT_BATCH_SIZE, optimize_single=True, profile=False):
+    def __init__(self, workers, batch_size, optimize_single=True, profile=False):
         self.workers = workers
         self.batch_size = batch_size
         self.optimize_single = optimize_single

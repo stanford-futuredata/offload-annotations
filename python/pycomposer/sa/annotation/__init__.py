@@ -38,5 +38,6 @@ to be pipelined and parallelized together.  The types ensure that
 define custom behavior for how the types in their library should be split.
 """
 
+from .backend import Backend
 from .sa import sa, evaluate, mut
 from .vm.driver import STOP_ITERATION

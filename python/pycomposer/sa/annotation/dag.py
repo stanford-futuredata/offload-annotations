@@ -12,7 +12,6 @@ from .backend import Backend
 from .vm.instruction import *
 from .vm.vm import VM
 from .vm import Program, Driver, STOP_ITERATION
-from .vm.driver import DEFAULT_BATCH_SIZE
 
 import functools
 
@@ -379,7 +378,7 @@ class LogicalPlan:
 
         self.walk(finalize, None)
 
-    def to_vm(self):
+    def to_vm(self, batch_size_dict):
         """
         Convert the graph to a sequence of VM instructions that can be executed
         on worker nodes. One VM program is constructed per pipeline.
@@ -432,6 +431,7 @@ class LogicalPlan:
                 inst_backend = Backend.GPU
             else:
                 inst_backend = Backend.CPU
+            batch_size = batch_size_dict[inst_backend]
 
             # Assuming the vm backend includes both CPU and GPU, handle the
             # first time a value appears. If the value goes on the CPU, split
@@ -443,21 +443,20 @@ class LogicalPlan:
                 assert ty is not None
 
                 if valnum not in var_locs:
+                    var_locs[valnum] = inst_backend
                     if inst_backend == Backend.GPU:
-                        vm.program.insts.append(To(valnum, ty, Backend.GPU))
-                        var_locs[valnum] = Backend.GPU
+                        vm.program.insts.append(To(valnum, ty, inst_backend))
                     else:
-                        vm.program.insts.append(Split(valnum, ty, Backend.CPU))
-                        var_locs[valnum] = Backend.CPU
+                        vm.program.insts.append(Split(valnum, ty, inst_backend, batch_size))
                 else:
+                    if var_locs[valnum] == inst_backend:
+                        return
+                    vm.program.insts.append(To(valnum, ty, inst_backend))
+                    var_locs[valnum] = inst_backend
                     if var_locs[valnum] == Backend.CPU and inst_backend == Backend.GPU:
-                        vm.program.insts.append(To(valnum, ty, Backend.GPU))
-                        var_locs[valnum] = Backend.GPU
-                        vm.program.insts.append(Merge(valnum, ty, Backend.GPU))
+                        vm.program.insts.append(Merge(valnum, ty, inst_backend, batch_size))
                     elif var_locs[valnum] == Backend.GPU and inst_backend == Backend.CPU:
-                        vm.program.insts.append(To(valnum, ty, Backend.CPU))
-                        vm.program.insts.append(Split(valnum, ty, Backend.CPU))
-                        var_locs[valnum] = Backend.CPU
+                        vm.program.insts.append(Split(valnum, ty, inst_backend, batch_size))
             for valnum in args:
                 transfer(valnum, var_locs, vm, op)
             for _, valnum in kwargs.items():
@@ -478,7 +477,7 @@ class LogicalPlan:
             else:
                 func = op.func
             vm.program.insts.append(Call(
-                result, func, args, kwargs, op.annotation.return_type, inst_backend))
+                result, func, args, kwargs, op.annotation.return_type, inst_backend, batch_size))
             added.add(op)
 
         # programs: Maps Pipeline IDs to VM Programs.
@@ -495,10 +494,11 @@ class LogicalPlan:
                 ty = vms[pipeline].split_type_of(valnum)
                 if ty is None:
                     continue
+                batch_size = batch_size_dict[Backend.CPU]
                 if backend == Backend.GPU:
                     vms[pipeline].program.insts.append(To(valnum, ty, Backend.CPU))
                 elif backend == Backend.CPU:
-                    vms[pipeline].program.insts.append(Merge(valnum, ty, Backend.CPU))
+                    vms[pipeline].program.insts.append(Merge(valnum, ty, Backend.CPU, batch_size))
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 
@@ -525,7 +525,12 @@ def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"]
     except (SplitTypeError) as e:
         logging.error(e)
 
-    vms = dag.to_vm()
+    if not isinstance(batch_size, dict):
+        cpu_batch_size = batch_size
+        batch_size = config["batch_size"]
+        batch_size[Backend.CPU] = cpu_batch_size
+
+    vms = dag.to_vm(batch_size)
     for _, vm in vms:
         print(vm.program)
         print()

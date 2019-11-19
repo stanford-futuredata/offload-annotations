@@ -32,7 +32,7 @@ class Split(Instruction):
     An instruction that splits the inputs to an operation.
     """
 
-    def __init__(self, target, ty, backend):
+    def __init__(self, target, ty, backend, batch_size):
         """
         A Split instruction takes an argument and split type and applies
         the splitter on the argument.
@@ -43,15 +43,17 @@ class Split(Instruction):
         target : the arg ID that will be split.
         ty : the split type.
         backend : the backend the instruction is executed on.
+        batch_size : the batch size of the instruction split.
         """
         self.target = target
         self.ty = ty
         self.splitter = None
         self.backend = backend
+        self.batch_size = batch_size
 
     def __str__(self):
-        return "({}) v{} = split {}:{}".format(
-            self.backend.value, self.target, self.target, self.ty)
+        return "({}:{}) v{} = split {}:{}".format(
+            self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
     def evaluate(self, thread, start, end, values, context):
         """ Returns values from the split. """
@@ -80,24 +82,33 @@ class Merge(Instruction):
     An instruction that merges the outputs of an operation.
     """
 
-    def __init__(self, target, ty, backend):
+    def __init__(self, target, ty, backend, batch_size):
         """
-        TODO(ygina)
+        A merge instruction that merges all the values for the target in the
+        context. Only inserted in a program prior to changing the batch size.
+
+        Parameters
+        ----------
+        target : the target to merge
+        ty : the split type of the target
+        backend : the backend on which the merge is executed
+        batch_size : the eventual batch size
         """
         self.target = target
         self.ty = ty
         self.backend = backend
+        self.batch_size = batch_size
 
     def __str__(self):
-        return "({}) v{} = merge {}:{}".format(
-            self.backend.value, self.target, self.target, self.ty)
+        return "({}:{}) v{} = merge {}:{}".format(
+            self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
     def evaluate(self, _thread, _start, _end, _values, _context):
         pass
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
-    def __init__(self,  target, func, args, kwargs, ty, backend):
+    def __init__(self,  target, func, args, kwargs, ty, backend, batch_size):
         self.target = target
         # Function to call.
         self.func = func
@@ -109,15 +120,21 @@ class Call(Instruction):
         self.ty = ty
         # The backend the instruction is executed on.
         self.backend = backend
+        # The batch size of the instruction split.
+        self.batch_size = batch_size
 
     def __str__(self):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))
         kwargs = list(map(lambda v: "{}=v{}".format(v[0], v[1]), self.kwargs.items()))
         arguments = ", ".join([args] + kwargs)
-        return "({}) {}call {}({}):{}".format(
+        return "({}:{}) {}call {}({}):{}".format(
             self.backend.value,
+            self.batch_size,
             "" if self.target is None else "v{} = ".format(self.target),
-            self.func.__name__, arguments, str(self.ty))
+            self.func.__name__,
+            arguments,
+            str(self.ty)
+        )
 
     def get_args(self, context):
         return [ context[target][-1] for target in self.args ]
