@@ -385,6 +385,30 @@ class LogicalPlan:
 
         Returns a list of VMs, sorted by pipeline.
         """
+        # Change the batch size with a split or merge if necessary.
+        def change_batch_size(vm, var_sizes, valnum, backend, batch_size):
+            ty = vm.split_type_of(valnum)
+            assert ty is not None
+            if valnum not in var_sizes:
+                vm.program.insts.append(Split(valnum, ty, backend, batch_size))
+            elif var_sizes[valnum] != batch_size:
+                vm.program.insts.append(Merge(valnum, ty, backend, batch_size))
+                vm.program.insts.append(Split(valnum, ty, backend, batch_size))
+            var_sizes[valnum] = batch_size
+
+        # Transfer values between backends as necessary.
+        def transfer(vm, var_locs, valnum, backend):
+            ty = vm.split_type_of(valnum)
+            assert ty is not None
+
+            if valnum not in var_locs:
+                var_locs[valnum] = backend
+                if backend == Backend.GPU:
+                    vm.program.insts.append(To(valnum, ty, backend))
+            elif var_locs[valnum] != backend:
+                vm.program.insts.append(To(valnum, ty, backend))
+                var_locs[valnum] = backend
+
         def mark_backends(op, vms):
             vm = vms[1][op.pipeline]
             added = vms[0]
@@ -401,6 +425,7 @@ class LogicalPlan:
             added = vms[0]
             mutable = vms[2][op.pipeline]
             var_locs = vms[3][op.pipeline]
+            var_sizes = vms[4][op.pipeline]
 
             # Already processed this op.
             if op in added:
@@ -409,58 +434,39 @@ class LogicalPlan:
             args = []
             kwargs = {}
 
-            # Split the arguments if it is our first encounter
-            for (i, arg) in enumerate(op.args):
-                valnum = vm.get(arg)
-                if valnum is None:
-                    ty = op.split_type_of(i)
-                    valnum = vm.register_value(arg, ty)
-                    setattr(ty, "mutable", op.is_mutable(i))
-                args.append(valnum)
-
-            for (key, value) in op.kwargs.items():
-                valnum = vm.get(value)
-                if valnum is None:
-                    ty = op.split_type_of(key)
-                    valnum = vm.register_value(value, ty)
-                    setattr(ty, "mutable", op.is_mutable(key))
-                kwargs[key] = valnum
-
-            # Determine which backend to call the operation on.
+            # Determine which backend and batch size to call the operation on.
             if Backend.GPU in op.supported_backends:
                 inst_backend = Backend.GPU
             else:
                 inst_backend = Backend.CPU
             batch_size = batch_size_dict[inst_backend]
 
-            # Assuming the vm backend includes both CPU and GPU, handle the
-            # first time a value appears. If the value goes on the CPU, split
-            # it. If the value goes on the GPU, transfer it without splitting.
-            #
-            # Also transfer arguments as necessary between backends.
-            def transfer(valnum, var_locs, vm, op):
-                ty = vm.split_type_of(valnum)
-                assert ty is not None
+            # Register the arguments if it is our first encounter
+            def register(key, value):
+                valnum = vm.get(value)
+                if valnum is None:
+                    ty = op.split_type_of(key)
+                    valnum = vm.register_value(value, ty)
+                    setattr(ty, "mutable", op.is_mutable(key))
+                return valnum
+            for (i, arg) in enumerate(op.args):
+                valnum = register(i, arg)
+                args.append(valnum)
+            for (key, value) in op.kwargs.items():
+                valnum = register(key, value)
+                kwargs[key] = valnum
 
-                if valnum not in var_locs:
-                    var_locs[valnum] = inst_backend
-                    if inst_backend == Backend.GPU:
-                        vm.program.insts.append(To(valnum, ty, inst_backend))
-                    else:
-                        vm.program.insts.append(Split(valnum, ty, inst_backend, batch_size))
-                else:
-                    if var_locs[valnum] == inst_backend:
-                        return
-                    vm.program.insts.append(To(valnum, ty, inst_backend))
-                    var_locs[valnum] = inst_backend
-                    if var_locs[valnum] == Backend.CPU and inst_backend == Backend.GPU:
-                        vm.program.insts.append(Merge(valnum, ty, inst_backend, batch_size))
-                    elif var_locs[valnum] == Backend.GPU and inst_backend == Backend.CPU:
-                        vm.program.insts.append(Split(valnum, ty, inst_backend, batch_size))
+            # Change the batch size with a split or merge if necessary.
             for valnum in args:
-                transfer(valnum, var_locs, vm, op)
+                change_batch_size(vm, var_sizes, valnum, var_locs[valnum], batch_size)
             for _, valnum in kwargs.items():
-                transfer(valnum, var_locs, vm, op)
+                change_batch_size(vm, var_sizes, valnum, var_locs[valnum], batch_size)
+
+            # Transfer arguments between backends as necessary.
+            for valnum in args:
+                transfer(vm, var_locs, valnum, inst_backend)
+            for _, valnum in kwargs.items():
+                transfer(vm, var_locs, valnum, inst_backend)
 
             # Register the valnum of the return value and its backend location
             result = vm.register_value(op, op.annotation.return_type)
@@ -485,20 +491,17 @@ class LogicalPlan:
         vms = defaultdict(lambda: VM())
         mutables = defaultdict(lambda: set())
         var_locs = defaultdict(lambda: defaultdict(lambda: Backend.CPU))
+        var_sizes = defaultdict(lambda: {})
         self.walk(mark_backends, (set(), vms), mode="bottomup")
-        self.walk(construct, (set(), vms, mutables, var_locs), mode="bottomup")
+        self.walk(construct, (set(), vms, mutables, var_locs, var_sizes), mode="bottomup")
         for pipeline in vms:
             # Move any variables still on the GPU back to the CPU,
             # and merge any variables on the CPU.
-            for valnum, backend in var_locs[pipeline].items():
+            for valnum in var_locs[pipeline]:
                 ty = vms[pipeline].split_type_of(valnum)
                 if ty is None:
                     continue
-                batch_size = batch_size_dict[Backend.CPU]
-                if backend == Backend.GPU:
-                    vms[pipeline].program.insts.append(To(valnum, ty, Backend.CPU))
-                elif backend == Backend.CPU:
-                    vms[pipeline].program.insts.append(Merge(valnum, ty, Backend.CPU, batch_size))
+                transfer(vms[pipeline], var_locs[pipeline], valnum, Backend.CPU)
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 
