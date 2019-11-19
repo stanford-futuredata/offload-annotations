@@ -286,7 +286,7 @@ class LogicalPlan:
         __________
 
         f : A function to apply to each record. The function takes an operation
-        and an optional context as arguments.
+        and an optional context (i.e., any object) as arguments.
 
         context : An initial context.
 
