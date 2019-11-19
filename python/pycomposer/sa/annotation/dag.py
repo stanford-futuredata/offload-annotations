@@ -57,14 +57,18 @@ class Operation:
         # Children of this operation that must be evaluated first.
         self.children = []
 
-        # Whether the operation supports GPU execution based on the
-        # function annotation, and input and return types.
-        self.supports_gpu = annotation.gpu
-        self.supports_gpu &= Backend.GPU in annotation.return_type.supported_backends
+        # Backends on which the operation supports execution. By default, all operations
+        # support GPU execution. Operations support GPU execution based on the function
+        # annotation, and input and return types.
+        self.supported_backends = [Backend.CPU]
+        supports_gpu = annotation.gpu
+        supports_gpu &= Backend.GPU in annotation.return_type.supported_backends
         for (i, _) in enumerate(args):
-            self.supports_gpu &= Backend.GPU in self.split_type_of(i).supported_backends
+            supports_gpu &= Backend.GPU in self.split_type_of(i).supported_backends
         for (key, _) in kwargs.items():
-            self.supports_gpu &= Backend.GPU in self.split_type_of(key).supported_backends
+            supports_gpu &= Backend.GPU in self.split_type_of(key).supported_backends
+        if supports_gpu:
+            self.supported_backends.append(Backend.GPU)
 
     def all_args(self):
         """ Returns a list of all the args in this operation. """
@@ -389,7 +393,7 @@ class LogicalPlan:
             if op in added:
                 return
 
-            if op.supports_gpu:
+            if Backend.GPU in op.supported_backends:
                 vm.backends.add(Backend.GPU)
             added.add(op)
 
@@ -432,19 +436,20 @@ class LogicalPlan:
                 ty = vm.split_type_of(valnum)
                 assert ty is not None
 
+                supports_gpu = Backend.GPU in op.supported_backends
                 if valnum not in var_locs:
-                    if op.supports_gpu:
+                    if supports_gpu:
                         vm.program.insts.append(To(valnum, ty, Backend.GPU))
                         var_locs[valnum] = Backend.GPU
                     else:
                         vm.program.insts.append(Split(valnum, ty))
                         var_locs[valnum] = Backend.CPU
                 else:
-                    if var_locs[valnum] == Backend.CPU and op.supports_gpu:
+                    if var_locs[valnum] == Backend.CPU and supports_gpu:
                         vm.program.insts.append(Merge(valnum, ty))
                         vm.program.insts.append(To(valnum, ty, Backend.GPU))
                         var_locs[valnum] = Backend.GPU
-                    elif var_locs[valnum] == Backend.GPU and not op.supports_gpu:
+                    elif var_locs[valnum] == Backend.GPU and not supports_gpu:
                         vm.program.insts.append(To(valnum, ty, Backend.CPU))
                         vm.program.insts.append(Split(valnum, ty))
                         var_locs[valnum] = Backend.CPU
@@ -455,7 +460,8 @@ class LogicalPlan:
 
             # Register the valnum of the return value and its backend location
             result = vm.register_value(op, op.annotation.return_type)
-            if op.supports_gpu:
+            supports_gpu = Backend.GPU in op.supported_backends
+            if supports_gpu:
                 var_locs[result] = Backend.GPU
             else:
                 var_locs[result] = Backend.CPU
@@ -466,12 +472,12 @@ class LogicalPlan:
                 if not op.dontsend:
                     mutable.add(result)
             # Choose which function to call based on whether the pipeline is on the gpu.
-            if op.supports_gpu and op.annotation.gpu_func is not None:
+            if supports_gpu and op.annotation.gpu_func is not None:
                 func = op.annotation.gpu_func
             else:
                 func = op.func
             vm.program.insts.append(Call(
-                result, func, args, kwargs, op.annotation.return_type, op.supports_gpu))
+                result, func, args, kwargs, op.annotation.return_type, supports_gpu))
             added.add(op)
 
         # programs: Maps Pipeline IDs to VM Programs.
