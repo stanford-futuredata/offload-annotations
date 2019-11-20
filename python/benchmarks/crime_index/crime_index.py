@@ -11,12 +11,13 @@ import time
 
 import sa.annotated.pandas as pd
 from sa.annotation import Backend
+import cudf
 
 def gen_data(size):
     total_population = np.ones(size, dtype="float64") * 500000
     adult_population = np.ones(size, dtype="float64") * 250000
     num_robberies = np.ones(size, dtype="float64") * 1000
-    return pd.Series(total_population), pd.Series(adult_population), pd.Series(num_robberies)
+    return cudf.Series(total_population), cudf.Series(adult_population), cudf.Series(num_robberies)
 
 def crime_index_composer(
     total_population,
