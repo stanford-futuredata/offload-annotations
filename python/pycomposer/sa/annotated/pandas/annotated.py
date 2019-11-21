@@ -169,32 +169,32 @@ def gbsize(grouped):
 def filter(df, column, target):
     return df[df[column] > target]
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def divide(series, value):
     result = (series / value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def multiply(series, value):
     result = (series * value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def subtract(series, value):
     result = (series - value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def add(series, value):
     result = (series + value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def equal(series, value):
     result = (series == value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
 def greater_than(series, value):
     result = (series >= value)
     return result
@@ -209,7 +209,7 @@ def pandasum(series):
     result = series.sum()
     return result
 
-@sa((DataFrameSplit(),), {}, UniqueSplit(), gpu=False)
+@sa((DataFrameSplit(),), {}, UniqueSplit(), gpu=True)
 def unique(series):
     result = series.unique()
     return result
@@ -229,7 +229,7 @@ def mask(series, cond, val):
     result = series.mask(cond, val)
     return result
 
-@sa((DataFrameSplit(), Broadcast(), Broadcast()), {}, DataFrameSplit(), gpu=False)
+@sa((DataFrameSplit(), Broadcast(), Broadcast()), {}, DataFrameSplit(), gpu=True)
 def series_str_slice(series, start, end):
     result = series.str.slice(start, end)
     return result
