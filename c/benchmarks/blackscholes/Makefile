@@ -34,5 +34,8 @@ all:
 cuda:
 	$(NVCC) $(NVFLAGS) $(INCLUDE) $(LD_LIBRARY_PATH) blackscholes.cu -o cuda -lcomposer -lcomposer_mkl -lcublas -lm $(INTELNVCC)
 
+exp:
+	$(NVCC) $(NVFLAGS) $(INCLUDE) $(LD_LIBRARY_PATH) exp.cu -o exp -lcomposer -lcomposer_mkl -lcublas -lm $(INTELNVCC)
+
 clean:
 	rm -rf *.o $(EXEC) $(VLIB)
