@@ -36,16 +36,6 @@ class Program:
             if isinstance(inst, Split):
                 inst.ty.range_end = range_end
 
-    def step(self, thread, piece_start, piece_end, values, context):
-        """
-        Step the program and return whether are still items to process.
-        """
-        for task in self.insts:
-            result = task.evaluate(thread, piece_start, piece_end, values, context)
-            if isinstance(result, str) and result == STOP_ITERATION:
-                return False
-        return True
-
     def elements(self, values):
         """Returns the number of elements that this program will process.
 

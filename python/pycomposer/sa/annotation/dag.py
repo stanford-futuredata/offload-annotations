@@ -391,8 +391,9 @@ class LogicalPlan:
             assert ty is not None
             if valnum not in var_sizes:
                 vm.program.insts.append(Split(valnum, ty, backend, batch_size))
-            elif var_sizes[valnum] != batch_size:
+            elif var_sizes[valnum] < batch_size:
                 vm.program.insts.append(Merge(valnum, ty, backend, batch_size))
+            elif var_sizes[valnum] > batch_size:
                 vm.program.insts.append(Split(valnum, ty, backend, batch_size))
             var_sizes[valnum] = batch_size
 
@@ -471,6 +472,7 @@ class LogicalPlan:
             # Register the valnum of the return value and its backend location
             result = vm.register_value(op, op.annotation.return_type)
             var_locs[result] = inst_backend
+            var_sizes[result] = batch_size
 
             # In this context, mutability just means we need to merge objects.
             if op.annotation.return_type is not None:
@@ -538,7 +540,7 @@ def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"]
         print(vm.program)
         print()
         driver = Driver(workers=workers, batch_size=batch_size, optimize_single=True, profile=profile)
-        results = driver.run(vm.program, vm.values)
+        results = driver.run(vm.program, vm.backends, vm.values)
 
         dag.commit(vm.values, results)
         # TODO We need to update vm.values in the remaining programs to use the

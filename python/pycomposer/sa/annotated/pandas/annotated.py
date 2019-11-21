@@ -67,20 +67,28 @@ class DataFrameSplit(SplitType):
                 do_combine = True
 
         if do_combine and len(values) > 0:
-            result = pd.concat(values)
+            backends = set([self.backend(val) for val in values])
+            assert len(backends) == 1
+            backend = backends.pop()
+            if backend == Backend.CPU:
+                result = pd.concat(values)
+            elif backend == Backend.GPU:
+                result = cudf.concat(values)
+            else:
+                raise ValueError
             if original is not None:
                 assert isinstance(original, np.ndarray)
                 original.data = result
             return result
 
     def split(self, start, end, value):
-        if not isinstance(value, pd.DataFrame) and not isinstance(value, pd.Series):
+        if self.backend(value) not in self.supported_backends:
             # Assume this is a constant (str, int, etc.).
             return value
         return value[start:end]
 
     def elements(self, value):
-        if not isinstance(value, pd.DataFrame) and not isinstance(value, pd.Series):
+        if self.backend(value) not in self.supported_backends:
             return None
         return len(value)
 
@@ -92,7 +100,7 @@ class DataFrameSplit(SplitType):
         elif isinstance(value, float) or isinstance(value, int) or isinstance(value, str):
             return Backend.SCALAR
         else:
-            raise Exception('unknown backend: {}'.format(type(value)))
+            return None
 
     def to(self, value, backend):
         current_backend = self.backend(value)

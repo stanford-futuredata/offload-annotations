@@ -20,7 +20,7 @@ _BATCH_SIZE = None
 # Size of the L2 Cache (TODO read this from somewhere)
 CACHE_SIZE = 252144
 
-def _worker(worker_id, index_range):
+def _worker(worker_id, index_range, max_batch_size):
     """
     A multiprocessing worker.
 
@@ -34,13 +34,22 @@ def _worker(worker_id, index_range):
     worker_id : the thread ID of this worker.
     index_range : A range
     and the master.
+    max_batch_size: the maximum batch size in the program.
 
     """
-    #TODO(ygina): multiprocessing
-    result = _run_program(worker_id, index_range, replace_original=False)
-    return result
+    context = defaultdict(list)
+    _run_program(worker_id, index_range, context, max_batch_size, worker_id)
+    return context
 
-def _run_program(worker_id, index_range, replace_original):
+def _run_program(
+    worker_id,
+    index_range,
+    context,
+    batch_size: int,
+    batch_index: int = 0,
+    initial_i: int = 0,
+    replace_original: bool = False,
+):
     """Runs the global program to completion and return partial values.
 
     Parameters
@@ -48,6 +57,9 @@ def _run_program(worker_id, index_range, replace_original):
 
     worker_id : the ID of this worker.
     program : the program to execute.
+    batch_size : the current batch size of the program.
+    batch_index : the index of the current split batch.
+    initial_i : the index of the instruction to start execution at.
     replace_original: boolean
         Whether to replace the object at a value's original pointer with the
         merged object. Typically if the merge that occurs at the end is a
@@ -59,10 +71,10 @@ def _run_program(worker_id, index_range, replace_original):
 
     # logging.debug("Thread", worker_id, "range:", index_range, "batch size:", _BATCH_SIZE)
     from ..backend import Backend
-    print("Thread {} range: {} batch size: {}".format(worker_id, index_range, _BATCH_SIZE))
+    print("Thread {} range: {} batch size: {} instruction: {} replace_original: {}".format(
+        worker_id, index_range, batch_size, initial_i, replace_original))
     start = time.time()
 
-    context = defaultdict(list)
     just_parallel = False
     if just_parallel:
         _BATCH_SIZE = { Backend.CPU: index_range[1] - index_range[0] }
@@ -70,24 +82,63 @@ def _run_program(worker_id, index_range, replace_original):
         piece_end = index_range[1]
     else:
         piece_start = index_range[0]
-        piece_end = piece_start + _BATCH_SIZE[Backend.CPU]
+        piece_end = piece_start + batch_size
 
     _PROGRAM.set_range_end(index_range[1])
 
-    while _PROGRAM.step(worker_id, piece_start, piece_end, _VALUES, context):
-        piece_start += _BATCH_SIZE[Backend.CPU]
-        piece_end += _BATCH_SIZE[Backend.CPU]
-        # Clamp to the range assigned to this thread.
+    early_exit_i = set()
+    batch_subindex = 0
+    while piece_start < index_range[1]:
+        # There are three possible scenarios for executing a program instruction
+        # with regards to batch size.
+        #
+        # (1) The batch size stays the same: Execute instructions until the program ends or the
+        #     batch size changes.
+        # (2) The batch size decreases: Pipeline the program within the current index range on
+        #     the smaller index subrange until the batch size increases again. Then resume at
+        #     that instruction at the current batch size.
+        # (3) The batch size increase: Exit early.
+        #
+        # Repeat the pipeline for each index subrange.
+        i = initial_i
+        while i < len(_PROGRAM.insts):
+            inst = _PROGRAM.insts[i]
+            from .instruction import To
+            if isinstance(inst, To) or inst.batch_size == batch_size:
+                print('EVALUATE ' + str(inst))
+                result = inst.evaluate(worker_id, batch_subindex, _VALUES, context)
+                i += 1
+                if isinstance(result, str) and result == STOP_ITERATION:
+                    break
+            elif batch_size > inst.batch_size:
+                index_subrange = (piece_start, piece_end)
+                i = _run_program(
+                    worker_id,
+                    index_subrange,
+                    context,
+                    inst.batch_size,
+                    batch_subindex,
+                    initial_i=i,
+                )
+                continue
+            else:
+                early_exit_i.add(i)
+                break
 
-        if piece_start >= index_range[1]:
-            break
-        elif piece_end > index_range[1]:
+        piece_start += batch_size
+        piece_end += batch_size
+
+        # Clamp to the range assigned to this thread.
+        if piece_end > index_range[1]:
             piece_end = index_range[1]
 
     process_end = time.time()
 
     # Free non-shared memory on this worker.
-    _merge(_PROGRAM, context, replace_original=replace_original)
+    # Replace the data in the original pointer if we are the top level thread.
+    # Merge the data if we are the top level thread or are returning execution to the top level.
+    if replace_original:
+        _merge(_PROGRAM, context, replace_original=replace_original)
 
     merge_end = time.time()
 
@@ -97,7 +148,11 @@ def _run_program(worker_id, index_range, replace_original):
             merge_end - process_end,
             merge_end - start))
 
-    return context
+    if len(early_exit_i) == 0:
+        return i
+    else:
+        assert len(early_exit_i) == 1
+        return early_exit_i.pop()
 
 def _merge(program, context, replace_original):
     """
@@ -175,7 +230,7 @@ class Driver:
 
         return ranges
 
-    def run(self, program, values):
+    def run(self, program, backends, values):
         """ Executes the program with the provided values. """
         elements = program.elements(values)
         ranges = self.get_partitions(elements)
@@ -187,15 +242,17 @@ class Driver:
 
         _VALUES = values
         _PROGRAM = program
-        _BATCH_SIZE = self.batch_size
+        _BATCH_SIZE = dict([(backend, self.batch_size[backend]) for backend in backends])
 
+        max_batch_size = max(_BATCH_SIZE.values())
+        result = defaultdict(list)
         if self.workers == 1 and self.optimize_single:
-            result = _run_program(0, ranges[0], replace_original=True)
+            _run_program(0, ranges[0], result, max_batch_size, replace_original=True)
         elif self.workers > 1 and ranges[1] is None:
             # We should really dynamically adjust the number of processes
             # (i.e., self.workers should be the maximum allowed workers), but
             # for now its 1 or all to make evaluation easier.
-            result = _run_program(0, ranges[0], replace_original=True)
+            _run_program(0, ranges[0], result, max_batch_size, replace_original=True)
         else:
             # This needs to go after the assignment to _VALUES, so
             # the process snapshot sees the updated variable. The advantage of
@@ -211,7 +268,7 @@ class Driver:
             partial_results = []
             for (i, index_range) in enumerate(ranges):
                 # import pdb; pdb.set_trace()
-                partial_results.append(pool.apply_async(_worker, args=(i, index_range)))
+                partial_results.append(pool.apply_async(_worker, args=(i, index_range, max_batch_size)))
             for i in range(len(partial_results)):
                 partial_results[i] = partial_results[i].get()
 
@@ -223,7 +280,7 @@ class Driver:
                         for (key, value) in partial_result.items():
                             # Don't add unnecessary None values.
                             if value is not None:
-                                result[key].append(value)
+                                result[key].extend(value)
 
                 _merge(program, result, replace_original=True)
 

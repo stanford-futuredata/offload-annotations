@@ -11,7 +11,7 @@ class Instruction(ABC):
     """
 
     @abstractmethod
-    def evaluate(self, thread, start, end, values, context):
+    def evaluate(self, thread, batch_index, values, context):
         """
         Evaluates an instruction.
 
@@ -19,8 +19,7 @@ class Instruction(ABC):
         ----------
 
         thread : the thread that is  currently executing
-        start : the start index of the current split value.
-        end : the end index of the current split value
+        batch_index : the index of the current split batch.
         values : a global value map holding the inputs.
         context : map holding execution state (arg ID -> value).
 
@@ -55,14 +54,28 @@ class Split(Instruction):
         return "({}:{}) v{} = split {}:{}".format(
             self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
-    def evaluate(self, thread, start, end, values, context):
+    def evaluate(self, thread, batch_index, values, context):
         """ Returns values from the split. """
+        start = self.batch_size * batch_index
+        end = start + self.batch_size
         if len(context[self.target]) == 0:
             context[self.target].append(values[self.target])
 
+        # The index of the value to split in the target context is the last
+        # value with more elements than the batch size.
+        index_to_split = 0
+        for i in reversed(range(len(context[self.target]))):
+            num_elements = self.ty.elements(context[self.target][i])
+            if num_elements is None:
+                break  # scalar
+            if num_elements > self.batch_size:
+                index_to_split = i
+                end = min(end, num_elements)
+                break
+
         if self.splitter is None:
             # First time - check if the splitter is actually a generator.
-            result = self.ty.split(start, end, context[self.target][0])
+            result = self.ty.split(start, end, context[self.target][index_to_split])
             if isinstance(result, types.GeneratorType):
                 self.splitter = result
                 result = next(self.splitter)
@@ -72,10 +85,10 @@ class Split(Instruction):
             if isinstance(self.splitter, types.GeneratorType):
                 result = next(self.splitter)
             else:
-                result = self.splitter(start, end, context[self.target][0])
+                result = self.splitter(start, end, context[self.target][index_to_split])
 
         if isinstance(result, str) and result == STOP_ITERATION:
-            context[self.target].pop(0)
+            context[self.target].pop(index_to_split)
             return STOP_ITERATION
 
         context[self.target].append(result)
@@ -106,8 +119,21 @@ class Merge(Instruction):
         return "({}:{}) v{} = merge {}:{}".format(
             self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
-    def evaluate(self, _thread, _start, _end, _values, context):
-        context[self.target] = self.ty.combine(context[self.target])
+    def evaluate(self, _thread, _batch_index, _values, context):
+        # The indices of the values to merge in the target context are the last
+        # values that collectively have <= the number of elements in the batch size.
+        index_to_merge = None
+        total_num_elements = 0
+        for i in reversed(range(len(context[self.target]))):
+            num_elements = self.ty.elements(context[self.target][i])
+            total_num_elements += self.ty.elements(context[self.target][i])
+            if total_num_elements > self.batch_size:
+                break
+            index_to_merge = i
+        values_to_merge = context[self.target][index_to_merge:]
+
+        context[self.target] = context[self.target][:index_to_merge]
+        context[self.target].append(self.ty.combine(values_to_merge))
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
@@ -145,7 +171,7 @@ class Call(Instruction):
     def get_kwargs(self, context):
         return dict([ (name, context[target][-1]) for (name, target) in self.kwargs.items() ])
 
-    def evaluate(self, _thread, _start, _end, _values, context):
+    def evaluate(self, _thread, _batch_index, _values, context):
         """
         Evaluates a function call by gathering arguments and calling the
         function.
@@ -170,7 +196,7 @@ class To(Instruction):
         return "({}) v{} = to_{}:{}".format(
             self.backend.value, self.target, self.backend.value, str(self.ty))
 
-    def evaluate(self, _thread, _start, _end, _values, context):
+    def evaluate(self, _thread, _batch_index, _values, context):
         old_value = context[self.target][-1]
         new_value = self.ty.to(old_value, self.backend)
         context[self.target][-1] = new_value
