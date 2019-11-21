@@ -44,6 +44,8 @@ def get_data(size, mode, threads):
     # Outputs
     call = torch.ones(size, device=device, dtype=dtype)
     put = torch.ones(size, device=device, dtype=dtype)
+    call.dontsend = False
+    put.dontsend = False
 
     return price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
 

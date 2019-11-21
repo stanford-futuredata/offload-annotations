@@ -47,7 +47,7 @@ class Operation:
         # The pipeline this operator is a part of.
         self.pipeline = None
         # Disable sending results. Hack.
-        self.dontsend = False
+        self.dontsend = True
 
         # Reference to the DAG object.
         self._owner_ref = owner_ref

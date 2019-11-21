@@ -53,6 +53,7 @@ def crime_index_composer(
     crime_index.dontsend = True
 
     result = pd.pandasum(crime_index)
+    result.dontsend = False
     batch_size = {
         Backend.CPU: cpu_piece_size,
         Backend.GPU: gpu_piece_size,
