@@ -18,7 +18,11 @@ else
 $(error Unsupported platform: $(OS))
 endif
 
+NVCC=nvcc
+INTELNVCC= -DMKL_ILP64 -m64 -I${MKLROOT}/compilers_and_libraries/linux/mkl/include -L${MKLROOT}/compilers_and_libraries/linux/mkl/lib/intel64 -I${MKLROOT}/include -L${MKLROOT}/lib/intel64 -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
+
 CFLAGS=-O3 -Wall -pedantic
+NVFLAGS=-Xcompiler -ansi -Xcompiler -Ofast
 INCLUDE=-I../../composer/ -I../../lib/composer_mkl
 EXEC=bench
 
@@ -26,6 +30,9 @@ EXEC=bench
 
 all:
 	$(CC) $(CFLAGS) $(INCLUDE) $(LD_LIBRARY_PATH) blackscholes.c -o $(EXEC) -lcomposer -lcomposer_mkl -lm $(INTEL)
+
+cuda:
+	$(NVCC) $(NVFLAGS) $(INCLUDE) $(LD_LIBRARY_PATH) blackscholes.cu -o cuda -lcomposer -lcomposer_mkl -lcublas -lm $(INTELNVCC)
 
 clean:
 	rm -rf *.o $(EXEC) $(VLIB)
