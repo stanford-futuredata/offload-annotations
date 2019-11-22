@@ -401,11 +401,10 @@ class LogicalPlan:
         def transfer(vm, var_locs, valnum, backend):
             ty = vm.split_type_of(valnum)
             assert ty is not None
+            assert valnum in var_locs
 
-            if valnum not in var_locs:
+            if var_locs[valnum] == Backend.SCALAR:
                 var_locs[valnum] = backend
-                if backend == Backend.GPU:
-                    vm.program.insts.append(To(valnum, ty, backend))
             elif var_locs[valnum] != backend:
                 vm.program.insts.append(To(valnum, ty, backend))
                 var_locs[valnum] = backend
@@ -449,6 +448,8 @@ class LogicalPlan:
                     ty = op.split_type_of(key)
                     valnum = vm.register_value(value, ty)
                     setattr(ty, "mutable", op.is_mutable(key))
+                    backend = ty.backend(value)
+                    var_locs[valnum] = backend
                 return valnum
             for (i, arg) in enumerate(op.args):
                 valnum = register(i, arg)
