@@ -40,8 +40,6 @@ def get_data(size, mode, allocation, compute):
     # Outputs
     call = torch.ones(size, device=device, dtype=dtype)
     put = torch.ones(size, device=device, dtype=dtype)
-    call.dontsend = False
-    put.dontsend = False
 
     return price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
 
@@ -64,6 +62,9 @@ def bs(
     invsqrt2 = 1.0 / math.sqrt(2.0)
 
     start = time.time()
+
+    call.materialize = True
+    put.materialize = True
 
     # # Transfer input arrays if necessary
     # if price.device.type == 'cpu' and compute == 'cuda':

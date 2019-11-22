@@ -450,6 +450,9 @@ class LogicalPlan:
                     setattr(ty, "mutable", op.is_mutable(key))
                     backend = ty.backend(value)
                     var_locs[valnum] = backend
+
+                    # Don't materialize registered inputs by default. Hack.
+                    ty.mutable &= hasattr(value, 'materialize') and value.materialize
                 return valnum
             for (i, arg) in enumerate(op.args):
                 valnum = register(i, arg)
