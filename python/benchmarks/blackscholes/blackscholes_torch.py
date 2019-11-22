@@ -8,6 +8,8 @@ import math
 import time
 from enum import Enum
 
+from sa.annotation import Backend
+
 class Mode(Enum):
     TORCH_CPU = 0
     TORCH_COMPOSER = 1
@@ -53,7 +55,7 @@ def bs(
     price, strike, t, rate, vol,  # original data
     tmp, vol_sqrt, rsig, d1, d2,  # temporary arrays
     call, put,                    # outputs
-    mode, threads, piece_size     # experiment configuration
+    mode, threads, gpu_piece_size, cpu_piece_size  # experiment configuration
 ):
     if mode == Mode.TORCH_COMPOSER:
         import sa.annotated.torch as torch
@@ -135,7 +137,11 @@ def bs(
     if mode == Mode.TORCH_COMPOSER:
         end = time.time()
         print("Build time:", end - start)
-        torch.evaluate(workers=threads, batch_size=piece_size)
+        batch_size = {
+            Backend.CPU: cpu_piece_size,
+            Backend.GPU: gpu_piece_size,
+        }
+        torch.evaluate(workers=threads, batch_size=batch_size)
 
     return call, put
 
@@ -143,7 +149,7 @@ def manual_bs(
     price, strike, t, rate, vol,  # original data
     tmp, vol_sqrt, rsig, d1, d2,  # temporary arrays
     call, put,                    # outputs
-    mode, threads, piece_size     # experiment configuration
+    mode, threads, gpu_piece_size, cpu_piece_size  # experiment configuration
 ):
     import torch
     torch.set_num_threads(threads)
@@ -165,7 +171,7 @@ def manual_bs(
     call, put = bs(price, strike, t, rate, vol,
                    tmp, vol_sqrt, rsig, d1, d2,
                    call, put,
-                   mode, threads, piece_size)
+                   mode, threads, gpu_piece_size, cpu_piece_size)
     torch.cuda.synchronize()
     print('Compute:', time.time() - start)
 
@@ -182,7 +188,8 @@ def run():
         description="Chained Adds pipelining test on a single thread."
     )
     parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
-    parser.add_argument('-p', "--piece_size", type=int, default=16384, help="Size of each piece.")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=16384, help="Size of each CPU piece.")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=524288, help="Size of each GPU piece.")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
     parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
     parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer|cuda|manualcuda)")
@@ -190,7 +197,8 @@ def run():
     args = parser.parse_args()
 
     size = (1 << args.size)
-    piece_size = args.piece_size
+    gpu_piece_size = args.gpu_piece_size
+    cpu_piece_size = args.cpu_piece_size
     threads = args.threads
     loglevel = args.verbosity
     mode = args.mode.strip().lower()
@@ -199,7 +207,8 @@ def run():
     assert threads >= 1
 
     print("Size:", size)
-    print("Piece Size:", piece_size)
+    print("GPU Piece Size:", gpu_piece_size)
+    print("CPU Piece Size:", cpu_piece_size)
     print("Threads:", threads)
     print("Log Level", loglevel)
     print("Mode:", mode)
@@ -233,9 +242,9 @@ def run():
 
     start = time.time()
     if mode == Mode.TORCH_MANUALCUDA:
-        call, put = manual_bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, piece_size)
+        call, put = manual_bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size)
     else:
-        call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, piece_size)
+        call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size)
 
     print("Runtime: {}s".format(time.time() - start))
     print("Call (len {}): {}".format(len(call), call))
