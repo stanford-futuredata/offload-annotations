@@ -89,6 +89,8 @@ def _run_program(
     early_exit_i = set()
     batch_subindex = 0
     while piece_start < index_range[1]:
+        last_batch = piece_start + batch_size >= index_range[1]
+
         # There are three possible scenarios for executing a program instruction
         # with regards to batch size.
         #
@@ -106,7 +108,7 @@ def _run_program(
             from .instruction import To
             if isinstance(inst, To) or inst.batch_size == batch_size:
                 print('EVALUATE ' + str(inst))
-                result = inst.evaluate(worker_id, batch_subindex, _VALUES, context)
+                result = inst.evaluate(worker_id, batch_subindex, _VALUES, context, last_batch)
                 i += 1
                 if isinstance(result, str) and result == STOP_ITERATION:
                     break
