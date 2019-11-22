@@ -11,32 +11,26 @@ from enum import Enum
 from sa.annotation import Backend
 
 class Mode(Enum):
-    TORCH_CPU = 0
-    TORCH_COMPOSER = 1
-    TORCH_CUDA = 2
-    TORCH_MANUALCUDA = 3
+    NAIVE = 0
+    COMPOSER = 1
 
-def get_data(size, mode, threads):
-    if mode == Mode.TORCH_COMPOSER:
+def get_data(size, mode, allocation, compute):
+    if mode == Mode.COMPOSER:
         import sa.annotated.torch as torch
     else:
         import torch
 
-    torch.set_num_threads(threads);
-    if mode == Mode.TORCH_CUDA:
-        device = torch.device('cuda')
-    else:
-        device = torch.device('cpu')
+    # Allocate input arrays on the given backend for allocation
+    device = torch.device(allocation)
     dtype = torch.float64
-
     price = torch.ones(size, device=device, dtype=dtype) * 4.0
     strike = torch.ones(size, device=device, dtype=dtype) * 4.0
     t = torch.ones(size, device=device, dtype=dtype) * 4.0
     rate = torch.ones(size, device=device, dtype=dtype) * 4.0
     vol = torch.ones(size, device=device, dtype=dtype) * 4.0
 
-    if mode == Mode.TORCH_MANUALCUDA:
-        device = torch.device('cuda')
+    # Allocate intermediate and output arrays on the given backend for compute
+    device = torch.device(compute)
     tmp = torch.ones(size, device=device, dtype=dtype)
     vol_sqrt = torch.ones(size, device=device, dtype=dtype)
     rsig = torch.ones(size, device=device, dtype=dtype)
@@ -52,12 +46,13 @@ def get_data(size, mode, threads):
     return price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
 
 def bs(
-    price, strike, t, rate, vol,  # original data
-    tmp, vol_sqrt, rsig, d1, d2,  # temporary arrays
-    call, put,                    # outputs
-    mode, threads, gpu_piece_size, cpu_piece_size  # experiment configuration
+    price, strike, t, rate, vol,    # original data
+    tmp, vol_sqrt, rsig, d1, d2,    # temporary arrays
+    call, put,                      # outputs
+    mode, threads, compute,         # experiment figuration
+    gpu_piece_size, cpu_piece_size  # piece sizes
 ):
-    if mode == Mode.TORCH_COMPOSER:
+    if mode == Mode.COMPOSER:
         import sa.annotated.torch as torch
         torch.set_num_threads(1)
     else:
@@ -70,6 +65,18 @@ def bs(
 
     start = time.time()
 
+    # # Transfer input arrays if necessary
+    # if price.device.type == 'cpu' and compute == 'cuda':
+    #     price = price.to(torch.device('cuda'))
+    #     strike = strike.to(torch.device('cuda'))
+    #     t = t.to(torch.device('cuda'))
+    #     rate = rate.to(torch.device('cuda'))
+    #     vol = vol.to(torch.device('cuda'))
+    #     print('Transfer H2D:', time.time() - start)
+    # elif price.device.type == 'cuda' and compute == 'cpu':
+    #     raise ValueError
+
+    # Computation
     torch.mul(vol, vol, out=rsig)
     torch.mul(rsig, c05, out=rsig)
     torch.add(rsig, rate, out=rsig)
@@ -134,54 +141,24 @@ def bs(
     torch.mul(price, tmp, out=tmp)
     torch.sub(put, tmp, out=put)
 
-    if mode == Mode.TORCH_COMPOSER:
-        end = time.time()
-        print("Build time:", end - start)
+    if mode == Mode.COMPOSER:
+        print("Build time:", time.time() - start)
         batch_size = {
             Backend.CPU: cpu_piece_size,
             Backend.GPU: gpu_piece_size,
         }
         torch.evaluate(workers=threads, batch_size=batch_size)
+    # if compute == 'cuda':
+    #     torch.cuda.synchronize()
+    # print('Evaluation:', time.time() - start)
+
+    # # Transfer output arrays if necessary
+    # if call.device.type == 'cuda':
+    #     call = call.to(torch.device('cpu'))
+    #     put = put.to(torch.device('cpu'))
+    #     print('Transfer D2H:', time.time() - start)
 
     return call, put
-
-def manual_bs(
-    price, strike, t, rate, vol,  # original data
-    tmp, vol_sqrt, rsig, d1, d2,  # temporary arrays
-    call, put,                    # outputs
-    mode, threads, gpu_piece_size, cpu_piece_size  # experiment configuration
-):
-    import torch
-    torch.set_num_threads(threads)
-
-    c05 = 3.0
-    c10 = 1.5
-    invsqrt2 = 1.0 / math.sqrt(2.0)
-
-    start = time.time()
-    cuda = torch.device('cuda')
-    price = price.to(cuda)
-    strike = strike.to(cuda)
-    t = t.to(cuda)
-    rate = rate.to(cuda)
-    vol = vol.to(cuda)
-    print('To device:', time.time() - start)
-
-    start = time.time()
-    call, put = bs(price, strike, t, rate, vol,
-                   tmp, vol_sqrt, rsig, d1, d2,
-                   call, put,
-                   mode, threads, gpu_piece_size, cpu_piece_size)
-    torch.cuda.synchronize()
-    print('Compute:', time.time() - start)
-
-    start = time.time()
-    cpu = torch.device('cpu')
-    call = call.to(cpu)
-    put = put.to(cpu)
-    print('To host:', time.time() - start)
-    return call, put
-
 
 def run():
     parser = argparse.ArgumentParser(
@@ -192,8 +169,9 @@ def run():
     parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=524288, help="Size of each GPU piece.")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
     parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
-    parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer|cuda|manualcuda)")
-    parser.add_argument('-a', "--allocation", type=str, default="single", help="Mode (single|multi)")
+    parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer)")
+    parser.add_argument('-a', "--allocation", type=str, default="cuda", help="Allocation backend (cpu|cuda)")
+    parser.add_argument('-c', "--compute", type=str, default="cpu", help="Compute backend (cpu|cuda)")
     args = parser.parse_args()
 
     size = (1 << args.size)
@@ -202,7 +180,8 @@ def run():
     threads = args.threads
     loglevel = args.verbosity
     mode = args.mode.strip().lower()
-    alloc = args.allocation.strip().lower()
+    allocation = args.allocation.strip().lower()
+    compute = args.compute.strip().lower()
 
     assert threads >= 1
 
@@ -212,41 +191,33 @@ def run():
     print("Threads:", threads)
     print("Log Level", loglevel)
     print("Mode:", mode)
-    print("Allocation:", alloc)
+    print("Allocation:", allocation)
+    print("Compute:", compute)
 
     # Parse the mode
-    if mode == "naive":
-        mode = Mode.TORCH_CPU
-    elif mode == "composer":
-        mode = Mode.TORCH_COMPOSER
-    elif mode == "cuda":
-        mode = Mode.TORCH_CUDA
-    elif mode == "manualcuda":
-        mode = Mode.TORCH_MANUALCUDA
+    if mode == 'composer':
+        mode = Mode.COMPOSER
+    elif mode == 'naive':
+        mode = Mode.NAIVE
     else:
         raise ValueError("invalid mode", mode)
 
-    # Parse the allocation type
-    if alloc == "single":
-        alloc_threads = 1
-    elif alloc == "multi":
-        alloc_threads = 16
-    else:
-        raise ValueError("invalid allocation type", alloc)
+    # Parse the allocation and compute backend
+    if allocation not in ['cpu', 'cuda']:
+        raise ValueError("invalid allocation backend", allocation)
+    if compute not in ['cpu', 'cuda']:
+        raise ValueError("invalid compute backend", compute)
 
     start = time.time()
     sys.stdout.write("Initializing...")
     sys.stdout.flush()
-    a, b, c, d, e, f, g, h, i, j, k, l = get_data(size, mode, alloc_threads)
+    a, b, c, d, e, f, g, h, i, j, k, l = get_data(size, mode, allocation, compute)
     print("done: {}s".format(time.time() - start))
 
     start = time.time()
-    if mode == Mode.TORCH_MANUALCUDA:
-        call, put = manual_bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size)
-    else:
-        call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size)
+    call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
 
-    print("Runtime: {}s".format(time.time() - start))
+    print("Total Runtime: {}s".format(time.time() - start))
     print("Call (len {}): {}".format(len(call), call))
     print("Put (len {}): {}".format(len(put), put))
 

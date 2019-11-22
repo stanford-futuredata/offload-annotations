@@ -1,12 +1,13 @@
-import torch
+
 import numpy as np
-import sharedmem
+import torch
 
 from copy import deepcopy as dc
 from sa.annotation import *
 from sa.annotation.split_types import *
 
 float64 = torch.float64
+cuda = torch.cuda
 
 def ones(size, device=torch.device('cpu'), dtype=torch.float64):
     res = torch.ones(size, device=device, dtype=dtype)
@@ -30,7 +31,6 @@ class TorchTensorSplit(SplitType):
 
     def split(self, start, end, value):
         if isinstance(value, np.ndarray) or isinstance(value, torch.Tensor):
-            # import pdb; pdb.set_trace()
             shape = value.shape
             ndims = len(value.shape)
             if ndims == 1:
