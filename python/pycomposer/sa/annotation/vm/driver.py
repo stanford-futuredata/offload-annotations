@@ -69,14 +69,13 @@ def _run_program(
     global _PROGRAM
     global _BATCH_SIZE
 
-    # logging.debug("Thread", worker_id, "range:", index_range, "batch size:", _BATCH_SIZE)
-    from ..backend import Backend
-    print("Thread {} range: {} batch size: {} instruction: {} replace_original: {}".format(
+    logging.debug("Thread {} range: {} batch size: {} instruction: {} replace_original: {}".format(
         worker_id, index_range, batch_size, initial_i, replace_original))
     start = time.time()
 
     just_parallel = False
     if just_parallel:
+        from ..backend import Backend
         _BATCH_SIZE = { Backend.CPU: index_range[1] - index_range[0] }
         piece_start = index_range[0]
         piece_end = index_range[1]
@@ -144,7 +143,7 @@ def _run_program(
 
     merge_end = time.time()
 
-    print("Thread {}\t processing: {:.3f}\t merge: {:.3f}\t total:{:.3f}\t".format(
+    logging.debug("Thread {}\t processing: {:.3f}\t merge: {:.3f}\t total:{:.3f}\t".format(
             worker_id,
             process_end - start,
             merge_end - process_end,
@@ -267,14 +266,12 @@ class Driver:
             pool = multiprocessing.Pool(self.workers)
 
             # TODO Just use Pool.imap instead?
-            print('check 1')
             partial_results = []
             for (i, index_range) in enumerate(ranges):
                 partial_results.append(pool.apply_async(_worker, args=(i, index_range, max_batch_size)))
             for i in range(len(partial_results)):
                 partial_results[i] = partial_results[i].get()
 
-            print('check 2')
             result = defaultdict(list)
             start = time.time()
             if self.workers > 1:
@@ -294,9 +291,8 @@ class Driver:
             else:
                 result = partial_results[0]
 
-            print('check 3')
             end = time.time()
-            print("Final merge time:", end - start)
+            logging.debug("Final merge time:", end - start)
             pool.terminate()
 
         _VALUES = None

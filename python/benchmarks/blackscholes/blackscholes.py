@@ -22,7 +22,7 @@ def get_data(size, composer):
 
     return price, strike, t, rate, vol
 
-def bs(price, strike, t, rate, vol, composer, threads, piece_size):
+def bs(price, strike, t, rate, vol, composer, threads, gpu_piece_size, cpu_piece_size):
 
     if composer:
         import sa.annotated.numpy as np
@@ -123,7 +123,11 @@ def bs(price, strike, t, rate, vol, composer, threads, piece_size):
     print("Build time:", end - start)
 
     if composer:
-        np.evaluate(workers=threads, batch_size=piece_size)
+        batch_size = {
+            Backend.CPU: cpu_piece_size,
+            Backend.GPU: gpu_piece_size,
+        }
+        np.evaluate(workers=threads, batch_size=batch_size)
 
     end = time.time()
     print("Runtime:", end - start)
@@ -135,14 +139,16 @@ def run():
         description="Chained Adds pipelining test on a single thread."
     )
     parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
-    parser.add_argument('-p', "--piece_size", type=int, default=16384, help="Size of each piece.")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
     parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
     parser.add_argument('-m', "--mode", type=str, required=False, help="Mode (composer|naive)")
     args = parser.parse_args()
 
     size = (1 << args.size)
-    piece_size = args.piece_size
+    gpu_piece_size = 1<<args.gpu_piece_size
+    cpu_piece_size = 1<<args.cpu_piece_size
     threads = args.threads
     loglevel = args.verbosity
     mode = args.mode.strip().lower()
@@ -150,7 +156,8 @@ def run():
     assert threads >= 1
 
     print("Size:", size)
-    print("Piece Size:", piece_size)
+    print("GPU Piece Size:", gpu_piece_size)
+    print("CPU Piece Size:", cpu_piece_size)
     print("Threads:", threads)
     print("Log Level", loglevel)
     print("Mode:", mode)
@@ -167,7 +174,7 @@ def run():
     a, b, c, d, e = get_data(size, composer)
     print("done.")
 
-    call, put = bs(a, b, c, d, e, composer, threads, piece_size)
+    call, put = bs(a, b, c, d, e, composer, threads, gpu_piece_size, cpu_piece_size)
     print("Call:", call)
     print("Put:", put)
 

@@ -180,8 +180,8 @@ def run():
         description="Chained Adds pipelining test on a single thread."
     )
     parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
-    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=16384, help="Size of each CPU piece.")
-    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=524288, help="Size of each GPU piece.")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
     parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
     parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer)")
@@ -190,8 +190,8 @@ def run():
     args = parser.parse_args()
 
     size = (1 << args.size)
-    gpu_piece_size = args.gpu_piece_size
-    cpu_piece_size = args.cpu_piece_size
+    gpu_piece_size = 1<<args.gpu_piece_size
+    cpu_piece_size = 1<<args.cpu_piece_size
     threads = args.threads
     loglevel = args.verbosity
     mode = args.mode.strip().lower()
