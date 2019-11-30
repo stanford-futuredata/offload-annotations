@@ -81,23 +81,23 @@ _ret = NdArraySplit()
 
 
 # Binary ops.
-add         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.add)(np.add)
-subtract    = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.sub)(np.subtract)
-multiply    = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.mul)(np.multiply)
-divide      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.div)(np.divide)
+add         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False, gpu_func=torch.add)(np.add)
+subtract    = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False, gpu_func=torch.sub)(np.subtract)
+multiply    = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False, gpu_func=torch.mul)(np.multiply)
+divide      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False, gpu_func=torch.div)(np.divide)
 power       = sa(dc(_args), dc(_kwargs), dc(_ret))(np.power)
 
 _args = (NdArraySplit(),)
 
 # Unary ops.
 log         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.log)
-log2        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.log2)(np.log2)
-exp         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.exp)(np.exp)
+log2        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False, gpu_func=torch.log2)(np.log2)
+exp         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False, gpu_func=torch.exp)(np.exp)
 sin         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.sin)
 arcsin      = sa(dc(_args), dc(_kwargs), dc(_ret))(np.arcsin)
 cos         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.cos)
-sqrt        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.sqrt)(np.sqrt)
-erf         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.erf)(ss.erf)
+sqrt        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False, gpu_func=torch.sqrt)(np.sqrt)
+erf         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False, gpu_func=torch.erf)(ss.erf)
 
 # addreduce = np.add.reduce
 addreduce = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add.reduce)

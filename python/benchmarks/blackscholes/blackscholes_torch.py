@@ -21,7 +21,8 @@ def get_data(size, mode, allocation, compute):
         import torch
 
     # Allocate input arrays on the given backend for allocation
-    device = torch.device(allocation)
+    # device = torch.device(allocation)
+    device = torch.device('cpu')
     dtype = torch.float64
     price = torch.ones(size, device=device, dtype=dtype) * 4.0
     strike = torch.ones(size, device=device, dtype=dtype) * 4.0
@@ -30,7 +31,8 @@ def get_data(size, mode, allocation, compute):
     vol = torch.ones(size, device=device, dtype=dtype) * 4.0
 
     # Allocate intermediate and output arrays on the given backend for compute
-    device = torch.device(compute)
+    # device = torch.device(compute)
+    device = torch.device('cuda')
     tmp = torch.ones(size, device=device, dtype=dtype)
     vol_sqrt = torch.ones(size, device=device, dtype=dtype)
     rsig = torch.ones(size, device=device, dtype=dtype)
@@ -38,6 +40,7 @@ def get_data(size, mode, allocation, compute):
     d2 = torch.ones(size, device=device, dtype=dtype)
 
     # Outputs
+    device = torch.device('cuda')
     call = torch.ones(size, device=device, dtype=dtype)
     put = torch.ones(size, device=device, dtype=dtype)
 
@@ -76,6 +79,13 @@ def bs(
     #     print('Transfer H2D:', time.time() - start)
     # elif price.device.type == 'cuda' and compute == 'cpu':
     #     raise ValueError
+
+    price = price.to(torch.device('cuda'))
+    strike = strike.to(torch.device('cuda'))
+    t = t.to(torch.device('cuda'))
+    rate = rate.to(torch.device('cuda'))
+    vol = vol.to(torch.device('cuda'))
+    print('Transfer H2D:', time.time() - start)
 
     # Computation
     torch.mul(vol, vol, out=rsig)
@@ -150,7 +160,7 @@ def bs(
         }
         torch.evaluate(workers=threads, batch_size=batch_size)
     # if compute == 'cuda':
-    #     torch.cuda.synchronize()
+    torch.cuda.synchronize()
     # print('Evaluation:', time.time() - start)
 
     # # Transfer output arrays if necessary
@@ -158,6 +168,10 @@ def bs(
     #     call = call.to(torch.device('cpu'))
     #     put = put.to(torch.device('cpu'))
     #     print('Transfer D2H:', time.time() - start)
+
+    call = call.to(torch.device('cpu'))
+    put = put.to(torch.device('cpu'))
+    print('Transfer D2H:', time.time() - start)
 
     return call, put
 
