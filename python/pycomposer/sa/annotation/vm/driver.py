@@ -38,7 +38,7 @@ def _worker(worker_id, index_range, max_batch_size):
 
     """
     context = defaultdict(list)
-    _run_program(worker_id, index_range, context, max_batch_size, worker_id)
+    _run_program(worker_id, index_range, context, max_batch_size, worker_id, replace_original=True)
     return context
 
 def _run_program(
@@ -182,12 +182,12 @@ def _merge(program, context, replace_original):
                 if inst.ty.mutable:
                     from .. import dag
                     if isinstance(_VALUES[inst.target], dag.Operation) or not replace_original:
-                        context[inst.target] = inst.ty.combine(context[inst.target])
+                        context[inst.target] = [inst.ty.combine(context[inst.target])]
                     else:
                         # Since we operated on a copy of the original data, we need to
                         # replace the original pointer with the new data in combine()
                         original = _VALUES[inst.target]
-                        context[inst.target] = inst.ty.combine(context[inst.target], original=original)
+                        context[inst.target] = [inst.ty.combine(context[inst.target], original=original)]
                 else:
                     # No need to merge values and send the result back: it's immutable,
                     # and should not have changed on the master process.
