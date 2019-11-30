@@ -1,6 +1,7 @@
 
 from abc import ABC, abstractmethod
 import types
+import time
 
 from .driver import STOP_ITERATION
 from ..backend import Backend
@@ -49,10 +50,29 @@ class Split(Instruction):
         self.splitter = None
         self.backend = backend
         self.batch_size = batch_size
+        self.index_to_split = None
 
     def __str__(self):
         return "({}:{}) v{} = split {}:{}".format(
             self.backend.value, self.batch_size, self.target, self.target, self.ty)
+
+    def get_index_to_split(self, context):
+        # The index of the value to split in the target context is the last
+        # value with more elements than the batch size.
+        if self.index_to_split is None:
+            self.index_to_split = 0
+            for i in reversed(range(len(context[self.target]))):
+                num_elements = self.ty.elements(context[self.target][i])
+                if num_elements is None:
+                    break  # scalar
+                if num_elements > self.batch_size:
+                    self.index_to_split = i
+                    break
+        return self.index_to_split
+
+    def clear_index_to_split(self, context):
+        context[self.target].pop(self.index_to_split)
+        self.index_to_split = None
 
     def evaluate(self, thread, batch_index, values, context, last_batch):
         """ Returns values from the split. """
@@ -61,18 +81,7 @@ class Split(Instruction):
         if len(context[self.target]) == 0:
             context[self.target].append(values[self.target])
 
-        # The index of the value to split in the target context is the last
-        # value with more elements than the batch size.
-        index_to_split = 0
-        for i in reversed(range(len(context[self.target]))):
-            num_elements = self.ty.elements(context[self.target][i])
-            if num_elements is None:
-                break  # scalar
-            if num_elements > self.batch_size:
-                index_to_split = i
-                end = min(end, num_elements)
-                break
-
+        index_to_split = self.get_index_to_split(context)
         if self.splitter is None:
             # First time - check if the splitter is actually a generator.
             result = self.ty.split(start, end, context[self.target][index_to_split])
@@ -88,7 +97,7 @@ class Split(Instruction):
                 result = self.splitter(start, end, context[self.target][index_to_split])
 
         if last_batch:
-            context[self.target].pop(index_to_split)
+            self.clear_index_to_split(context)
         if isinstance(result, str) and result == STOP_ITERATION:
             return STOP_ITERATION
 
