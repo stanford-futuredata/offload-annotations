@@ -22,7 +22,7 @@ class TorchTensorSplit(SplitType):
         self.supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):
-        if original is not None:
+        if self.merge and original is not None:
             assert isinstance(original, torch.Tensor)
             original.data = torch.cat(values)
             return original
