@@ -87,6 +87,8 @@ def _run_program(
     early_exit_i = set()
     batch_index = 0
     from .instruction import To
+    from collections import defaultdict
+    profiler = defaultdict(lambda: 0.0)
     while True:
         piece_start = index_range[0] + batch_size * batch_index
         piece_end = min(piece_start + batch_size, index_range[1])
@@ -109,7 +111,11 @@ def _run_program(
             inst = _PROGRAM.insts[i]
             if inst.batch_size == batch_size or isinstance(inst, To):
                 # print('EVALUATE ' + str(inst))
+                inst_start = time.time()
                 result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
+                inst_end = time.time()
+                inst_time = inst_end - inst_start
+                profiler[type(inst)] += inst_time
                 i += 1
                 if isinstance(result, str) and result == STOP_ITERATION:
                     break
@@ -131,6 +137,8 @@ def _run_program(
         batch_index += 1
 
     process_end = time.time()
+    for x,y in profiler.items():
+        print('{}\t{}'.format(y,x))
 
     # Free non-shared memory on this worker.
     # Replace the data in the original pointer if we are the top level thread.
