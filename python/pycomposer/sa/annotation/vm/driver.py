@@ -68,7 +68,7 @@ def _run_program(
     global _PROGRAM
     global _BATCH_SIZE
 
-    logging.debug("Thread {} range: {} batch size: {} instruction: {} top_level: {}".format(
+    print("Thread {} range: {} batch size: {} instruction: {} top_level: {}".format(
         worker_id, index_range, batch_size, initial_i, top_level))
     start = time.time()
 
@@ -140,7 +140,7 @@ def _run_program(
 
     merge_end = time.time()
 
-    logging.debug("Thread {}\t processing: {:.3f}\t merge: {:.3f}\t total:{:.3f}\t".format(
+    print("Thread {}\t processing: {:.3f}\t merge: {:.3f}\t total:{:.3f}\t".format(
             worker_id,
             process_end - start,
             merge_end - process_end,
@@ -289,7 +289,7 @@ class Driver:
                 result = partial_results[0]
 
             end = time.time()
-            logging.debug("Final merge time:", end - start)
+            print("Final merge time:", end - start)
             pool.terminate()
 
         _VALUES = None

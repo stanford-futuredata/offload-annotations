@@ -541,7 +541,7 @@ def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"]
 
     vms = dag.to_vm(batch_size)
     for _, vm in vms:
-        # print(vm.program)
+        print(vm.program)
         # print()
         driver = Driver(workers=workers, batch_size=batch_size, optimize_single=True, profile=profile)
         results = driver.run(vm.program, vm.backends, vm.values)

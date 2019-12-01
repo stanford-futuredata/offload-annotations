@@ -169,47 +169,47 @@ def gbsize(grouped):
 def filter(df, column, target):
     return df[df[column] > target]
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
 def divide(series, value):
     result = (series / value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
 def multiply(series, value):
     result = (series * value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
 def subtract(series, value):
     result = (series - value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
 def add(series, value):
     result = (series + value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
 def equal(series, value):
     result = (series == value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
 def greater_than(series, value):
     result = (series >= value)
     return result
 
-@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=True)
+@sa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit(), gpu=False)
 def less_than(series, value):
     result = (series < value)
     return result
 
-@sa((DataFrameSplit(),), {}, SumSplit(), gpu=True)
+@sa((DataFrameSplit(),), {}, SumSplit(), gpu=False)
 def pandasum(series):
     result = series.sum()
     return result
 
-@sa((DataFrameSplit(),), {}, UniqueSplit(), gpu=True)
+@sa((DataFrameSplit(),), {}, UniqueSplit(), gpu=False)
 def unique(series):
     result = series.unique()
     return result
@@ -224,12 +224,12 @@ def gpu_mask(series, cond, val):
     clone.loc[cond] = val
     return clone
 
-@sa((DataFrameSplit(), DataFrameSplit(), Broadcast()), {}, DataFrameSplit(), gpu=True, gpu_func=gpu_mask)
+@sa((DataFrameSplit(), DataFrameSplit(), Broadcast()), {}, DataFrameSplit(), gpu=False, gpu_func=gpu_mask)
 def mask(series, cond, val):
     result = series.mask(cond, val)
     return result
 
-@sa((DataFrameSplit(), Broadcast(), Broadcast()), {}, DataFrameSplit(), gpu=True)
+@sa((DataFrameSplit(), Broadcast(), Broadcast()), {}, DataFrameSplit(), gpu=False)
 def series_str_slice(series, start, end):
     result = series.str.slice(start, end)
     return result
