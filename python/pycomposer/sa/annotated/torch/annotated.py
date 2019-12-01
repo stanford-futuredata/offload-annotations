@@ -86,15 +86,15 @@ _kwargs = { 'out' : mut(TorchTensorSplit()), 'axis': Broadcast() }
 _ret = TorchTensorSplit()
 
 # Binary ops.
-add      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.add)
-sub      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.sub)
-mul      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.mul)
-div      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.div)
+add      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.add)
+sub      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.sub)
+mul      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.mul)
+div      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.div)
 
 _args = (TorchTensorSplit(),)
 
 # Unary ops.
-log2     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.log2)
-exp      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.exp)
-sqrt     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.sqrt)
-erf      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.erf)
+log2     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.log2)
+exp      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.exp)
+sqrt     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.sqrt)
+erf      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.erf)

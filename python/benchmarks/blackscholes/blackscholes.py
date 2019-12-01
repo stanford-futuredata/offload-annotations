@@ -8,6 +8,8 @@ import math
 import scipy.special as ss
 import time
 
+from sa.annotation import Backend
+
 def get_data(size, composer):
     if composer:
         import sa.annotated.numpy as np

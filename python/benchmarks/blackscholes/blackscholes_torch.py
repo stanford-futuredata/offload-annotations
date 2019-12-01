@@ -32,7 +32,7 @@ def get_data(size, mode, allocation, compute):
 
     # Allocate intermediate and output arrays on the given backend for compute
     # device = torch.device(compute)
-    device = torch.device('cuda')
+    device = torch.device('cpu')
     tmp = torch.ones(size, device=device, dtype=dtype)
     vol_sqrt = torch.ones(size, device=device, dtype=dtype)
     rsig = torch.ones(size, device=device, dtype=dtype)
@@ -40,7 +40,7 @@ def get_data(size, mode, allocation, compute):
     d2 = torch.ones(size, device=device, dtype=dtype)
 
     # Outputs
-    device = torch.device('cuda')
+    device = torch.device('cpu')
     call = torch.ones(size, device=device, dtype=dtype)
     put = torch.ones(size, device=device, dtype=dtype)
 
@@ -80,12 +80,12 @@ def bs(
     # elif price.device.type == 'cuda' and compute == 'cpu':
     #     raise ValueError
 
-    price = price.to(torch.device('cuda'))
-    strike = strike.to(torch.device('cuda'))
-    t = t.to(torch.device('cuda'))
-    rate = rate.to(torch.device('cuda'))
-    vol = vol.to(torch.device('cuda'))
-    print('Transfer H2D:', time.time() - start)
+    # price = price.to(torch.device('cuda'))
+    # strike = strike.to(torch.device('cuda'))
+    # t = t.to(torch.device('cuda'))
+    # rate = rate.to(torch.device('cuda'))
+    # vol = vol.to(torch.device('cuda'))
+    # print('Transfer H2D:', time.time() - start)
 
     # Computation
     torch.mul(vol, vol, out=rsig)
@@ -169,9 +169,9 @@ def bs(
     #     put = put.to(torch.device('cpu'))
     #     print('Transfer D2H:', time.time() - start)
 
-    call = call.to(torch.device('cpu'))
-    put = put.to(torch.device('cpu'))
-    print('Transfer D2H:', time.time() - start)
+    # call = call.to(torch.device('cpu'))
+    # put = put.to(torch.device('cpu'))
+    # print('Transfer D2H:', time.time() - start)
 
     return call, put
 
