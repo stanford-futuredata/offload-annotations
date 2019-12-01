@@ -86,6 +86,7 @@ def _run_program(
 
     early_exit_i = set()
     batch_index = 0
+    from .instruction import To
     while True:
         piece_start = index_range[0] + batch_size * batch_index
         piece_end = min(piece_start + batch_size, index_range[1])
@@ -106,8 +107,7 @@ def _run_program(
         i = initial_i
         while i < len(_PROGRAM.insts):
             inst = _PROGRAM.insts[i]
-            from .instruction import To
-            if isinstance(inst, To) or inst.batch_size == batch_size:
+            if inst.batch_size == batch_size or isinstance(inst, To):
                 # print('EVALUATE ' + str(inst))
                 result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
                 i += 1
