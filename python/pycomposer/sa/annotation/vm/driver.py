@@ -38,7 +38,7 @@ def _worker(worker_id, index_range, max_batch_size):
 
     """
     context = defaultdict(list)
-    _run_program(worker_id, index_range, context, max_batch_size, worker_id, top_level=True)
+    _run_program(worker_id, index_range, context, max_batch_size, top_level=True)
     return context
 
 def _run_program(
@@ -46,7 +46,6 @@ def _run_program(
     index_range,
     context,
     batch_size: int,
-    batch_index: int = 0,
     initial_i: int = 0,
     top_level: bool = False,
 ):
@@ -86,9 +85,12 @@ def _run_program(
     _PROGRAM.set_range_end(index_range[1])
 
     early_exit_i = set()
-    batch_subindex = 0
-    while piece_start < index_range[1]:
-        last_batch = piece_start + batch_size >= index_range[1]
+    batch_index = 0
+    while True:
+        piece_start = index_range[0] + batch_size * batch_index
+        piece_end = min(piece_start + batch_size, index_range[1])
+        if piece_start >= index_range[1]:
+            break
 
         # There are three possible scenarios for executing a program instruction
         # with regards to batch size.
@@ -107,7 +109,7 @@ def _run_program(
             from .instruction import To
             if isinstance(inst, To) or inst.batch_size == batch_size:
                 # print('EVALUATE ' + str(inst))
-                result = inst.evaluate(worker_id, index_range, batch_subindex, _VALUES, context, last_batch)
+                result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
                 i += 1
                 if isinstance(result, str) and result == STOP_ITERATION:
                     break
@@ -118,7 +120,6 @@ def _run_program(
                     index_subrange,
                     context,
                     inst.batch_size,
-                    batch_subindex,
                     initial_i=i,
                     top_level=False,
                 )
@@ -127,13 +128,7 @@ def _run_program(
                 early_exit_i.add(i)
                 break
 
-        piece_start += batch_size
-        piece_end += batch_size
-        batch_subindex += 1
-
-        # Clamp to the range assigned to this thread.
-        if piece_end > index_range[1]:
-            piece_end = index_range[1]
+        batch_index += 1
 
     process_end = time.time()
 
