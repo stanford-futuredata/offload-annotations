@@ -38,7 +38,7 @@ def _worker(worker_id, index_range, max_batch_size):
 
     """
     context = defaultdict(list)
-    _run_program(worker_id, index_range, context, max_batch_size, worker_id, replace_original=True)
+    _run_program(worker_id, index_range, context, max_batch_size, worker_id, top_level=True)
     return context
 
 def _run_program(
@@ -48,7 +48,7 @@ def _run_program(
     batch_size: int,
     batch_index: int = 0,
     initial_i: int = 0,
-    replace_original: bool = False,
+    top_level: bool = False,
 ):
     """Runs the global program to completion and return partial values.
 
@@ -60,7 +60,7 @@ def _run_program(
     batch_size : the current batch size of the program.
     batch_index : the index of the current split batch.
     initial_i : the index of the instruction to start execution at.
-    replace_original: boolean
+    top_level: boolean
         Whether to replace the object at a value's original pointer with the
         merged object. Typically if the merge that occurs at the end is a
         top-level merge.
@@ -69,8 +69,8 @@ def _run_program(
     global _PROGRAM
     global _BATCH_SIZE
 
-    logging.debug("Thread {} range: {} batch size: {} instruction: {} replace_original: {}".format(
-        worker_id, index_range, batch_size, initial_i, replace_original))
+    logging.debug("Thread {} range: {} batch size: {} instruction: {} top_level: {}".format(
+        worker_id, index_range, batch_size, initial_i, top_level))
     start = time.time()
 
     just_parallel = False
@@ -107,7 +107,7 @@ def _run_program(
             from .instruction import To
             if isinstance(inst, To) or inst.batch_size == batch_size:
                 # print('EVALUATE ' + str(inst))
-                result = inst.evaluate(worker_id, batch_index, _VALUES, context, last_batch)
+                result = inst.evaluate(worker_id, index_range, batch_subindex, _VALUES, context, last_batch)
                 i += 1
                 if isinstance(result, str) and result == STOP_ITERATION:
                     break
@@ -120,6 +120,7 @@ def _run_program(
                     inst.batch_size,
                     batch_subindex,
                     initial_i=i,
+                    top_level=False,
                 )
                 continue
             else:
@@ -128,6 +129,7 @@ def _run_program(
 
         piece_start += batch_size
         piece_end += batch_size
+        batch_subindex += 1
 
         # Clamp to the range assigned to this thread.
         if piece_end > index_range[1]:
@@ -138,8 +140,8 @@ def _run_program(
     # Free non-shared memory on this worker.
     # Replace the data in the original pointer if we are the top level thread.
     # Merge the data if we are the top level thread or are returning execution to the top level.
-    if replace_original:
-        _merge(_PROGRAM, context, replace_original=replace_original)
+    if top_level:
+        _merge(_PROGRAM, context, top_level=top_level)
 
     merge_end = time.time()
 
@@ -155,7 +157,7 @@ def _run_program(
         assert len(early_exit_i) == 1
         return early_exit_i.pop()
 
-def _merge(program, context, replace_original):
+def _merge(program, context, top_level):
     """
     Merge a context that was generated with the given program.
 
@@ -164,7 +166,7 @@ def _merge(program, context, replace_original):
 
     program : The executed program instructions.
     context : The context of program values at the end of the execution.
-    replace_original : boolean
+    top_level : boolean
         Whether to replace the object at a value's original pointer with the
         merged object. Necessary if the object wasn't operated on shared memory.
     """
@@ -180,7 +182,7 @@ def _merge(program, context, replace_original):
             if inst.ty is not None:
                 if inst.ty.mutable:
                     from .. import dag
-                    if isinstance(_VALUES[inst.target], dag.Operation) or not replace_original:
+                    if isinstance(_VALUES[inst.target], dag.Operation) or not top_level:
                         context[inst.target] = [inst.ty.combine(context[inst.target])]
                     else:
                         # Since we operated on a copy of the original data, we need to
@@ -248,12 +250,12 @@ class Driver:
         max_batch_size = max(_BATCH_SIZE.values())
         result = defaultdict(list)
         if self.workers == 1 and self.optimize_single:
-            _run_program(0, ranges[0], result, max_batch_size, replace_original=True)
+            _run_program(0, ranges[0], result, max_batch_size, top_level=True)
         elif self.workers > 1 and ranges[1] is None:
             # We should really dynamically adjust the number of processes
             # (i.e., self.workers should be the maximum allowed workers), but
             # for now its 1 or all to make evaluation easier.
-            _run_program(0, ranges[0], result, max_batch_size, replace_original=True)
+            _run_program(0, ranges[0], result, max_batch_size, top_level=True)
         else:
             # This needs to go after the assignment to _VALUES, so
             # the process snapshot sees the updated variable. The advantage of
@@ -282,7 +284,7 @@ class Driver:
                             if value is not None:
                                 result[key].extend(value)
 
-                _merge(program, result, replace_original=True)
+                _merge(program, result, top_level=True)
 
                 # Reinstate non-mutable values, broadcast values, etc.
                 for value_key in _VALUES:

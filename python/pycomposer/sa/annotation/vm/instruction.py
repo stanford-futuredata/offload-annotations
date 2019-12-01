@@ -12,7 +12,7 @@ class Instruction(ABC):
     """
 
     @abstractmethod
-    def evaluate(self, thread, batch_index, values, context, last_batch):
+    def evaluate(self, thread, index_range, batch_index, values, context, last_batch):
         """
         Evaluates an instruction.
 
@@ -20,6 +20,7 @@ class Instruction(ABC):
         ----------
 
         thread : the thread that is  currently executing
+        index_range : the index range of the executing program.
         batch_index : the index of the current split batch.
         values : a global value map holding the inputs.
         context : map holding execution state (arg ID -> value).
@@ -74,12 +75,12 @@ class Split(Instruction):
         context[self.target].pop(self.index_to_split)
         self.index_to_split = None
 
-    def evaluate(self, thread, batch_index, values, context, last_batch):
+    def evaluate(self, thread, index_range, batch_index, values, context, last_batch):
         """ Returns values from the split. """
-        start = self.batch_size * batch_index
+        start = 0 + self.batch_size * batch_index
         end = start + self.batch_size
         if len(context[self.target]) == 0:
-            context[self.target].append(values[self.target])
+            context[self.target].append(self.ty.split(index_range[0], index_range[1], values[self.target]))
 
         index_to_split = self.get_index_to_split(context)
         num_elements = self.ty.elements(context[self.target][index_to_split])
@@ -132,7 +133,7 @@ class Merge(Instruction):
         return "({}:{}) v{} = merge {}:{}".format(
             self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
-    def evaluate(self, _thread, _batch_index, _values, context, _last_batch):
+    def evaluate(self, _thread, _index_range, _batch_index, _values, context, _last_batch):
         # The indices of the values to merge in the target context are the last
         # values that collectively have <= the number of elements in the batch size.
         index_to_merge = None
@@ -184,7 +185,7 @@ class Call(Instruction):
     def get_kwargs(self, context):
         return dict([ (name, context[target][-1]) for (name, target) in self.kwargs.items() ])
 
-    def evaluate(self, _thread, _batch_index, _values, context, _last_batch):
+    def evaluate(self, _thread, _index_range, _batch_index, _values, context, _last_batch):
         """
         Evaluates a function call by gathering arguments and calling the
         function.
@@ -209,7 +210,7 @@ class To(Instruction):
         return "({}) v{} = to_{}:{}".format(
             self.backend.value, self.target, self.backend.value, str(self.ty))
 
-    def evaluate(self, _thread, _batch_index, _values, context, _last_batch):
+    def evaluate(self, _thread, _index_range, _batch_index, _values, context, _last_batch):
         old_value = context[self.target][-1]
         new_value = self.ty.to(old_value, self.backend)
         context[self.target][-1] = new_value
