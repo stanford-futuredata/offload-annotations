@@ -90,8 +90,8 @@ def _run_program(
     from collections import defaultdict
     profiler = defaultdict(lambda: 0.0)
     while True:
-        piece_start = index_range[0] + batch_size * batch_index
-        piece_end = min(piece_start + batch_size, index_range[1])
+        piece_start = batch_size * batch_index
+        piece_end = min(piece_start + batch_size, index_range[1] - index_range[0])
         if piece_start >= index_range[1]:
             break
 
@@ -112,7 +112,7 @@ def _run_program(
             if inst.batch_size == batch_size or isinstance(inst, To):
                 # print('EVALUATE ' + str(inst))
                 inst_start = time.time()
-                result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
+                result = inst.evaluate(worker_id, index_range, piece_start, piece_end, _VALUES, context)
                 inst_end = time.time()
                 inst_time = inst_end - inst_start
                 profiler[type(inst)] += inst_time
@@ -120,7 +120,7 @@ def _run_program(
                 if isinstance(result, str) and result == STOP_ITERATION:
                     break
             elif batch_size > inst.batch_size:
-                index_subrange = (piece_start, piece_end)
+                index_subrange = (piece_start + index_range[0], piece_end + index_range[0])
                 i = _run_program(
                     worker_id,
                     index_subrange,
