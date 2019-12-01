@@ -107,7 +107,7 @@ def _run_program(
             from .instruction import To
             if isinstance(inst, To) or inst.batch_size == batch_size:
                 # print('EVALUATE ' + str(inst))
-                result = inst.evaluate(worker_id, batch_subindex, _VALUES, context, last_batch)
+                result = inst.evaluate(worker_id, batch_index, _VALUES, context, last_batch)
                 i += 1
                 if isinstance(result, str) and result == STOP_ITERATION:
                     break

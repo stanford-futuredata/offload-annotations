@@ -82,6 +82,9 @@ class Split(Instruction):
             context[self.target].append(values[self.target])
 
         index_to_split = self.get_index_to_split(context)
+        num_elements = self.ty.elements(context[self.target][index_to_split])
+        if num_elements is not None:
+            end = min(end, num_elements)
         if self.splitter is None:
             # First time - check if the splitter is actually a generator.
             result = self.ty.split(start, end, context[self.target][index_to_split])
