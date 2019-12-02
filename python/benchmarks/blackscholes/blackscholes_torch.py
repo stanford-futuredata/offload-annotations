@@ -160,7 +160,7 @@ def bs(
         }
         torch.evaluate(workers=threads, batch_size=batch_size)
     # if compute == 'cuda':
-    torch.cuda.synchronize()
+    #   torch.cuda.synchronize()
     # print('Evaluation:', time.time() - start)
 
     # # Transfer output arrays if necessary
