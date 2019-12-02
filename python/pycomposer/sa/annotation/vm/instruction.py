@@ -63,12 +63,13 @@ class Split(Instruction):
         # value with more elements than the batch size.
         if self.index_to_split is None:
             self.index_to_split = 0
-            for i in reversed(range(len(context[self.target]))):
+            for i in range(len(context[self.target])):
                 num_elements = self.ty.elements(context[self.target][i])
                 if num_elements is None:
                     break  # scalar
                 if num_elements > self.batch_size:
                     self.index_to_split = i
+                else:
                     break
         return self.index_to_split
 
