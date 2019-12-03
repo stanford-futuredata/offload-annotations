@@ -41,6 +41,56 @@ def _worker(worker_id, index_range, max_batch_size):
     _run_program(worker_id, index_range, context, max_batch_size, top_level=True)
     return context
 
+def _run_program_piece(
+    i,
+    piece_start,
+    piece_end,
+    worker_id,
+    index_range,
+    batch_index,
+    batch_size,
+    context,
+):
+    """
+    There are three possible scenarios for executing a program instruction
+    with regards to batch size.
+
+    (1) The batch size stays the same: Execute instructions until the program ends or the
+        batch size changes.
+    (2) The batch size decreases: Pipeline the program within the current index range on
+        the smaller index subrange until the batch size increases again. Then resume at
+        that instruction at the current batch size.
+    (3) The batch size increase: Exit early.
+
+    Repeat the pipeline for each index subrange.
+
+    Returns
+    -------
+    The index of the next instruction to execute.
+    """
+    from .instruction import To
+    while i < len(_PROGRAM.insts):
+        inst = _PROGRAM.insts[i]
+        if isinstance(inst, To) or inst.batch_size == batch_size:
+            # print('EVALUATE ' + str(inst))
+            result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
+            i += 1
+            if isinstance(result, str) and result == STOP_ITERATION:
+                break
+        elif batch_size > inst.batch_size:
+            index_subrange = (piece_start, piece_end)
+            i = _run_program(
+                worker_id,
+                index_subrange,
+                context,
+                inst.batch_size,
+                initial_i=i,
+                top_level=False,
+            )
+        else:
+            break
+    return i
+
 def _run_program(
     worker_id,
     index_range,
@@ -84,49 +134,25 @@ def _run_program(
 
     _PROGRAM.set_range_end(index_range[1])
 
-    early_exit_i = set()
+    exit_i = set()
     batch_index = 0
-    from .instruction import To
     while True:
         piece_start = index_range[0] + batch_size * batch_index
         piece_end = min(piece_start + batch_size, index_range[1])
         if piece_start >= index_range[1]:
             break
 
-        # There are three possible scenarios for executing a program instruction
-        # with regards to batch size.
-        #
-        # (1) The batch size stays the same: Execute instructions until the program ends or the
-        #     batch size changes.
-        # (2) The batch size decreases: Pipeline the program within the current index range on
-        #     the smaller index subrange until the batch size increases again. Then resume at
-        #     that instruction at the current batch size.
-        # (3) The batch size increase: Exit early.
-        #
-        # Repeat the pipeline for each index subrange.
-        i = initial_i
-        while i < len(_PROGRAM.insts):
-            inst = _PROGRAM.insts[i]
-            if inst.batch_size == batch_size or isinstance(inst, To):
-                # print('EVALUATE ' + str(inst))
-                result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
-                i += 1
-                if isinstance(result, str) and result == STOP_ITERATION:
-                    break
-            elif batch_size > inst.batch_size:
-                index_subrange = (piece_start, piece_end)
-                i = _run_program(
-                    worker_id,
-                    index_subrange,
-                    context,
-                    inst.batch_size,
-                    initial_i=i,
-                    top_level=False,
-                )
-                continue
-            else:
-                early_exit_i.add(i)
-                break
+        i = _run_program_piece(
+            initial_i,
+            piece_start,
+            piece_end,
+            worker_id,
+            index_range,
+            batch_index,
+            batch_size,
+            context,
+        )
+        exit_i.add(i)
 
         batch_index += 1
 
@@ -146,11 +172,8 @@ def _run_program(
             merge_end - process_end,
             merge_end - start))
 
-    if len(early_exit_i) == 0:
-        return i
-    else:
-        assert len(early_exit_i) == 1
-        return early_exit_i.pop()
+    assert len(exit_i) == 1
+    return exit_i.pop()
 
 def _merge(program, context, top_level):
     """
