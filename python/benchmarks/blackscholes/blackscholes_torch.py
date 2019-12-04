@@ -21,8 +21,7 @@ def get_data(size, mode, allocation, compute):
         import torch
 
     # Allocate input arrays on the given backend for allocation
-    # device = torch.device(allocation)
-    device = torch.device('cpu')
+    device = torch.device(allocation)
     dtype = torch.float64
     price = torch.ones(size, device=device, dtype=dtype) * 4.0
     strike = torch.ones(size, device=device, dtype=dtype) * 4.0
@@ -31,8 +30,7 @@ def get_data(size, mode, allocation, compute):
     vol = torch.ones(size, device=device, dtype=dtype) * 4.0
 
     # Allocate intermediate and output arrays on the given backend for compute
-    # device = torch.device(compute)
-    device = torch.device('cpu')
+    device = torch.device(compute)
     tmp = torch.ones(size, device=device, dtype=dtype)
     vol_sqrt = torch.ones(size, device=device, dtype=dtype)
     rsig = torch.ones(size, device=device, dtype=dtype)
@@ -40,11 +38,64 @@ def get_data(size, mode, allocation, compute):
     d2 = torch.ones(size, device=device, dtype=dtype)
 
     # Outputs
-    device = torch.device('cpu')
     call = torch.ones(size, device=device, dtype=dtype)
     put = torch.ones(size, device=device, dtype=dtype)
 
+    start = time.time()
+    price = price.pin_memory()
+    strike = strike.pin_memory()
+    t = t.pin_memory()
+    rate = rate.pin_memory()
+    vol = vol.pin_memory()
+    print('Pin memory time:', time.time() - start)
+
     return price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
+
+def transfer_to(price, strike, t, rate, vol, mode, compute):
+    if mode == Mode.COMPOSER:
+        import sa.annotated.torch as torch
+    else:
+        import torch
+
+    # Transfer input arrays if necessary
+    start = time.time()
+    def f(x): return x.to(torch.device('cuda'), non_blocking=True)
+    if price.device.type == 'cpu' and compute == 'cuda':
+        price = f(price)
+        strike = f(strike)
+        t = f(t)
+        rate = f(rate)
+        vol = f(vol)
+        print('Transfer H2D:', time.time() - start)
+    elif price.device.type == 'cuda' and compute == 'cpu':
+        raise ValueError
+    return (price, strike, t, rate, vol)
+
+    # price = f(price)
+    # strike = f(strike)
+    # t = f(t)
+    # rate = f(rate)
+    # vol = f(vol)
+    # print('Transfer H2D:', time.time() - start)
+
+def transfer_from(call, put, mode):
+    if mode == Mode.COMPOSER:
+        import sa.annotated.torch as torch
+    else:
+        import torch
+
+    # Transfer output arrays if necessary
+    start = time.time()
+    def f(x): return x.to(torch.device('cpu'), non_blocking=True)
+    if call.device.type == 'cuda':
+        call = f(call)
+        put = f(put)
+        print('Transfer D2H:', time.time() - start)
+    return (call, put)
+
+    # call = f(call)
+    # put = f(put)
+    # print('Transfer D2H:', time.time() - start)
 
 def bs(
     price, strike, t, rate, vol,    # original data
@@ -68,24 +119,6 @@ def bs(
 
     call.materialize = True
     put.materialize = True
-
-    # # Transfer input arrays if necessary
-    # if price.device.type == 'cpu' and compute == 'cuda':
-    #     price = price.to(torch.device('cuda'))
-    #     strike = strike.to(torch.device('cuda'))
-    #     t = t.to(torch.device('cuda'))
-    #     rate = rate.to(torch.device('cuda'))
-    #     vol = vol.to(torch.device('cuda'))
-    #     print('Transfer H2D:', time.time() - start)
-    # elif price.device.type == 'cuda' and compute == 'cpu':
-    #     raise ValueError
-
-    # price = price.to(torch.device('cuda'))
-    # strike = strike.to(torch.device('cuda'))
-    # t = t.to(torch.device('cuda'))
-    # rate = rate.to(torch.device('cuda'))
-    # vol = vol.to(torch.device('cuda'))
-    # print('Transfer H2D:', time.time() - start)
 
     # Computation
     torch.mul(vol, vol, out=rsig)
@@ -160,22 +193,13 @@ def bs(
         }
         torch.evaluate(workers=threads, batch_size=batch_size)
     # if compute == 'cuda':
-    #   torch.cuda.synchronize()
+    #     torch.cuda.synchronize()
     # print('Evaluation:', time.time() - start)
-
-    # # Transfer output arrays if necessary
-    # if call.device.type == 'cuda':
-    #     call = call.to(torch.device('cpu'))
-    #     put = put.to(torch.device('cpu'))
-    #     print('Transfer D2H:', time.time() - start)
-
-    # call = call.to(torch.device('cpu'))
-    # put = put.to(torch.device('cpu'))
-    # print('Transfer D2H:', time.time() - start)
 
     return call, put
 
 def run():
+    import torch
     parser = argparse.ArgumentParser(
         description="Chained Adds pipelining test on a single thread."
     )
@@ -185,8 +209,8 @@ def run():
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
     parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
     parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer)")
-    parser.add_argument('-a', "--allocation", type=str, default="cuda", help="Allocation backend (cpu|cuda)")
-    parser.add_argument('-c', "--compute", type=str, default="cpu", help="Compute backend (cpu|cuda)")
+    parser.add_argument('-a', "--allocation", type=str, default="cpu", help="Allocation backend (cpu|cuda)")
+    parser.add_argument('-c', "--compute", type=str, default="cuda", help="Compute backend (cpu|cuda)")
     args = parser.parse_args()
 
     size = (1 << args.size)
@@ -224,13 +248,70 @@ def run():
         raise ValueError("invalid compute backend", compute)
 
     start = time.time()
-    sys.stdout.write("Initializing...")
-    sys.stdout.flush()
     a, b, c, d, e, f, g, h, i, j, k, l = get_data(size, mode, allocation, compute)
-    print("done: {}s".format(time.time() - start))
+    print("Initialization: {}s".format(time.time() - start))
 
     start = time.time()
-    call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
+    n = gpu_piece_size
+
+    # ABCABCABC
+    for m in range(0, size, n):
+        s = torch.cuda.Stream()
+        with torch.cuda.stream(s):
+            ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
+            fi, gi, hi, ii, ji = f[m:m+n], g[m:m+n], h[m:m+n], i[m:m+n], j[m:m+n]
+            ki, li = k[m:m+n], l[m:m+n]
+            ai,bi,ci,di,ei = transfer_to(ai, bi, ci, di, ei, mode, compute)
+            bs(
+                ai, bi, ci, di, ei, fi, gi, hi, ii, ji, ki, li,
+                mode, threads, compute, gpu_piece_size, cpu_piece_size
+            )
+            ki, li = transfer_from(ki, li, mode)
+            k[m:m+n]=ki[:]
+            l[m:m+n]=li[:]
+    torch.cuda.synchronize()
+
+    # AAABBBCCC
+    ais,bis,cis,dis,eis,fis,gis,his,iis,jis,kis,lis = [],[],[],[],[],[],[],[],[],[],[],[]
+    streams = []
+    for m in range(0, size, n):
+        s = torch.cuda.Stream()
+        streams.append(s)
+        with torch.cuda.stream(s):
+            ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
+            fi, gi, hi, ii, ji = f[m:m+n], g[m:m+n], h[m:m+n], i[m:m+n], j[m:m+n]
+            ki, li = k[m:m+n], l[m:m+n]
+            ai,bi,ci,di,ei = transfer_to(ai, bi, ci, di, ei, mode, compute)
+            ais.append(ai)
+            bis.append(bi)
+            cis.append(ci)
+            dis.append(di)
+            eis.append(ei)
+            fis.append(fi)
+            gis.append(gi)
+            his.append(hi)
+            iis.append(ii)
+            jis.append(ji)
+            kis.append(ki)
+            lis.append(li)
+    for m in range(0, int(size/n)):
+        s = streams[m]
+        with torch.cuda.stream(s):
+            bs(
+                ais[m], bis[m], cis[m], dis[m], eis[m],
+                fis[m], gis[m], his[m], iis[m], jis[m], kis[m], lis[m],
+                mode, threads, compute, gpu_piece_size, cpu_piece_size
+            )
+    for m in range(0, int(size/n)):
+        s = streams[m]
+        with torch.cuda.stream(s):
+            kis[m], lis[m] = transfer_from(kis[m], lis[m], mode)
+            k[m:m+n]=kis[m][:]
+            l[m:m+n]=lis[m][:]
+    torch.cuda.synchronize()
+
+    call = k
+    put = l
 
     print("Total Runtime: {}s".format(time.time() - start))
     print("Call (len {}): {}".format(len(call), call))
