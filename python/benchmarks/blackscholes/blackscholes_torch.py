@@ -13,6 +13,9 @@ from sa.annotation import Backend
 class Mode(Enum):
     NAIVE = 0
     COMPOSER = 1
+    AAABBBCCC = 2
+    ABCABCABC = 3
+    ABC = 4
 
 def get_data(size, mode, allocation, compute):
     if mode == Mode.COMPOSER:
@@ -198,63 +201,12 @@ def bs(
 
     return call, put
 
-def run():
+def run_abcabcabc(
+    a, b, c, d, e, f, g, h, i, j, k, l,
+    size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+):
     import torch
-    parser = argparse.ArgumentParser(
-        description="Chained Adds pipelining test on a single thread."
-    )
-    parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
-    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
-    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
-    parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
-    parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
-    parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer)")
-    parser.add_argument('-a', "--allocation", type=str, default="cpu", help="Allocation backend (cpu|cuda)")
-    parser.add_argument('-c', "--compute", type=str, default="cuda", help="Compute backend (cpu|cuda)")
-    args = parser.parse_args()
-
-    size = (1 << args.size)
-    gpu_piece_size = 1<<args.gpu_piece_size
-    cpu_piece_size = 1<<args.cpu_piece_size
-    threads = args.threads
-    loglevel = args.verbosity
-    mode = args.mode.strip().lower()
-    allocation = args.allocation.strip().lower()
-    compute = args.compute.strip().lower()
-
-    assert threads >= 1
-
-    print("Size:", size)
-    print("GPU Piece Size:", gpu_piece_size)
-    print("CPU Piece Size:", cpu_piece_size)
-    print("Threads:", threads)
-    print("Log Level", loglevel)
-    print("Mode:", mode)
-    print("Allocation:", allocation)
-    print("Compute:", compute)
-
-    # Parse the mode
-    if mode == 'composer':
-        mode = Mode.COMPOSER
-    elif mode == 'naive':
-        mode = Mode.NAIVE
-    else:
-        raise ValueError("invalid mode", mode)
-
-    # Parse the allocation and compute backend
-    if allocation not in ['cpu', 'cuda']:
-        raise ValueError("invalid allocation backend", allocation)
-    if compute not in ['cpu', 'cuda']:
-        raise ValueError("invalid compute backend", compute)
-
-    start = time.time()
-    a, b, c, d, e, f, g, h, i, j, k, l = get_data(size, mode, allocation, compute)
-    print("Initialization: {}s".format(time.time() - start))
-
-    start = time.time()
     n = gpu_piece_size
-
-    # ABCABCABC
     for m in range(0, size, n):
         s = torch.cuda.Stream()
         with torch.cuda.stream(s):
@@ -270,8 +222,54 @@ def run():
             k[m:m+n]=ki[:]
             l[m:m+n]=li[:]
     torch.cuda.synchronize()
+    return (k, l)
 
-    # AAABBBCCC
+def run_abc(
+    a, b, c, d, e, f, g, h, i, j, k, l,
+    size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+):
+    import torch
+    n = gpu_piece_size
+    call_times = {'to_cpu':0,'to_gpu':0,'call':0,'split':0,'merge':0}
+    for m in range(0, size, n):
+        start = time.time()
+        ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
+        fi, gi, hi, ii, ji = f[m:m+n], g[m:m+n], h[m:m+n], i[m:m+n], j[m:m+n]
+        ki, li = k[m:m+n], l[m:m+n]
+        call_times['split'] += time.time() - start
+
+        start = time.time()
+        ai,bi,ci,di,ei = transfer_to(ai, bi, ci, di, ei, mode, compute)
+        call_times['to_gpu'] += time.time() - start
+
+        start = time.time()
+        bs(
+            ai, bi, ci, di, ei, fi, gi, hi, ii, ji, ki, li,
+            mode, threads, compute, gpu_piece_size, cpu_piece_size
+        )
+        call_times['call'] += time.time() - start
+
+        start = time.time()
+        ki, li = transfer_from(ki, li, mode)
+        call_times['to_cpu'] += time.time() - start
+
+        start = time.time()
+        k[m:m+n]=ki[:]
+        l[m:m+n]=li[:]
+        call_times['merge'] += time.time() - start
+    torch.cuda.synchronize()
+
+    for key, val in sorted(call_times.items()):
+        print('{}: {}'.format(key, val))
+    return (k, l)
+
+
+def run_aaabbbccc(
+    a, b, c, d, e, f, g, h, i, j, k, l,
+    size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+):
+    import torch
+    n = gpu_piece_size
     ais,bis,cis,dis,eis,fis,gis,his,iis,jis,kis,lis = [],[],[],[],[],[],[],[],[],[],[],[]
     streams = []
     for m in range(0, size, n):
@@ -309,13 +307,99 @@ def run():
             k[m:m+n]=kis[m][:]
             l[m:m+n]=lis[m][:]
     torch.cuda.synchronize()
+    return (k, l)
 
-    call = k
-    put = l
+def run(args):
+    import torch
+    size = (1 << args.size)
+    gpu_piece_size = 1<<args.gpu_piece_size
+    cpu_piece_size = 1<<args.cpu_piece_size
+    threads = args.threads
+    loglevel = args.verbosity
+    mode = args.mode.strip().lower()
+    allocation = args.allocation.strip().lower()
+    compute = args.compute.strip().lower()
 
-    print("Total Runtime: {}s".format(time.time() - start))
+    assert threads >= 1
+
+    print("Size:", size)
+    print("GPU Piece Size:", gpu_piece_size)
+    print("CPU Piece Size:", cpu_piece_size)
+    print("Threads:", threads)
+    print("Log Level", loglevel)
+    print("Mode:", mode)
+    print("Allocation:", allocation)
+    print("Compute:", compute)
+
+    # Parse the mode
+    if mode == 'composer':
+        mode = Mode.COMPOSER
+    elif mode == 'naive':
+        mode = Mode.NAIVE
+    elif mode == 'aaabbbccc':
+        mode = Mode.AAABBBCCC
+    elif mode == 'abcabcabc':
+        mode = Mode.ABCABCABC
+    elif mode == 'abc':
+        mode = Mode.ABC
+    else:
+        raise ValueError("invalid mode", mode)
+
+    # Parse the allocation and compute backend
+    if allocation not in ['cpu', 'cuda']:
+        raise ValueError("invalid allocation backend", allocation)
+    if compute not in ['cpu', 'cuda']:
+        raise ValueError("invalid compute backend", compute)
+
+    start = time.time()
+    a, b, c, d, e, f, g, h, i, j, k, l = get_data(size, mode, allocation, compute)
+    print("Initialization: {}s".format(time.time() - start))
+
+    start = time.time()
+    n = gpu_piece_size
+
+    if mode == Mode.ABCABCABC:
+        call, put = run_abcabcabc(
+            a, b, c, d, e, f, g, h, i, j, k, l,
+            size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+        )
+    elif mode == Mode.AAABBBCCC:
+        call, put = run_aaabbbccc(
+            a, b, c, d, e, f, g, h, i, j, k, l,
+            size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+        )
+    elif mode == Mode.ABC:
+        call, put = run_abc(
+            a, b, c, d, e, f, g, h, i, j, k, l,
+            size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+        )
+    elif mode == Mode.COMPOSER:
+        bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
+        call = k
+        put = l
+    else:
+        a,b,c,d,e = transfer_to(a, b, c, d, e, mode, compute)
+        bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
+        call, put = transfer_from(k, l, mode)
+
+    runtime = time.time() - start
+    print("Total Runtime: {}s".format(runtime))
     print("Call (len {}): {}".format(len(call), call))
     print("Put (len {}): {}".format(len(put), put))
+    return runtime
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(
+        description="Chained Adds pipelining test on a single thread."
+    )
+    parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
+    parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
+    parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
+    parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer)")
+    parser.add_argument('-a', "--allocation", type=str, default="cpu", help="Allocation backend (cpu|cuda)")
+    parser.add_argument('-c', "--compute", type=str, default="cuda", help="Compute backend (cpu|cuda)")
+    args = parser.parse_args()
+
+    run(args)
