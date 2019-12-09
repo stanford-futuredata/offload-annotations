@@ -9,8 +9,8 @@ from sa.annotation.split_types import *
 float64 = torch.float64
 cuda = torch.cuda
 
-def ones(size, device=torch.device('cpu'), dtype=torch.float64):
-    res = torch.ones(size, device=device, dtype=dtype)
+def ones(size, *args, **kwargs):
+    res = torch.ones(size, *args, **kwargs)
     res.share_memory_()
     return res
 
@@ -24,7 +24,7 @@ class TorchTensorSplit(SplitType):
     def combine(self, values, original=None):
         if self.merge and original is not None:
             assert isinstance(original, torch.Tensor)
-            original.data = torch.cat(values)
+            original[:] = torch.cat(values)
             return original
         if self.merge:
             return torch.cat(values)
@@ -36,7 +36,8 @@ class TorchTensorSplit(SplitType):
             if ndims == 1:
                 if start >= shape[0]:
                     return STOP_ITERATION
-                return value[start:min(end, shape[0])]
+                # return value[start:min(end, shape[0])]
+                return value[start:end]
             elif ndims == 2:
                 if shape[1] == 1:
                     return value
@@ -72,9 +73,9 @@ class TorchTensorSplit(SplitType):
             return value
         elif current_backend == Backend.CPU and backend == Backend.GPU:
             self.merge = True
-            return value.to(torch.device('cuda'))
+            return value.to(torch.device('cuda'), non_blocking=True)
         elif current_backend == Backend.GPU and backend == Backend.CPU:
-            return value.to(torch.device('cpu'))
+            return value.to(torch.device('cpu'), non_blocking=True)
         else:
             raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
@@ -86,15 +87,15 @@ _kwargs = { 'out' : mut(TorchTensorSplit()), 'axis': Broadcast() }
 _ret = TorchTensorSplit()
 
 # Binary ops.
-add      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.add)
-sub      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.sub)
-mul      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.mul)
-div      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.div)
+add      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.add)
+sub      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.sub)
+mul      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.mul)
+div      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.div)
 
 _args = (TorchTensorSplit(),)
 
 # Unary ops.
-log2     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.log2)
-exp      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.exp)
-sqrt     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.sqrt)
-erf      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=False)(torch.erf)
+log2     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.log2)
+exp      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.exp)
+sqrt     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.sqrt)
+erf      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.erf)
