@@ -412,6 +412,7 @@ def run(args):
     f, g, h, i, j, k, l = get_tmp_arrays(size, mode, compute, reuse_memory, gpu_piece_size)
     print("Initialization: {}s".format(time.time() - start))
 
+    torch.cuda.synchronize()
     start = time.time()
     n = gpu_piece_size
 
@@ -464,6 +465,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     times = []
-    for i in range(1):
+    for i in range(5):
         times.append(run(args))
     print('Median:', times[int(len(times)/2)])
