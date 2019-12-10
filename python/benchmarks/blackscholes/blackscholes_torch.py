@@ -80,7 +80,7 @@ def transfer_to(cpu_arrays, gpu_arrays=None):
             cpu_arrays[3].to(torch.device('cuda'), non_blocking=True),
             cpu_arrays[4].to(torch.device('cuda'), non_blocking=True),
         )
-        print('Transfer H2D:', time.time() - start)
+        # print('Transfer H2D:', time.time() - start)
         return out
     else:
         assert len(cpu_arrays) == 5
@@ -90,7 +90,7 @@ def transfer_to(cpu_arrays, gpu_arrays=None):
         gpu_arrays[2][:] = cpu_arrays[2][:]
         gpu_arrays[3][:] = cpu_arrays[3][:]
         gpu_arrays[4][:] = cpu_arrays[4][:]
-        print('Transfer H2D:', time.time() - start)
+        # print('Transfer H2D:', time.time() - start)
         return (gpu_arrays[0], gpu_arrays[1], gpu_arrays[2], gpu_arrays[3], gpu_arrays[4])
 
 def transfer_from(gpu_arrays, cpu_arrays=None):
@@ -106,14 +106,14 @@ def transfer_from(gpu_arrays, cpu_arrays=None):
             gpu_arrays[0].to(torch.device('cpu'), non_blocking=True),
             gpu_arrays[1].to(torch.device('cpu'), non_blocking=True),
         )
-        print('Transfer D2H:', time.time() - start)
+        # print('Transfer D2H:', time.time() - start)
         return out
     else:
         assert len(cpu_arrays) == 2
         assert len(gpu_arrays) == 2
         cpu_arrays[0][:] = gpu_arrays[0][:]
         cpu_arrays[1][:] = gpu_arrays[1][:]
-        print('Transfer D2H:', time.time() - start)
+        # print('Transfer D2H:', time.time() - start)
         return (cpu_arrays[0], cpu_arrays[1])
 
 def bs(
@@ -223,8 +223,12 @@ def run_abcabcabc(
 ):
     import torch
     n = gpu_piece_size
-    for m in range(0, size, n):
-        s = torch.cuda.Stream()
+    start = time.time()
+    streams = [torch.cuda.Stream() for _ in range(nstreams)]
+    print('Create streams:', time.time() - start)
+    for index in range(0, int(size/n)):
+        m = index * n
+        s = streams[index % nstreams]
         with torch.cuda.stream(s):
             ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
             fi, gi, hi, ii, ji = f[m:m+n], g[m:m+n], h[m:m+n], i[m:m+n], j[m:m+n]
@@ -310,15 +314,17 @@ def run_aaabbbccc(
     import torch
     n = gpu_piece_size
     ais,bis,cis,dis,eis,fis,gis,his,iis,jis,kis,lis = [],[],[],[],[],[],[],[],[],[],[],[]
-    streams = []
-    for m in range(0, size, n):
-        s = torch.cuda.Stream()
-        streams.append(s)
+    start = time.time()
+    streams = [torch.cuda.Stream() for _ in range(nstreams)]
+    print('Create streams:', time.time() - start)
+    for index in range(0, int(size/n)):
+        m = index * n
+        s = streams[index % nstreams]
         with torch.cuda.stream(s):
             ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
             fi, gi, hi, ii, ji = f[m:m+n], g[m:m+n], h[m:m+n], i[m:m+n], j[m:m+n]
             ki, li = k[m:m+n], l[m:m+n]
-            ai,bi,ci,di,ei = transfer_to(ai, bi, ci, di, ei, mode, compute)
+            ai,bi,ci,di,ei = transfer_to([ai, bi, ci, di, ei])
             ais.append(ai)
             bis.append(bi)
             cis.append(ci)
@@ -332,7 +338,7 @@ def run_aaabbbccc(
             kis.append(ki)
             lis.append(li)
     for m in range(0, int(size/n)):
-        s = streams[m]
+        s = streams[m % nstreams]
         with torch.cuda.stream(s):
             bs(
                 ais[m], bis[m], cis[m], dis[m], eis[m],
@@ -340,9 +346,9 @@ def run_aaabbbccc(
                 mode, threads, compute, gpu_piece_size, cpu_piece_size
             )
     for m in range(0, int(size/n)):
-        s = streams[m]
+        s = streams[m % nstreams]
         with torch.cuda.stream(s):
-            kis[m], lis[m] = transfer_from(kis[m], lis[m], mode)
+            kis[m], lis[m] = transfer_from([kis[m], lis[m]])
             k[m:m+n]=kis[m][:]
             l[m:m+n]=lis[m][:]
     torch.cuda.synchronize()
@@ -450,6 +456,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     times = []
-    for i in range(11):
+    for i in range(1):
         times.append(run(args))
     print('Median:', times[int(len(times)/2)])
