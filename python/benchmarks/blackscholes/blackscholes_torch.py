@@ -17,32 +17,20 @@ class Mode(Enum):
     ABCABCABC = 3
     ABC = 4
 
-def get_data(size, mode, allocation, compute):
+def get_inputs(size, mode, device):
     if mode == Mode.COMPOSER:
         import sa.annotated.torch as torch
     else:
         import torch
 
     # Allocate input arrays on the given backend for allocation
-    device = torch.device(allocation)
+    device = torch.device(device)
     dtype = torch.float64
     price = torch.ones(size, device=device, dtype=dtype) * 4.0
     strike = torch.ones(size, device=device, dtype=dtype) * 4.0
     t = torch.ones(size, device=device, dtype=dtype) * 4.0
     rate = torch.ones(size, device=device, dtype=dtype) * 4.0
     vol = torch.ones(size, device=device, dtype=dtype) * 4.0
-
-    # Allocate intermediate and output arrays on the given backend for compute
-    device = torch.device(compute)
-    tmp = torch.ones(size, device=device, dtype=dtype)
-    vol_sqrt = torch.ones(size, device=device, dtype=dtype)
-    rsig = torch.ones(size, device=device, dtype=dtype)
-    d1 = torch.ones(size, device=device, dtype=dtype)
-    d2 = torch.ones(size, device=device, dtype=dtype)
-
-    # Outputs
-    call = torch.ones(size, device=device, dtype=dtype)
-    put = torch.ones(size, device=device, dtype=dtype)
 
     start = time.time()
     price = price.pin_memory()
@@ -51,54 +39,82 @@ def get_data(size, mode, allocation, compute):
     rate = rate.pin_memory()
     vol = vol.pin_memory()
     print('Pin memory time:', time.time() - start)
+    return price, strike, t, rate, vol
 
-    return price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
-
-def transfer_to(price, strike, t, rate, vol, mode, compute):
+def get_tmp_arrays(size, mode, device, reuse_memory, gpu_piece_size):
     if mode == Mode.COMPOSER:
         import sa.annotated.torch as torch
     else:
         import torch
 
+    # Allocate intermediate and output arrays on the given backend for compute
+    device = torch.device(device)
+    dtype = torch.float64
+    if reuse_memory:
+        assert device.type == 'cuda'
+        size = gpu_piece_size
+
+    tmp = torch.ones(size, device=device, dtype=dtype)
+    vol_sqrt = torch.ones(size, device=device, dtype=dtype)
+    rsig = torch.ones(size, device=device, dtype=dtype)
+    d1 = torch.ones(size, device=device, dtype=dtype)
+    d2 = torch.ones(size, device=device, dtype=dtype)
+    call = torch.ones(size, device=device, dtype=dtype)
+    put = torch.ones(size, device=device, dtype=dtype)
+
+    return tmp, vol_sqrt, rsig, d1, d2, call, put
+
+def transfer_to(cpu_arrays, gpu_arrays=None):
     # Transfer input arrays if necessary
+    if cpu_arrays[0].device.type == 'cuda':
+        return
+
+    import torch
     start = time.time()
-    def f(x): return x.to(torch.device('cuda'), non_blocking=True)
-    if price.device.type == 'cpu' and compute == 'cuda':
-        price = f(price)
-        strike = f(strike)
-        t = f(t)
-        rate = f(rate)
-        vol = f(vol)
+    if gpu_arrays is None:
+        assert len(cpu_arrays) == 5
+        out = (
+            cpu_arrays[0].to(torch.device('cuda'), non_blocking=True),
+            cpu_arrays[1].to(torch.device('cuda'), non_blocking=True),
+            cpu_arrays[2].to(torch.device('cuda'), non_blocking=True),
+            cpu_arrays[3].to(torch.device('cuda'), non_blocking=True),
+            cpu_arrays[4].to(torch.device('cuda'), non_blocking=True),
+        )
         print('Transfer H2D:', time.time() - start)
-    elif price.device.type == 'cuda' and compute == 'cpu':
-        raise ValueError
-    return (price, strike, t, rate, vol)
-
-    # price = f(price)
-    # strike = f(strike)
-    # t = f(t)
-    # rate = f(rate)
-    # vol = f(vol)
-    # print('Transfer H2D:', time.time() - start)
-
-def transfer_from(call, put, mode):
-    if mode == Mode.COMPOSER:
-        import sa.annotated.torch as torch
+        return out
     else:
-        import torch
+        assert len(cpu_arrays) == 5
+        assert len(gpu_arrays) == 5
+        gpu_arrays[0][:] = cpu_arrays[0][:]
+        gpu_arrays[1][:] = cpu_arrays[1][:]
+        gpu_arrays[2][:] = cpu_arrays[2][:]
+        gpu_arrays[3][:] = cpu_arrays[3][:]
+        gpu_arrays[4][:] = cpu_arrays[4][:]
+        print('Transfer H2D:', time.time() - start)
+        return (gpu_arrays[0], gpu_arrays[1], gpu_arrays[2], gpu_arrays[3], gpu_arrays[4])
 
+def transfer_from(gpu_arrays, cpu_arrays=None):
     # Transfer output arrays if necessary
-    start = time.time()
-    def f(x): return x.to(torch.device('cpu'), non_blocking=True)
-    if call.device.type == 'cuda':
-        call = f(call)
-        put = f(put)
-        print('Transfer D2H:', time.time() - start)
-    return (call, put)
+    if gpu_arrays[0].device.type == 'cpu':
+        return
 
-    # call = f(call)
-    # put = f(put)
-    # print('Transfer D2H:', time.time() - start)
+    import torch
+    start = time.time()
+    if cpu_arrays is None:
+        assert len(gpu_arrays) == 2
+        out = (
+            gpu_arrays[0].to(torch.device('cpu'), non_blocking=True),
+            gpu_arrays[1].to(torch.device('cpu'), non_blocking=True),
+        )
+        print('Transfer D2H:', time.time() - start)
+        return out
+    else:
+        assert len(cpu_arrays) == 2
+        assert len(gpu_arrays) == 2
+        cpu_arrays[0][:] = gpu_arrays[0][:]
+        cpu_arrays[1][:] = gpu_arrays[1][:]
+        print('Transfer D2H:', time.time() - start)
+        return (cpu_arrays[0], cpu_arrays[1])
 
 def bs(
     price, strike, t, rate, vol,    # original data
@@ -213,12 +229,12 @@ def run_abcabcabc(
             ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
             fi, gi, hi, ii, ji = f[m:m+n], g[m:m+n], h[m:m+n], i[m:m+n], j[m:m+n]
             ki, li = k[m:m+n], l[m:m+n]
-            ai,bi,ci,di,ei = transfer_to(ai, bi, ci, di, ei, mode, compute)
+            ai,bi,ci,di,ei = transfer_to([ai, bi, ci, di, ei])
             bs(
                 ai, bi, ci, di, ei, fi, gi, hi, ii, ji, ki, li,
                 mode, threads, compute, gpu_piece_size, cpu_piece_size
             )
-            ki, li = transfer_from(ki, li, mode)
+            ki, li = transfer_from([ki, li])
             k[m:m+n]=ki[:]
             l[m:m+n]=li[:]
     torch.cuda.synchronize()
@@ -231,6 +247,9 @@ def run_abc(
     import torch
     n = gpu_piece_size
     call_times = {'to_cpu':0,'to_gpu':0,'call':0,'split':0,'merge':0}
+
+    call = []
+    put = []
     for m in range(0, size, n):
         start = time.time()
         ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
@@ -239,7 +258,7 @@ def run_abc(
         call_times['split'] += time.time() - start
 
         start = time.time()
-        ai,bi,ci,di,ei = transfer_to(ai, bi, ci, di, ei, mode, compute)
+        ai,bi,ci,di,ei = transfer_to([ai, bi, ci, di, ei])
         call_times['to_gpu'] += time.time() - start
 
         start = time.time()
@@ -250,18 +269,42 @@ def run_abc(
         call_times['call'] += time.time() - start
 
         start = time.time()
-        ki, li = transfer_from(ki, li, mode)
+        ki, li = transfer_from([ki, li])
+        call.append(ki)
+        put.append(li)
         call_times['to_cpu'] += time.time() - start
 
-        start = time.time()
-        k[m:m+n]=ki[:]
-        l[m:m+n]=li[:]
-        call_times['merge'] += time.time() - start
+    start = time.time()
+    call = torch.cat(call)
+    put = torch.cat(put)
+    call_times['merge'] += time.time() - start
     torch.cuda.synchronize()
 
     for key, val in sorted(call_times.items()):
         print('{}: {}'.format(key, val))
-    return (k, l)
+    return (call, put)
+
+
+def run_abc_reuse_memory(
+    a, b, c, d, e, f, g, h, i, j, k, l,
+    size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+):
+    import torch
+    n = gpu_piece_size
+    gpu_arrays = [torch.empty(n, device=torch.device('cuda'), dtype=torch.float64) for _ in range(5)]  # 5 inputs
+    call = torch.empty(len(a), dtype=torch.float64)
+    put = torch.empty(len(a), dtype=torch.float64)
+
+    for m in range(0, size, n):
+        ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
+        ai,bi,ci,di,ei = transfer_to([ai, bi, ci, di, ei], gpu_arrays)
+        bs(
+            ai, bi, ci, di, ei, f, g, h, i, j, k, l,
+            mode, threads, compute, gpu_piece_size, cpu_piece_size
+        )
+        ki, li = transfer_from([k, l], cpu_arrays=[call[m:m+n], put[m:m+n]])
+    torch.cuda.synchronize()
+    return (call, put)
 
 
 def run_aaabbbccc(
@@ -319,6 +362,7 @@ def run(args):
     mode = args.mode.strip().lower()
     allocation = args.allocation.strip().lower()
     compute = args.compute.strip().lower()
+    reuse_memory = args.reuse_memory
 
     assert threads >= 1
 
@@ -352,7 +396,8 @@ def run(args):
         raise ValueError("invalid compute backend", compute)
 
     start = time.time()
-    a, b, c, d, e, f, g, h, i, j, k, l = get_data(size, mode, allocation, compute)
+    a, b, c, d, e = get_inputs(size, mode, allocation)
+    f, g, h, i, j, k, l = get_tmp_arrays(size, mode, compute, reuse_memory, gpu_piece_size)
     print("Initialization: {}s".format(time.time() - start))
 
     start = time.time()
@@ -369,14 +414,16 @@ def run(args):
             size, mode, threads, compute, gpu_piece_size, cpu_piece_size
         )
     elif mode == Mode.ABC:
-        call, put = run_abc(
+        if reuse_memory:
+            func = run_abc_reuse_memory
+        else:
+            func = run_abc
+        call, put = func(
             a, b, c, d, e, f, g, h, i, j, k, l,
             size, mode, threads, compute, gpu_piece_size, cpu_piece_size
         )
     elif mode == Mode.COMPOSER:
         bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
-        call = k
-        put = l
     else:
         a,b,c,d,e = transfer_to(a, b, c, d, e, mode, compute)
         bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
@@ -400,6 +447,7 @@ if __name__ == "__main__":
     parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer)")
     parser.add_argument('-a', "--allocation", type=str, default="cpu", help="Allocation backend (cpu|cuda)")
     parser.add_argument('-c', "--compute", type=str, default="cuda", help="Compute backend (cpu|cuda)")
+    parser.add_argument('--reuse_memory', action='store_true', help='Whether to reuse arrays for each piece per stream.')
     args = parser.parse_args()
 
     run(args)
