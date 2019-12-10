@@ -248,8 +248,8 @@ def run_abc(
     n = gpu_piece_size
     call_times = {'to_cpu':0,'to_gpu':0,'call':0,'split':0,'merge':0}
 
-    call = []
-    put = []
+    call = torch.empty(len(a), dtype=torch.float64)
+    put = torch.empty(len(a), dtype=torch.float64)
     for m in range(0, size, n):
         start = time.time()
         ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
@@ -269,14 +269,10 @@ def run_abc(
         call_times['call'] += time.time() - start
 
         start = time.time()
-        ki, li = transfer_from([ki, li])
-        call.append(ki)
-        put.append(li)
+        ki, li = transfer_from([ki, li], cpu_arrays=[call[m:m+n], put[m:m+n]])
         call_times['to_cpu'] += time.time() - start
 
     start = time.time()
-    call = torch.cat(call)
-    put = torch.cat(put)
     call_times['merge'] += time.time() - start
     torch.cuda.synchronize()
 
@@ -450,4 +446,7 @@ if __name__ == "__main__":
     parser.add_argument('--reuse_memory', action='store_true', help='Whether to reuse arrays for each piece per stream.')
     args = parser.parse_args()
 
-    run(args)
+    times = []
+    for i in range(11):
+        times.append(run(args))
+    print('Median:', times[int(len(times)/2)])
