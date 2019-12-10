@@ -226,6 +226,10 @@ def run_abcabcabc(
     start = time.time()
     streams = [torch.cuda.Stream() for _ in range(nstreams)]
     print('Create streams:', time.time() - start)
+    start = time.time()
+    call = torch.empty(len(a), dtype=torch.float64)
+    put = torch.empty(len(a), dtype=torch.float64)
+    print('Allocate cpu arrays:', time.time() - start)
     for index in range(0, int(size/n)):
         m = index * n
         s = streams[index % nstreams]
@@ -239,10 +243,10 @@ def run_abcabcabc(
                 mode, threads, compute, gpu_piece_size, cpu_piece_size
             )
             ki, li = transfer_from([ki, li])
-            k[m:m+n]=ki[:]
-            l[m:m+n]=li[:]
+            call[m:m+n]=ki[:]
+            put[m:m+n]=li[:]
     torch.cuda.synchronize()
-    return (k, l)
+    return (call, put)
 
 def run_abc(
     a, b, c, d, e, f, g, h, i, j, k, l,
@@ -317,6 +321,10 @@ def run_aaabbbccc(
     start = time.time()
     streams = [torch.cuda.Stream() for _ in range(nstreams)]
     print('Create streams:', time.time() - start)
+    start = time.time()
+    call = torch.empty(len(a), dtype=torch.float64)
+    put = torch.empty(len(a), dtype=torch.float64)
+    print('Allocate cpu arrays:', time.time() - start)
     for index in range(0, int(size/n)):
         m = index * n
         s = streams[index % nstreams]
@@ -349,10 +357,10 @@ def run_aaabbbccc(
         s = streams[m % nstreams]
         with torch.cuda.stream(s):
             kis[m], lis[m] = transfer_from([kis[m], lis[m]])
-            k[m:m+n]=kis[m][:]
-            l[m:m+n]=lis[m][:]
+            call[m:m+n]=kis[m][:]
+            put[m:m+n]=lis[m][:]
     torch.cuda.synchronize()
-    return (k, l)
+    return (call, put)
 
 def run(args):
     import torch
