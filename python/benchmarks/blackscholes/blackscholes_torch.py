@@ -219,7 +219,7 @@ def bs(
 
 def run_abcabcabc(
     a, b, c, d, e, f, g, h, i, j, k, l,
-    size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+    size, mode, threads, compute, gpu_piece_size, cpu_piece_size, nstreams,
 ):
     import torch
     n = gpu_piece_size
@@ -305,7 +305,7 @@ def run_abc_reuse_memory(
 
 def run_aaabbbccc(
     a, b, c, d, e, f, g, h, i, j, k, l,
-    size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+    size, mode, threads, compute, gpu_piece_size, cpu_piece_size, nstreams,
 ):
     import torch
     n = gpu_piece_size
@@ -355,6 +355,7 @@ def run(args):
     cpu_piece_size = 1<<args.cpu_piece_size
     threads = args.threads
     loglevel = args.verbosity
+    nstreams = args.streams
     mode = args.mode.strip().lower()
     allocation = args.allocation.strip().lower()
     compute = args.compute.strip().lower()
@@ -366,6 +367,7 @@ def run(args):
     print("GPU Piece Size:", gpu_piece_size)
     print("CPU Piece Size:", cpu_piece_size)
     print("Threads:", threads)
+    print("Streams:", nstreams)
     print("Log Level", loglevel)
     print("Mode:", mode)
     print("Allocation:", allocation)
@@ -402,12 +404,12 @@ def run(args):
     if mode == Mode.ABCABCABC:
         call, put = run_abcabcabc(
             a, b, c, d, e, f, g, h, i, j, k, l,
-            size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+            size, mode, threads, compute, gpu_piece_size, cpu_piece_size, nstreams
         )
     elif mode == Mode.AAABBBCCC:
         call, put = run_aaabbbccc(
             a, b, c, d, e, f, g, h, i, j, k, l,
-            size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+            size, mode, threads, compute, gpu_piece_size, cpu_piece_size, nstreams
         )
     elif mode == Mode.ABC:
         if reuse_memory:
@@ -439,6 +441,7 @@ if __name__ == "__main__":
     parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
     parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
+    parser.add_argument('-streams', type=int, default=16, help="Number of streams.")
     parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
     parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (naive|composer)")
     parser.add_argument('-a', "--allocation", type=str, default="cpu", help="Allocation backend (cpu|cuda)")
