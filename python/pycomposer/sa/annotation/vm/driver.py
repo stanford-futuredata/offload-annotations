@@ -2,7 +2,7 @@
 from collections import defaultdict
 
 import logging
-import torch.multiprocessing as multiprocessing
+import torch
 
 import threading
 import time
@@ -142,6 +142,8 @@ def _run_program(
         if piece_start >= index_range[1]:
             break
 
+        # s = torch.cuda.Stream()
+        # with torch.cuda.stream(s):
         i = _run_program_piece(
             initial_i,
             piece_start,
@@ -283,7 +285,7 @@ class Driver:
             # should never be written to, hence preventing the copy. The big
             # disadvantage of this approach is that we need to incur a
             # process-start overhead every time...
-            pool = multiprocessing.Pool(self.workers)
+            pool = torch.multiprocessing.Pool(self.workers)
 
             # TODO Just use Pool.imap instead?
             partial_results = []
