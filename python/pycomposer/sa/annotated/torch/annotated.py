@@ -14,6 +14,11 @@ def ones(size, *args, **kwargs):
     res.share_memory_()
     return res
 
+def empty(size, *args, **kwargs):
+    res = torch.empty(size, *args, **kwargs)
+    res.share_memory_()
+    return res
+
 class TorchTensorSplit(SplitType):
 
     def __init__(self):
