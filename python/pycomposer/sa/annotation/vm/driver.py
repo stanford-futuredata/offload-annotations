@@ -97,6 +97,7 @@ def _run_program_piece(
         if isinstance(inst, To) or inst.batch_size == batch_size:
             # print('EVALUATE ' + str(inst))
             start = time.time()
+            print(inst)
             result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
             inst_times[_inst_to_key(inst)] += time.time() - start
             i += 1
