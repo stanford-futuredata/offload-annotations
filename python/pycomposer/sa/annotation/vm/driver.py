@@ -41,6 +41,28 @@ def _worker(worker_id, index_range, max_batch_size):
     _run_program(worker_id, index_range, context, max_batch_size, top_level=True)
     return context
 
+def _inst_to_key(inst):
+    """
+    Possible keys: to_cpu, to_gpu, to_other, split, merge, call
+    """
+    from .instruction import To, Split, Merge, Call
+    from ..backend import Backend
+    if isinstance(inst, To):
+        if inst.backend == Backend.CPU:
+            return 'to_cpu'
+        elif inst.backend == Backend.GPU:
+            return 'to_gpu'
+        else:
+            return 'to_other'
+    elif isinstance(inst, Split):
+        return 'split'
+    elif isinstance(inst, Merge):
+        return 'merge'
+    elif isinstance(inst, Call):
+        return 'call'
+    else:
+        raise ValueError
+
 def _run_program_piece(
     i,
     piece_start,
@@ -69,11 +91,14 @@ def _run_program_piece(
     The index of the next instruction to execute.
     """
     from .instruction import To
+    inst_times = defaultdict(lambda: 0)
     while i < len(_PROGRAM.insts):
         inst = _PROGRAM.insts[i]
         if isinstance(inst, To) or inst.batch_size == batch_size:
             # print('EVALUATE ' + str(inst))
+            start = time.time()
             result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
+            inst_times[_inst_to_key(inst)] += time.time() - start
             i += 1
             if isinstance(result, str) and result == STOP_ITERATION:
                 break
@@ -89,7 +114,7 @@ def _run_program_piece(
             )
         else:
             break
-    return i
+    return (i, inst_times)
 
 def _run_program(
     worker_id,
@@ -136,6 +161,8 @@ def _run_program(
 
     exit_i = set()
     batch_index = 0
+
+    inst_times = defaultdict(lambda: 0)
     while True:
         piece_start = index_range[0] + batch_size * batch_index
         piece_end = min(piece_start + batch_size, index_range[1])
@@ -144,7 +171,7 @@ def _run_program(
 
         # s = torch.cuda.Stream()
         # with torch.cuda.stream(s):
-        i = _run_program_piece(
+        i, inst_times_sub = _run_program_piece(
             initial_i,
             piece_start,
             piece_end,
@@ -155,10 +182,14 @@ def _run_program(
             context,
         )
         exit_i.add(i)
+        for key, val in inst_times_sub.items():
+            inst_times[key] += val
 
         batch_index += 1
 
     process_end = time.time()
+    for key, val in sorted(inst_times.items()):
+        print('{}: {}'.format(key, val))
 
     # Free non-shared memory on this worker.
     # Replace the data in the original pointer if we are the top level thread.
