@@ -1241,6 +1241,8 @@ result_t run_cuda_main(vec_t h_pricePageable,
     fflush(stdout);
   }
 
+  struct timeval nopin_start;
+  gettimeofday(&nopin_start, NULL);
   result_t result;
   switch (mode) {
     case CUDA_FUSED:
@@ -1271,6 +1273,7 @@ result_t run_cuda_main(vec_t h_pricePageable,
       fprintf(stderr, "unsupported case");
       exit(EXIT_FAILURE);
   }
+  fprintf(stdout, "Runtime(nopin): %fs\n", runtime(nopin_start));
 
   if (pinned) {
     fprintf(stderr, "Copying pinned host memory to pageable host memory...");
