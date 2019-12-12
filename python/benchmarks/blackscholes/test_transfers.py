@@ -25,7 +25,7 @@ def arrays(size, mode):
     b = torch.ones(size, dtype=dtype, device=torch.device('cpu')) * 3.0
     c = torch.empty(size, dtype=dtype)
     d = torch.empty(size, dtype=dtype)
-    d.materialize = True
+    d.materialize = Backend.CPU
     return (a, b, c, d)
 
 def verify(d, size):

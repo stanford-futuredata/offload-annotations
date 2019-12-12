@@ -453,8 +453,9 @@ class LogicalPlan:
                 setattr(ty, "mutable", not op.dontsend)
                 if not op.dontsend:
                     mutable.add(result)
-                if hasattr(op, 'materialize'):
-                    ty.mutable = op.materialize
+                if hasattr(op, 'materialize') and op.materialize is not None:
+                    ty.mutable = True
+                    setattr(ty, 'materialize', op.materialize)
                 return
 
             args = []
@@ -539,7 +540,8 @@ class LogicalPlan:
                 ty = vms[pipeline].split_type_of(valnum)
                 if ty is None or not ty.mutable:
                     continue
-                transfer(vms[pipeline], var_locs[pipeline], valnum, Backend.CPU)
+                if hasattr(ty, 'materialize'):
+                    transfer(vms[pipeline], var_locs[pipeline], valnum, ty.materialize)
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         return sorted(list(vms.items()))
 

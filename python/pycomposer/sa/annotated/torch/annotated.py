@@ -18,7 +18,13 @@ class TorchTensorSplit(SplitType):
 
     def __init__(self):
         self.slice_col = False
-        self.merge = False
+        # self.merge = False
+        # TODO: hack because TorchTensorSplits that come out of allocations must be merged.
+        # Assume all data must be merged given that we only materialize certain inputs
+        # (otherwise we can set the materialize attribute to False). If it turns out a process's
+        # merge time is longer than expected compared to, say, master, it might be because
+        # we're merging here rather than assuming shared memory.
+        self.merge = True
         self.supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):

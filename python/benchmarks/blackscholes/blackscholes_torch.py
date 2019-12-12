@@ -137,8 +137,8 @@ def bs(
 
     start = time.time()
 
-    call.materialize = True
-    put.materialize = True
+    call.materialize = Backend.CPU
+    put.materialize = Backend.CPU
 
     # Computation
     torch.mul(vol, vol, out=rsig)
