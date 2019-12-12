@@ -48,19 +48,20 @@ def get_tmp_arrays(size, mode, device, reuse_memory, gpu_piece_size):
         import torch
 
     # Allocate intermediate and output arrays on the given backend for compute
-    device = torch.device(device)
-    dtype = torch.float64
+    kwargs = {'dtype': torch.float64}
+    if mode != Mode.COMPOSER:
+        kwargs['device'] = device
     if reuse_memory:
         assert device.type == 'cuda'
         size = gpu_piece_size
 
-    tmp = torch.ones(size, device=device, dtype=dtype)
-    vol_sqrt = torch.ones(size, device=device, dtype=dtype)
-    rsig = torch.ones(size, device=device, dtype=dtype)
-    d1 = torch.ones(size, device=device, dtype=dtype)
-    d2 = torch.ones(size, device=device, dtype=dtype)
-    call = torch.ones(size, device=device, dtype=dtype)
-    put = torch.ones(size, device=device, dtype=dtype)
+    tmp = torch.empty(size, **kwargs)
+    vol_sqrt = torch.empty(size, **kwargs)
+    rsig = torch.empty(size, **kwargs)
+    d1 = torch.empty(size, **kwargs)
+    d2 = torch.empty(size, **kwargs)
+    call = torch.empty(size, **kwargs)
+    put = torch.empty(size, **kwargs)
 
     return tmp, vol_sqrt, rsig, d1, d2, call, put
 
@@ -215,7 +216,7 @@ def bs(
     #     torch.cuda.synchronize()
     # print('Evaluation:', time.time() - start)
 
-    return call, put
+    return call.value, put.value
 
 def run_abcabcabc(
     a, b, c, d, e, f, g, h, i, j, k, l,
@@ -386,6 +387,7 @@ def run(args):
     print("Mode:", mode)
     print("Allocation:", allocation)
     print("Compute:", compute)
+    print('------------------------------------------------------')
 
     # Parse the mode
     if mode == 'composer':
@@ -436,13 +438,14 @@ def run(args):
             size, mode, threads, compute, gpu_piece_size, cpu_piece_size
         )
     elif mode == Mode.COMPOSER:
-        bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
+        call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
     else:
         a,b,c,d,e = transfer_to(a, b, c, d, e, mode, compute)
         bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
         call, put = transfer_from(k, l, mode)
 
     runtime = time.time() - start
+    print('------------------------------------------------------')
     print("Total Runtime: {}s".format(runtime))
     print("Call (len {}): {}".format(len(call), call))
     print("Put (len {}): {}".format(len(put), put))
@@ -462,9 +465,13 @@ if __name__ == "__main__":
     parser.add_argument('-a', "--allocation", type=str, default="cpu", help="Allocation backend (cpu|cuda)")
     parser.add_argument('-c', "--compute", type=str, default="cuda", help="Compute backend (cpu|cuda)")
     parser.add_argument('--reuse_memory', action='store_true', help='Whether to reuse arrays for each piece per stream.')
+    parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
     args = parser.parse_args()
 
-    times = []
-    for i in range(5):
-        times.append(run(args))
-    print('Median:', times[int(len(times)/2)])
+    res = [run(args) for _ in range(args.trials)]
+    if args.trials > 1:
+        m = int(len(res) / 2)
+        if args.trials % 2 == 1:
+            print('Median:', res[m])
+        else:
+            print('Median:', (res[m] + res[m-1]) / 2)
