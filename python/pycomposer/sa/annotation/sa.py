@@ -69,5 +69,21 @@ class sa(object):
 
         return _decorated
 
+class alloc(object):
+    """An allocation annotation.
+
+    Python decorators over ordinary Python allocation functions for split types.
+    By default, annotated on allocation functions on the CPU, with options to
+    allocate memory on different backends.
+    """
+
+    def __init__(self, return_type, gpu=False, gpu_func=None):
+        self.return_type = return_type
+        self.gpu = gpu
+        self.gpu_func = gpu_func
+
+    def __call__(self, func):
+        return func
+
 def evaluate(workers=config["workers"], batch_size=config["batch_size"], profile=False):
     evaluate_dag(_DAG, workers, batch_size, profile)

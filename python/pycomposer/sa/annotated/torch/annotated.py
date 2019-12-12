@@ -9,13 +9,8 @@ from sa.annotation.split_types import *
 float64 = torch.float64
 cuda = torch.cuda
 
-def ones(size, *args, **kwargs):
-    res = torch.ones(size, *args, **kwargs)
-    res.share_memory_()
-    return res
-
-def empty(size, *args, **kwargs):
-    res = torch.empty(size, *args, **kwargs)
+def ones(*args, **kwargs):
+    res = torch.ones(*args, **kwargs)
     res.share_memory_()
     return res
 
@@ -86,6 +81,13 @@ class TorchTensorSplit(SplitType):
 
     def __str__(self):
         return "TorchTensorSplit"
+
+def _gpu_empty(size, *args, **kwargs):
+    return torch.empty(size, *args, **kwargs, device=torch.device('cuda'))
+
+@alloc(TorchTensorSplit(), gpu=True, gpu_func=_gpu_empty)
+def empty(*args, **kwargs):
+    return torch.empty(*args, **kwargs, device=torch.device('cpu'))
 
 _args = (TorchTensorSplit(), TorchTensorSplit())
 _kwargs = { 'out' : mut(TorchTensorSplit()), 'axis': Broadcast() }
