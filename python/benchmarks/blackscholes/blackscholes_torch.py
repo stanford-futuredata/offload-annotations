@@ -412,7 +412,8 @@ def run(args):
     start = time.time()
     a, b, c, d, e = get_inputs(size, mode, allocation)
     f, g, h, i, j, k, l = get_tmp_arrays(size, mode, compute, reuse_memory, gpu_piece_size)
-    print("Initialization: {}s".format(time.time() - start))
+    init_time = time.time() - start
+    print("Initialization: {}s".format(init_time))
 
     torch.cuda.synchronize()
     start = time.time()
@@ -446,10 +447,21 @@ def run(args):
 
     runtime = time.time() - start
     print('------------------------------------------------------')
-    print("Total Runtime: {}s".format(runtime))
+    print("Init time: {}s".format(init_time))
+    print("Runtime: {}s".format(runtime))
+    print("Total: {}s".format(init_time + runtime))
     print("Call (len {}): {}".format(len(call), call))
     print("Put (len {}): {}".format(len(put), put))
-    return runtime
+    print('***************************************************************************\n')
+    return (init_time, runtime)
+
+def median(arr):
+    arr.sort()
+    m = int(len(arr) / 2)
+    if len(arr) % 2 == 1:
+        return arr[m]
+    else:
+        return (arr[m] + arr[m-1]) / 2
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -468,10 +480,13 @@ if __name__ == "__main__":
     parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
     args = parser.parse_args()
 
-    res = [run(args) for _ in range(args.trials)]
+    init_times = []
+    runtimes = []
+    for _ in range(args.trials):
+        init_time, runtime = run(args)
+        init_times.append(init_time)
+        runtimes.append(runtime)
     if args.trials > 1:
-        m = int(len(res) / 2)
-        if args.trials % 2 == 1:
-            print('Median:', res[m])
-        else:
-            print('Median:', (res[m] + res[m-1]) / 2)
+        print('Median Init:', median(init_times))
+        print('Median Runtime:', median(runtimes))
+        print('Median Total:', median(init_times) + median(runtimes))
