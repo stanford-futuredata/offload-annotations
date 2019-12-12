@@ -10,9 +10,7 @@ float64 = torch.float64
 cuda = torch.cuda
 
 def ones(*args, **kwargs):
-    res = torch.ones(*args, **kwargs)
-    res.share_memory_()
-    return res
+    return torch.ones(*args, **kwargs)
 
 class TorchTensorSplit(SplitType):
 
