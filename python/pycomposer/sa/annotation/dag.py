@@ -440,6 +440,7 @@ class LogicalPlan:
             mutable = vms[2][op.pipeline]
             var_locs = vms[3][op.pipeline]
             var_sizes = vms[4][op.pipeline]
+            alloc_times = vms[5]
 
             # Already processed this op.
             if op in added:
@@ -474,7 +475,9 @@ class LogicalPlan:
             def register(key, value):
                 valnum = vm.get(value)
                 if isinstance(value, Operation) and value.needs_allocation():
+                    start = time.time()
                     value.allocate(inst_backend)
+                    alloc_times.append(time.time() - start)
                     assert valnum not in var_locs
                     var_locs[valnum] = inst_backend
                 if valnum is None:
@@ -531,8 +534,9 @@ class LogicalPlan:
         mutables = defaultdict(lambda: set())
         var_locs = defaultdict(lambda: {})
         var_sizes = defaultdict(lambda: {})
+        alloc_times = []
         self.walk(mark_backends, (set(), vms), mode="bottomup")
-        self.walk(construct, (set(), vms, mutables, var_locs, var_sizes), mode="bottomup")
+        self.walk(construct, (set(), vms, mutables, var_locs, var_sizes, alloc_times), mode="bottomup")
         for pipeline in vms:
             # Move any variables still on the GPU back to the CPU,
             # and merge any variables on the CPU.
@@ -543,6 +547,7 @@ class LogicalPlan:
                 if hasattr(ty, 'materialize'):
                     transfer(vms[pipeline], var_locs[pipeline], valnum, ty.materialize)
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
+        print('Composer allocation:', sum(alloc_times))
         return sorted(list(vms.items()))
 
 
