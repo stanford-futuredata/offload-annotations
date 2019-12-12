@@ -212,11 +212,12 @@ def bs(
             Backend.GPU: gpu_piece_size,
         }
         torch.evaluate(workers=threads, batch_size=batch_size)
+        return call.value, put.value
     # if compute == 'cuda':
     #     torch.cuda.synchronize()
     # print('Evaluation:', time.time() - start)
 
-    return call.value, put.value
+    return call, put
 
 def run_abcabcabc(
     a, b, c, d, e, f, g, h, i, j, k, l,
@@ -441,9 +442,9 @@ def run(args):
     elif mode == Mode.COMPOSER:
         call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
     else:
-        a,b,c,d,e = transfer_to(a, b, c, d, e, mode, compute)
+        a,b,c,d,e = transfer_to([a, b, c, d, e])
         bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
-        call, put = transfer_from(k, l, mode)
+        call, put = transfer_from([k, l])
 
     runtime = time.time() - start
     print('------------------------------------------------------')
