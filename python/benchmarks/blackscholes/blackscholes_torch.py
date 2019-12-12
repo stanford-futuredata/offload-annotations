@@ -212,9 +212,8 @@ def bs(
             Backend.GPU: gpu_piece_size,
         }
         torch.evaluate(workers=threads, batch_size=batch_size)
+        torch.cuda.synchronize()
         return call.value, put.value
-    # if compute == 'cuda':
-    #     torch.cuda.synchronize()
     # print('Evaluation:', time.time() - start)
 
     return call, put
@@ -410,6 +409,7 @@ def run(args):
     if compute not in ['cpu', 'cuda']:
         raise ValueError("invalid compute backend", compute)
 
+    torch.cuda.synchronize()
     start = time.time()
     a, b, c, d, e = get_inputs(size, mode, allocation)
     f, g, h, i, j, k, l = get_tmp_arrays(size, mode, compute, reuse_memory, gpu_piece_size)
