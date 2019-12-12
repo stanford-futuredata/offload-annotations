@@ -30,15 +30,64 @@ def mut(x):
     """
     return Mut(x)
 
-class Annotation(object):
+class BaseAnnotation(object):
+
+    __slots__ = [ "mutables", "arg_types", "return_type", "kwarg_types", "gpu", "gpu_func" ]
+
+    def types(self):
+        """ Iterate over the split types in this annotation. """
+        for ty in self.arg_types:
+            yield ty
+        for ty in self.kwarg_types.values():
+            yield ty
+        yield self.return_type
+
+    def __str__(self):
+        if len(self.arg_types) > 0:
+            args = ", ".join([str(t) for t in self.arg_types])
+        else:
+            args = ", " if len(self.kwarg_types) > 0 else ""
+
+        if len(self.kwarg_types) > 0:
+            args += ", "
+            args += ", ".join(["{}={}".format(k, v) for (k,v) in self.kwarg_types.items()])
+
+        return "({}) -> {}".format(args, self.return_type)
+
+
+class Allocation(BaseAnnotation):
+    """ An annotation on an allocation function.
+    """
+
+    def __init__(self, func, return_type, gpu, gpu_func):
+        """Initialize an annotation for an allocation with alternatives for different backends.
+
+        Parameters
+        __________
+
+        func : the function that was invoked.
+        return_type: the return type of the function.
+        gpu: whether the function can run on the gpu.
+        gpu_func : the gpu version of the function that was invoked, if it exists.
+
+        """
+        self.func = func
+        self.return_type = return_type
+        self.gpu = gpu
+        self.gpu_func = gpu_func
+
+        self.mutables = set()
+        self.arg_types = []
+        self.kwarg_types = {}
+
+
+class Annotation(BaseAnnotation):
     """ An annotation on a function.
 
     Annotations map arguments (by index for regular arguments and by name for
     keyword arguments) to their split type.
 
     """
-
-    __slots__ = [ "mutables", "arg_types", "return_type", "kwarg_types", "gpu", "gpu_func" ]
 
     def __init__(self, func, types, kwtypes, return_type, gpu, gpu_func):
         """Initialize an annotation for a function invocation with the given
@@ -111,23 +160,3 @@ class Annotation(object):
         self.gpu = gpu
         self.gpu_func = gpu_func
 
-
-    def types(self):
-        """ Iterate over the split types in this annotation. """
-        for ty in self.arg_types:
-            yield ty
-        for ty in self.kwarg_types.values():
-            yield ty
-        yield self.return_type
-
-    def __str__(self):
-        if len(self.arg_types) > 0:
-            args = ", ".join([str(t) for t in self.arg_types])
-        else:
-            args = ", " if len(self.kwarg_types) > 0 else ""
-
-        if len(self.kwarg_types) > 0:
-            args += ", "
-            args += ", ".join(["{}={}".format(k, v) for (k,v) in self.kwarg_types.items()])
-
-        return "({}) -> {}".format(args, self.return_type)

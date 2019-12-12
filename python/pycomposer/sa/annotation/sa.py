@@ -1,4 +1,4 @@
-from .annotation import Annotation, mut
+from .annotation import Annotation, Allocation, mut
 from .config import config
 from .dag import LogicalPlan, evaluate_dag
 from .split_types import *
@@ -83,7 +83,13 @@ class alloc(object):
         self.gpu_func = gpu_func
 
     def __call__(self, func):
-        return func
+        annotation = Allocation(func, self.return_type, self.gpu, self.gpu_func)
+
+        @functools.wraps(func)
+        def _decorated(*args, **kwargs):
+            return _DAG.register(func, args, kwargs, annotation)
+
+        return _decorated
 
 def evaluate(workers=config["workers"], batch_size=config["batch_size"], profile=False):
     evaluate_dag(_DAG, workers, batch_size, profile)

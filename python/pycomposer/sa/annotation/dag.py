@@ -62,10 +62,10 @@ class Operation:
         self.supported_backends = [Backend.CPU]
         supports_gpu = annotation.gpu
         supports_gpu &= Backend.GPU in annotation.return_type.supported_backends
-        for (i, _) in enumerate(args):
-            supports_gpu &= Backend.GPU in self.split_type_of(i).supported_backends
-        for (key, _) in kwargs.items():
-            supports_gpu &= Backend.GPU in self.split_type_of(key).supported_backends
+        # for (i, _) in enumerate(args):
+        #     supports_gpu &= Backend.GPU in self.split_type_of(i).supported_backends
+        # for (key, _) in kwargs.items():
+        #     supports_gpu &= Backend.GPU in self.split_type_of(key).supported_backends
         if supports_gpu:
             self.supported_backends.append(Backend.GPU)
 
