@@ -81,7 +81,11 @@ class Split(Instruction):
         start = 0 + self.batch_size * batch_index
         end = start + self.batch_size
         if len(context[self.target]) == 0:
-            context[self.target].append(self.ty.split(index_range[0], index_range[1], values[self.target]))
+            value = values[self.target]
+            from ..dag import Operation
+            if isinstance(value, Operation):
+                value = value.value
+            context[self.target].append(self.ty.split(index_range[0], index_range[1], value))
 
         index_to_split = self.get_index_to_split(context)
         num_elements = self.ty.elements(context[self.target][index_to_split])
