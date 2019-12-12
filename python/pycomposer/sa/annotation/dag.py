@@ -453,6 +453,8 @@ class LogicalPlan:
                 setattr(ty, "mutable", not op.dontsend)
                 if not op.dontsend:
                     mutable.add(result)
+                if hasattr(op, 'materialize'):
+                    ty.mutable = op.materialize
                 return
 
             args = []

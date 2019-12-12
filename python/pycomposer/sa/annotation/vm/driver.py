@@ -241,6 +241,8 @@ def _merge(program, context, top_level):
                         # replace the original pointer with the new data in combine()
                         original = _VALUES[inst.target]
                         context[inst.target] = [inst.ty.combine(context[inst.target], original=original)]
+                    if top_level:
+                        context[inst.target] = context[inst.target][0]
                 else:
                     # No need to merge values and send the result back: it's immutable,
                     # and should not have changed on the master process.

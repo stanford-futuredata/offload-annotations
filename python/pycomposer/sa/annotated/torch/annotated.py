@@ -75,6 +75,7 @@ class TorchTensorSplit(SplitType):
             self.merge = True
             return value.to(torch.device('cuda'), non_blocking=True)
         elif current_backend == Backend.GPU and backend == Backend.CPU:
+            self.merge = True
             return value.to(torch.device('cpu'), non_blocking=True)
         else:
             raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
