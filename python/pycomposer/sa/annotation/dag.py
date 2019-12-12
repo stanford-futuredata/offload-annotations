@@ -3,7 +3,7 @@ from collections import defaultdict, deque
 import copy
 import logging
 
-from .annotation import Annotation
+from .annotation import Annotation, Allocation
 from .config import config
 from .split_types import *
 from .unevaluated import UNEVALUATED
@@ -120,6 +120,20 @@ class Operation:
                     if arg is arg2:
                         return True
         return False
+
+    def needs_allocation(self):
+        return isinstance(self.annotation, Allocation) and self._output is UNEVALUATED
+
+    def allocate(self, backend):
+        if backend == Backend.CPU:
+            func = self.func
+        elif backend == Backend.GPU:
+            assert self.annotation.gpu
+            assert self.annotation.gpu_func is not None
+            func = self.annotation.gpu_func
+        else:
+            raise ValueError
+        self._output = func(*self.args, **self.kwargs)
 
     @property
     def value(self):
@@ -431,6 +445,16 @@ class LogicalPlan:
             if op in added:
                 return
 
+            # Register allocation values but don't mark their variable locations and
+            # sizes until they are used.
+            if isinstance(op.annotation, Allocation):
+                ty = op.annotation.return_type
+                result = vm.register_value(op, ty)
+                setattr(ty, "mutable", not op.dontsend)
+                if not op.dontsend:
+                    mutable.add(result)
+                return
+
             args = []
             kwargs = {}
 
@@ -441,9 +465,15 @@ class LogicalPlan:
                 inst_backend = Backend.CPU
             batch_size = batch_size_dict[inst_backend]
 
-            # Register the arguments if it is our first encounter
+            # Register the arguments if it is our first encounter. If the argument is
+            # an allocation we should have already registered the value, but now we
+            # need to allocate it.
             def register(key, value):
                 valnum = vm.get(value)
+                if isinstance(value, Operation) and value.needs_allocation():
+                    value.allocate(inst_backend)
+                    assert valnum not in var_locs
+                    var_locs[valnum] = inst_backend
                 if valnum is None:
                     ty = op.split_type_of(key)
                     valnum = vm.register_value(value, ty)
@@ -496,7 +526,7 @@ class LogicalPlan:
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
         vms = defaultdict(lambda: VM())
         mutables = defaultdict(lambda: set())
-        var_locs = defaultdict(lambda: defaultdict(lambda: Backend.CPU))
+        var_locs = defaultdict(lambda: {})
         var_sizes = defaultdict(lambda: {})
         self.walk(mark_backends, (set(), vms), mode="bottomup")
         self.walk(construct, (set(), vms, mutables, var_locs, var_sizes), mode="bottomup")
