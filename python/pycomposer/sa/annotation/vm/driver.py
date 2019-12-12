@@ -189,8 +189,11 @@ def _run_program(
         batch_index += 1
 
     process_end = time.time()
+    print('\nINSTRUCTION PROFILING')
+    total_time = sum(inst_times.values())
     for key, val in sorted(inst_times.items()):
-        print('{}: {}'.format(key, val))
+        print('{}\t{:.2f}%\t{:.4f}'.format(key, val / total_time * 100, val))
+    print()
 
     # Free non-shared memory on this worker.
     # Replace the data in the original pointer if we are the top level thread.
