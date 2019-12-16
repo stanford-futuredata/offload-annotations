@@ -121,7 +121,7 @@ def bs(
     price, strike, t, rate, vol,    # original data
     tmp, vol_sqrt, rsig, d1, d2,    # temporary arrays
     call, put,                      # outputs
-    mode, threads, compute,         # experiment figuration
+    mode, threads,                  # experiment figuration
     gpu_piece_size, cpu_piece_size  # piece sizes
 ):
     if mode == Mode.COMPOSER:
@@ -220,7 +220,7 @@ def bs(
 
 def run_abcabcabc(
     a, b, c, d, e, f, g, h, i, j, k, l,
-    size, mode, threads, compute, gpu_piece_size, cpu_piece_size, nstreams,
+    size, mode, threads, gpu_piece_size, cpu_piece_size, nstreams,
 ):
     import torch
     n = gpu_piece_size
@@ -241,7 +241,7 @@ def run_abcabcabc(
             ai,bi,ci,di,ei = transfer_to([ai, bi, ci, di, ei])
             bs(
                 ai, bi, ci, di, ei, fi, gi, hi, ii, ji, ki, li,
-                mode, threads, compute, gpu_piece_size, cpu_piece_size
+                mode, threads, gpu_piece_size, cpu_piece_size
             )
             ki, li = transfer_from([ki, li])
             call[m:m+n]=ki[:]
@@ -251,7 +251,7 @@ def run_abcabcabc(
 
 def run_abc(
     a, b, c, d, e, f, g, h, i, j, k, l,
-    size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+    size, mode, threads, gpu_piece_size, cpu_piece_size
 ):
     import torch
     n = gpu_piece_size
@@ -273,7 +273,7 @@ def run_abc(
         start = time.time()
         bs(
             ai, bi, ci, di, ei, fi, gi, hi, ii, ji, ki, li,
-            mode, threads, compute, gpu_piece_size, cpu_piece_size
+            mode, threads, gpu_piece_size, cpu_piece_size
         )
         call_times['call'] += time.time() - start
 
@@ -292,7 +292,7 @@ def run_abc(
 
 def run_abc_reuse_memory(
     a, b, c, d, e, f, g, h, i, j, k, l,
-    size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+    size, mode, threads, gpu_piece_size, cpu_piece_size
 ):
     import torch
     n = gpu_piece_size
@@ -305,7 +305,7 @@ def run_abc_reuse_memory(
         ai,bi,ci,di,ei = transfer_to([ai, bi, ci, di, ei], gpu_arrays)
         bs(
             ai, bi, ci, di, ei, f, g, h, i, j, k, l,
-            mode, threads, compute, gpu_piece_size, cpu_piece_size
+            mode, threads, gpu_piece_size, cpu_piece_size
         )
         ki, li = transfer_from([k, l], cpu_arrays=[call[m:m+n], put[m:m+n]])
     torch.cuda.synchronize()
@@ -314,7 +314,7 @@ def run_abc_reuse_memory(
 
 def run_aaabbbccc(
     a, b, c, d, e, f, g, h, i, j, k, l,
-    size, mode, threads, compute, gpu_piece_size, cpu_piece_size, nstreams,
+    size, mode, threads, gpu_piece_size, cpu_piece_size, nstreams,
 ):
     import torch
     n = gpu_piece_size
@@ -352,7 +352,7 @@ def run_aaabbbccc(
             bs(
                 ais[m], bis[m], cis[m], dis[m], eis[m],
                 fis[m], gis[m], his[m], iis[m], jis[m], kis[m], lis[m],
-                mode, threads, compute, gpu_piece_size, cpu_piece_size
+                mode, threads, gpu_piece_size, cpu_piece_size
             )
     for m in range(0, int(size/n)):
         s = streams[m % nstreams]
@@ -423,12 +423,12 @@ def run(args):
     if mode == Mode.ABCABCABC:
         call, put = run_abcabcabc(
             a, b, c, d, e, f, g, h, i, j, k, l,
-            size, mode, threads, compute, gpu_piece_size, cpu_piece_size, nstreams
+            size, mode, threads, gpu_piece_size, cpu_piece_size, nstreams
         )
     elif mode == Mode.AAABBBCCC:
         call, put = run_aaabbbccc(
             a, b, c, d, e, f, g, h, i, j, k, l,
-            size, mode, threads, compute, gpu_piece_size, cpu_piece_size, nstreams
+            size, mode, threads, gpu_piece_size, cpu_piece_size, nstreams
         )
     elif mode == Mode.ABC:
         if reuse_memory:
@@ -437,13 +437,13 @@ def run(args):
             func = run_abc
         call, put = func(
             a, b, c, d, e, f, g, h, i, j, k, l,
-            size, mode, threads, compute, gpu_piece_size, cpu_piece_size
+            size, mode, threads, gpu_piece_size, cpu_piece_size
         )
     elif mode == Mode.COMPOSER:
-        call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
+        call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size)
     else:
         a,b,c,d,e = transfer_to([a, b, c, d, e])
-        bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, compute, gpu_piece_size, cpu_piece_size)
+        bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size)
         call, put = transfer_from([k, l])
 
     runtime = time.time() - start
