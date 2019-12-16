@@ -392,7 +392,7 @@ class LogicalPlan:
 
         self.walk(finalize, None)
 
-    def to_vm(self, batch_size_dict):
+    def to_vm(self, batch_size_dict, force_cpu):
         """
         Convert the graph to a sequence of VM instructions that can be executed
         on worker nodes. One VM program is constructed per pipeline.
@@ -424,6 +424,9 @@ class LogicalPlan:
                 var_locs[valnum] = backend
 
         def mark_backends(op, vms):
+            if force_cpu:
+                return
+
             vm = vms[1][op.pipeline]
             added = vms[0]
 
@@ -463,7 +466,7 @@ class LogicalPlan:
             kwargs = {}
 
             # Determine which backend and batch size to call the operation on.
-            if Backend.GPU in op.supported_backends:
+            if Backend.GPU in op.supported_backends and not force_cpu:
                 inst_backend = Backend.GPU
             else:
                 inst_backend = Backend.CPU
@@ -567,7 +570,7 @@ class LogicalPlan:
         return "\n".join(roots)
 
 
-def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"], profile=False):
+def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"], profile=False, force_cpu=False):
     try:
         dag.infer_types()
     except (SplitTypeError) as e:
@@ -578,7 +581,7 @@ def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"]
         batch_size = config["batch_size"]
         batch_size[Backend.CPU] = cpu_batch_size
 
-    vms = dag.to_vm(batch_size)
+    vms = dag.to_vm(batch_size, force_cpu)
     for _, vm in vms:
         # print(vm.program)
         # print()

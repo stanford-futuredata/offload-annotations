@@ -123,6 +123,8 @@ def bs(
     call, put,                      # outputs
     mode, threads,                  # experiment figuration
     gpu_piece_size, cpu_piece_size  # piece sizes
+    gpu_piece_size, cpu_piece_size, # piece sizes
+    force_cpu=False,
 ):
     if mode == Mode.COMPOSER:
         import sa.annotated.torch as torch
@@ -211,7 +213,7 @@ def bs(
             Backend.CPU: cpu_piece_size,
             Backend.GPU: gpu_piece_size,
         }
-        torch.evaluate(workers=threads, batch_size=batch_size)
+        torch.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
         torch.cuda.synchronize()
         return call.value, put.value
     # print('Evaluation:', time.time() - start)
@@ -375,6 +377,7 @@ def run(args):
     allocation = args.allocation.strip().lower()
     compute = args.compute.strip().lower()
     reuse_memory = args.reuse_memory
+    force_cpu = args.force_cpu
 
     assert threads >= 1
 
@@ -440,7 +443,7 @@ def run(args):
             size, mode, threads, gpu_piece_size, cpu_piece_size
         )
     elif mode == Mode.COMPOSER:
-        call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size)
+        call, put = bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size, force_cpu)
     else:
         a,b,c,d,e = transfer_to([a, b, c, d, e])
         bs(a, b, c, d, e, f, g, h, i, j, k, l, mode, threads, gpu_piece_size, cpu_piece_size)
@@ -478,6 +481,7 @@ if __name__ == "__main__":
     parser.add_argument('-a', "--allocation", type=str, default="cpu", help="Allocation backend (cpu|cuda)")
     parser.add_argument('-c', "--compute", type=str, default="cuda", help="Compute backend (cpu|cuda)")
     parser.add_argument('--reuse_memory', action='store_true', help='Whether to reuse arrays for each piece per stream.')
+    parser.add_argument('--force_cpu', action='store_true', help='Whether to force composer to execute CPU only.')
     parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
     args = parser.parse_args()
 

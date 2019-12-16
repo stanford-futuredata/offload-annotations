@@ -91,5 +91,5 @@ class alloc(object):
 
         return _decorated
 
-def evaluate(workers=config["workers"], batch_size=config["batch_size"], profile=False):
-    evaluate_dag(_DAG, workers, batch_size, profile)
+def evaluate(workers=config["workers"], batch_size=config["batch_size"], profile=False, force_cpu=False):
+    evaluate_dag(_DAG, workers, batch_size, profile, force_cpu)
