@@ -17,7 +17,7 @@ class Mode(Enum):
     ABCABCABC = 3
     ABC = 4
 
-def get_inputs(size, mode, device):
+def get_inputs(size, mode, device, pin_memory):
     if mode == Mode.COMPOSER:
         import sa.annotated.torch as torch
     else:
@@ -32,13 +32,14 @@ def get_inputs(size, mode, device):
     rate = torch.ones(size, device=device, dtype=dtype) * 4.0
     vol = torch.ones(size, device=device, dtype=dtype) * 4.0
 
-    start = time.time()
-    price = price.pin_memory()
-    strike = strike.pin_memory()
-    t = t.pin_memory()
-    rate = rate.pin_memory()
-    vol = vol.pin_memory()
-    print('Pin memory time:', time.time() - start)
+    if pin_memory:
+        start = time.time()
+        price = price.pin_memory()
+        strike = strike.pin_memory()
+        t = t.pin_memory()
+        rate = rate.pin_memory()
+        vol = vol.pin_memory()
+        print('Pin memory time:', time.time() - start)
     return price, strike, t, rate, vol
 
 def get_tmp_arrays(size, mode, device, reuse_memory, gpu_piece_size):
@@ -122,7 +123,6 @@ def bs(
     tmp, vol_sqrt, rsig, d1, d2,    # temporary arrays
     call, put,                      # outputs
     mode, threads,                  # experiment figuration
-    gpu_piece_size, cpu_piece_size  # piece sizes
     gpu_piece_size, cpu_piece_size, # piece sizes
     force_cpu=False,
 ):
@@ -378,6 +378,7 @@ def run(args):
     compute = args.compute.strip().lower()
     reuse_memory = args.reuse_memory
     force_cpu = args.force_cpu
+    pin_memory = args.pin_memory
 
     assert threads >= 1
 
@@ -414,7 +415,7 @@ def run(args):
 
     torch.cuda.synchronize()
     start = time.time()
-    a, b, c, d, e = get_inputs(size, mode, allocation)
+    a, b, c, d, e = get_inputs(size, mode, allocation, pin_memory)
     f, g, h, i, j, k, l = get_tmp_arrays(size, mode, compute, reuse_memory, gpu_piece_size)
     init_time = time.time() - start
     print("Initialization: {}s".format(init_time))
@@ -482,6 +483,7 @@ if __name__ == "__main__":
     parser.add_argument('-c', "--compute", type=str, default="cuda", help="Compute backend (cpu|cuda)")
     parser.add_argument('--reuse_memory', action='store_true', help='Whether to reuse arrays for each piece per stream.')
     parser.add_argument('--force_cpu', action='store_true', help='Whether to force composer to execute CPU only.')
+    parser.add_argument('--pin_memory', action='store_true', help='Whether to pin memory.')
     parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
     args = parser.parse_args()
 

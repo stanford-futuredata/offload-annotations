@@ -38,7 +38,7 @@ def _worker(worker_id, index_range, max_batch_size):
 
     """
     context = defaultdict(list)
-    _run_program(worker_id, index_range, context, max_batch_size, top_level=True)
+    _run_program(worker_id, index_range, context, max_batch_size, top_level=False)
     return context
 
 def _inst_to_key(inst):
@@ -198,8 +198,7 @@ def _run_program(
     # Free non-shared memory on this worker.
     # Replace the data in the original pointer if we are the top level thread.
     # Merge the data if we are the top level thread or are returning execution to the top level.
-    if top_level:
-        _merge(_PROGRAM, context, top_level=top_level)
+    _merge(_PROGRAM, context, top_level=top_level)
 
     merge_end = time.time()
 
