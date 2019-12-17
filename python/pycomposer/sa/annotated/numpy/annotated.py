@@ -111,3 +111,6 @@ def zeros(shape, dtype=None, order='C'):
     result = sharedmem.empty(shape)
     result[:] = np.zeros(shape, dtype, order)[:]
     return result
+
+def empty(shape, dtype=None):
+    return sharedmem.empty(shape)

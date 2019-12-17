@@ -30,15 +30,15 @@ def get_tmp_arrays(size, composer):
     else:
         import numpy as np
 
-    tmp = np.ones(size, dtype="float64")
-    vol_sqrt = np.ones(size, dtype="float64")
-    rsig = np.ones(size, dtype="float64")
-    d1 = np.ones(size, dtype="float64")
-    d2 = np.ones(size, dtype="float64")
+    tmp = np.empty(size, dtype="float64")
+    vol_sqrt = np.empty(size, dtype="float64")
+    rsig = np.empty(size, dtype="float64")
+    d1 = np.empty(size, dtype="float64")
+    d2 = np.empty(size, dtype="float64")
 
     # Outputs
-    call = np.ones(size, dtype="float64")
-    put = np.ones(size, dtype="float64")
+    call = np.empty(size, dtype="float64")
+    put = np.empty(size, dtype="float64")
 
     return tmp, vol_sqrt, rsig, d1, d2, call, put
 
