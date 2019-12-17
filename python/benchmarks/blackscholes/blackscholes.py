@@ -50,6 +50,8 @@ def bs(
 
     if composer:
         import sa.annotated.numpy as np
+        call.materialize = Backend.CPU
+        put.materialize = Backend.CPU
     else:
         import numpy as np
 
@@ -138,6 +140,7 @@ def bs(
             Backend.GPU: gpu_piece_size,
         }
         np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+        return call.value, put.value
 
     return call, put
 
