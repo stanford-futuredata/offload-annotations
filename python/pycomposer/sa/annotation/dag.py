@@ -433,7 +433,7 @@ class LogicalPlan:
             if op in added:
                 return
 
-            if Backend.GPU in op.supported_backends:
+            if Backend.GPU in op.supported_backends and not isinstance(op.annotation, Allocation):
                 vm.backends.add(Backend.GPU)
             added.add(op)
 
