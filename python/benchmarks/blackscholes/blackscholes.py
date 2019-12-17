@@ -45,7 +45,7 @@ def get_tmp_arrays(size, composer):
 def bs(
     price, strike, t, rate, vol,
     tmp, vol_sqrt, rsig, d1, d2, call, put,
-    composer, threads, gpu_piece_size, cpu_piece_size
+    composer, threads, gpu_piece_size, cpu_piece_size, force_cpu,
 ):
 
     if composer:
@@ -137,18 +137,18 @@ def bs(
             Backend.CPU: cpu_piece_size,
             Backend.GPU: gpu_piece_size,
         }
-        np.evaluate(workers=threads, batch_size=batch_size)
+        np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
 
     return call, put
 
 def run(args):
-
     size = (1 << args.size)
     gpu_piece_size = 1<<args.gpu_piece_size
     cpu_piece_size = 1<<args.cpu_piece_size
     threads = args.threads
     loglevel = args.verbosity
     mode = args.mode.strip().lower()
+    force_cpu = args.force_cpu
 
     assert threads >= 1
 
@@ -182,7 +182,7 @@ def run(args):
     start = time.time()
     call, put = bs(
         a, b, c, d, e, tmp1, tmp2, tmp3, tmp4, tmp5, call, put,
-        composer, threads, gpu_piece_size, cpu_piece_size,
+        composer, threads, gpu_piece_size, cpu_piece_size, force_cpu
     )
     runtime = time.time() - start
     print("Call:", call)
@@ -210,6 +210,7 @@ if __name__ == "__main__":
     parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
     parser.add_argument('-m', "--mode", type=str, required=False, help="Mode (composer|naive)")
     parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
+    parser.add_argument('--force_cpu', action='store_true', help='Whether to force composer to execute CPU only.')
     args = parser.parse_args()
 
     init_times = []
