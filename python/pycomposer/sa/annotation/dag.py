@@ -176,7 +176,7 @@ class Operation:
 
     def __hash__(self):
         """ Override equality to always check by reference. """
-        if self._output is UNEVALUATED:
+        if isinstance(self.annotation, Allocation) or self._output is UNEVALUATED:
             return id(self)
         else:
             return hash(self._output)
@@ -451,6 +451,7 @@ class LogicalPlan:
 
             # Register allocation values but don't mark their variable locations and
             # sizes until they are used.
+            added.add(op)
             if isinstance(op.annotation, Allocation):
                 ty = op.annotation.return_type
                 result = vm.register_value(op, ty)
@@ -529,7 +530,6 @@ class LogicalPlan:
                 func = op.func
             vm.program.insts.append(Call(
                 result, func, args, kwargs, op.annotation.return_type, inst_backend, batch_size))
-            added.add(op)
 
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
