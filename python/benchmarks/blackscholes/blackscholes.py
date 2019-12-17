@@ -141,17 +141,7 @@ def bs(
 
     return call, put
 
-def run():
-    parser = argparse.ArgumentParser(
-        description="Chained Adds pipelining test on a single thread."
-    )
-    parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
-    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
-    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
-    parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
-    parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
-    parser.add_argument('-m', "--mode", type=str, required=False, help="Mode (composer|naive)")
-    args = parser.parse_args()
+def run(args):
 
     size = (1 << args.size)
     gpu_piece_size = 1<<args.gpu_piece_size
@@ -199,6 +189,36 @@ def run():
     print("Put:", put)
 
     print('Runtime:', runtime)
+    return init_time, runtime
+
+def median(arr):
+    arr.sort()
+    m = int(len(arr) / 2)
+    if len(arr) % 2 == 1:
+        return arr[m]
+    else:
+        return (arr[m] + arr[m-1]) / 2
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(
+        description="Chained Adds pipelining test on a single thread."
+    )
+    parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
+    parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
+    parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
+    parser.add_argument('-m', "--mode", type=str, required=False, help="Mode (composer|naive)")
+    parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
+    args = parser.parse_args()
+
+    init_times = []
+    runtimes = []
+    for _ in range(args.trials):
+        init_time, runtime = run(args)
+        init_times.append(init_time)
+        runtimes.append(runtime)
+    if args.trials > 1:
+        print('Median Init:', median(init_times))
+        print('Median Runtime:', median(runtimes))
+        print('Median Total:', median(init_times) + median(runtimes))
