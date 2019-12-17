@@ -24,7 +24,29 @@ def get_data(size, composer):
 
     return price, strike, t, rate, vol
 
-def bs(price, strike, t, rate, vol, composer, threads, gpu_piece_size, cpu_piece_size):
+def get_tmp_arrays(size, composer):
+    if composer:
+        import sa.annotated.numpy as np
+    else:
+        import numpy as np
+
+    tmp = np.ones(size, dtype="float64")
+    vol_sqrt = np.ones(size, dtype="float64")
+    rsig = np.ones(size, dtype="float64")
+    d1 = np.ones(size, dtype="float64")
+    d2 = np.ones(size, dtype="float64")
+
+    # Outputs
+    call = np.ones(size, dtype="float64")
+    put = np.ones(size, dtype="float64")
+
+    return tmp, vol_sqrt, rsig, d1, d2, call, put
+
+def bs(
+    price, strike, t, rate, vol,
+    tmp, vol_sqrt, rsig, d1, d2, call, put,
+    composer, threads, gpu_piece_size, cpu_piece_size
+):
 
     if composer:
         import sa.annotated.numpy as np
@@ -34,20 +56,6 @@ def bs(price, strike, t, rate, vol, composer, threads, gpu_piece_size, cpu_piece
     c05 = 3.0
     c10 = 1.5
     invsqrt2 = 1.0 / math.sqrt(2.0)
-
-    start = time.time()
-
-    tmp = np.ones(len(price), dtype="float64")
-    vol_sqrt = np.ones(len(price), dtype="float64")
-    rsig = np.ones(len(price), dtype="float64")
-    d1 = np.ones(len(price), dtype="float64")
-    d2 = np.ones(len(price), dtype="float64")
-
-    # Outputs
-    call = np.ones(len(price), dtype="float64")
-    put = np.ones(len(price), dtype="float64")
-    end = time.time()
-    print("Allocation:", end - start)
 
     start = time.time()
 
@@ -131,9 +139,6 @@ def bs(price, strike, t, rate, vol, composer, threads, gpu_piece_size, cpu_piece
         }
         np.evaluate(workers=threads, batch_size=batch_size)
 
-    end = time.time()
-    print("Runtime:", end - start)
-
     return call, put
 
 def run():
@@ -173,12 +178,27 @@ def run():
 
     sys.stdout.write("Generating data...")
     sys.stdout.flush()
+    init_start = time.time()
     a, b, c, d, e = get_data(size, composer)
-    print("done.")
+    end = time.time()
+    print("done:", end - init_start)
 
-    call, put = bs(a, b, c, d, e, composer, threads, gpu_piece_size, cpu_piece_size)
+    start = time.time()
+    tmp1, tmp2, tmp3, tmp4, tmp5, call, put = get_tmp_arrays(size, composer)
+    end = time.time()
+    print("Allocation:", end - start)
+    init_time = end - init_start
+
+    start = time.time()
+    call, put = bs(
+        a, b, c, d, e, tmp1, tmp2, tmp3, tmp4, tmp5, call, put,
+        composer, threads, gpu_piece_size, cpu_piece_size,
+    )
+    runtime = time.time() - start
     print("Call:", call)
     print("Put:", put)
+
+    print('Runtime:', runtime)
 
 if __name__ == "__main__":
     run()
