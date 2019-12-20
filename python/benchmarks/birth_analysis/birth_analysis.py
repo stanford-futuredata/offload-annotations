@@ -60,7 +60,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Birth Analysis."
     )
-    parser.add_argument('-f', "--filename", type=str, default="babynames.txt", help="Input file")
+    parser.add_argument('-f', "--filename", type=str, default="../datasets/birth_analysis/_data/babynames.txt", help="Input file")
     args = parser.parse_args()
 
     filename = args.filename

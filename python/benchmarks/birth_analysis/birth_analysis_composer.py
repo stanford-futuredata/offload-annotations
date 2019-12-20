@@ -77,7 +77,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Birth Analysis with Composer."
     )
-    parser.add_argument('-f', "--filename", type=str, default="babynames.txt", help="Input file")
+    parser.add_argument('-f', "--filename", type=str, default="../datasets/birth_analysis/_data/babynames.txt", help="Input file")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
     args = parser.parse_args()
 
