@@ -26,6 +26,7 @@ def crime_index_composer(
     threads,
     gpu_piece_size,
     cpu_piece_size,
+    force_cpu,
 ):
     # Get all city information with total population greater than 500,000
     big_cities = pd.greater_than(total_population, 500000.0)
@@ -58,7 +59,7 @@ def crime_index_composer(
         Backend.CPU: cpu_piece_size,
         Backend.GPU: gpu_piece_size,
     }
-    pd.evaluate(workers=threads, batch_size=batch_size)
+    pd.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     return result.value
 
 def crime_index_pandas(total_population, adult_population, num_robberies):
@@ -89,20 +90,13 @@ def crime_index_cudf(total_population, adult_population, num_robberies):
     crime_index = mask(crime_index, crime_index < 0.01, 0.005)
     return crime_index.sum()
 
-def run():
-    parser = argparse.ArgumentParser(description="Crime Index")
-    parser.add_argument('-s', "--size", type=int, default=26, help="Size of each array")
-    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
-    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=15, help="Log size of each CPU piece.")
-    parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
-    parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (composer|naive|cudf)")
-    args = parser.parse_args()
-
+def run(args):
     size = (1 << args.size)
     gpu_piece_size = 1<<args.gpu_piece_size
     cpu_piece_size = 1<<args.cpu_piece_size
     threads = args.threads
     mode = args.mode.strip().lower()
+    force_cpu = args.force_cpu
 
     assert mode == "composer" or mode == "naive" or mode == "cudf"
     assert threads >= 1
@@ -113,22 +107,52 @@ def run():
     print("Threads:", threads)
     print("Mode:", mode)
 
+    start = time.time()
     sys.stdout.write("Generating data...")
     sys.stdout.flush()
     inputs = gen_data(size)
-    print("done.")
+    init_time = time.time() - start
+    print("done:", init_time)
 
     start = time.time()
     if mode == "composer":
-        result = crime_index_composer(inputs[0], inputs[1], inputs[2], threads, gpu_piece_size, cpu_piece_size)
+        result = crime_index_composer(inputs[0], inputs[1], inputs[2], threads, gpu_piece_size, cpu_piece_size, force_cpu)
     elif mode == "naive":
         result = crime_index_pandas(*inputs)
     elif mode == "cudf":
         result = crime_index_cudf(*inputs)
     end = time.time()
 
-    print(end - start, "seconds")
+    print('Runtime:', end - start)
     print(result)
+    return init_time, end - start
+
+def median(arr):
+    arr.sort()
+    m = int(len(arr) / 2)
+    if len(arr) % 2 == 1:
+        return arr[m]
+    else:
+        return (arr[m] + arr[m-1]) / 2
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(description="Crime Index")
+    parser.add_argument('-s', "--size", type=int, default=26, help="Size of each array")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=15, help="Log size of each CPU piece.")
+    parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
+    parser.add_argument('-m', "--mode", type=str, required=True, help="Mode (composer|naive|cudf)")
+    parser.add_argument('--force_cpu', action='store_true', help='Whether to force composer to execute CPU only.')
+    parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
+    args = parser.parse_args()
+
+    init_times = []
+    runtimes = []
+    for _ in range(args.trials):
+        init_time, runtime = run(args)
+        init_times.append(init_time)
+        runtimes.append(runtime)
+    if args.trials > 1:
+        print('Median Init:', median(init_times))
+        print('Median Runtime:', median(runtimes))
+        print('Median Total:', median(init_times) + median(runtimes))
