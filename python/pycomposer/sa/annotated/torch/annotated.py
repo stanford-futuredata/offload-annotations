@@ -26,12 +26,13 @@ class TorchTensorSplit(SplitType):
         self.supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):
-        if self.merge and original is not None:
-            assert isinstance(original, torch.Tensor)
-            original[:] = torch.cat(values)
-            return original
-        if self.merge:
-            return torch.cat(values)
+        # if self.merge and original is not None:
+        #     assert isinstance(original, torch.Tensor)
+        #     original[:] = torch.cat(values)
+        #     return original
+        # if self.merge:
+        #     return torch.cat(values)
+        pass
 
     def split(self, start, end, value):
         if isinstance(value, np.ndarray) or isinstance(value, torch.Tensor):
@@ -95,7 +96,9 @@ def _gpu_empty(size, *args, **kwargs):
 
 @alloc(TorchTensorSplit(), gpu=True, gpu_func=_gpu_empty)
 def empty(*args, **kwargs):
-    return torch.empty(*args, **kwargs, device=torch.device('cpu'))
+    result = torch.empty(*args, **kwargs, device=torch.device('cpu'))
+    result.share_memory_()
+    return result
 
 _args = (TorchTensorSplit(), TorchTensorSplit())
 _kwargs = { 'out' : mut(TorchTensorSplit()), 'axis': Broadcast() }

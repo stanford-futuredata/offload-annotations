@@ -561,6 +561,8 @@ class LogicalPlan:
         """
         for (arg_id, value) in values.items():
             if isinstance(value, Operation):
+                if results[arg_id] is None:
+                    continue
                 value._output = results[arg_id]
 
     def __str__(self):
