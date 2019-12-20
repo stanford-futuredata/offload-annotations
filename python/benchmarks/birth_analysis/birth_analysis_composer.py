@@ -41,6 +41,7 @@ def run(filename, threads, batch_size, force_cpu):
     start0 = time.time()
     grouped = pd.dfgroupby(names, ['year', 'sex'])
     top1000 = pd.gbapply(grouped, get_top1000)
+    top1000.dontsend = False
     pd.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     top1000 = top1000.value
     top1000.reset_index(inplace=True, drop=True)
