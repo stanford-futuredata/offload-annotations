@@ -29,10 +29,12 @@ def run(filename, threads, batch_size, force_cpu):
     years = range(1880, 2011)
     columns = ['year', 'sex', 'name', 'births']
 
+    start = time.time()
     sys.stdout.write("Reading data...")
     sys.stdout.flush()
     names = pd.read_csv(filename, names=columns)
-    print("done")
+    init_time = time.time() - start
+    print("done:", init_time)
 
     # print("Size of names:", len(names))
 
@@ -74,6 +76,15 @@ def run(filename, threads, batch_size, force_cpu):
     print("Total time:", e2e_end - e2e_start)
 
     print(top1000['births'].sum())
+    return init_time, e2e_end - e2e_start
+
+def median(arr):
+    arr.sort()
+    m = int(len(arr) / 2)
+    if len(arr) % 2 == 1:
+        return arr[m]
+    else:
+        return (arr[m] + arr[m-1]) / 2
 
 def main():
     parser = argparse.ArgumentParser(
@@ -84,6 +95,7 @@ def main():
     parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
     parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
     parser.add_argument('--force_cpu', action='store_true', help='Whether to force composer to execute CPU only.')
+    parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
     args = parser.parse_args()
 
     filename = args.filename
@@ -100,7 +112,16 @@ def main():
     print("Threads:", threads)
     print("GPU Piece Size:", gpu_piece_size)
     print("CPU Piece Size:", cpu_piece_size)
-    mi = run(filename, threads, batch_size, force_cpu)
+    init_times = []
+    runtimes = []
+    for _ in range(args.trials):
+        init_time, runtime = run(filename, threads, batch_size, force_cpu)
+        init_times.append(init_time)
+        runtimes.append(runtime)
+    if args.trials > 1:
+        print('Median Init:', median(init_times))
+        print('Median Runtime:', median(runtimes))
+        print('Median Total:', median(init_times) + median(runtimes))
 
 
 if __name__ == "__main__":
