@@ -414,6 +414,7 @@ def run(args):
         raise ValueError("invalid compute backend", compute)
 
     torch.cuda.synchronize()
+    torch.set_num_threads(threads)
     start = time.time()
     a, b, c, d, e = get_inputs(size, mode, allocation, pin_memory)
     f, g, h, i, j, k, l = get_tmp_arrays(size, mode, compute, reuse_memory, gpu_piece_size)

@@ -88,7 +88,10 @@ class TorchTensorSplit(SplitType):
         return "TorchTensorSplit"
 
 def _gpu_empty(size, *args, **kwargs):
-    return torch.empty(size, *args, **kwargs, device=torch.device('cuda'))
+    torch.set_num_threads(16)
+    result = torch.empty(size, *args, **kwargs, device=torch.device('cuda'))
+    torch.set_num_threads(1)
+    return result
 
 @alloc(TorchTensorSplit(), gpu=True, gpu_func=_gpu_empty)
 def empty(*args, **kwargs):
