@@ -43,9 +43,13 @@ class Program:
 
         """
         elements = None
+        from .. import dag
         for inst in self.insts:
             if isinstance(inst, Split):
-                e = inst.ty.elements(values[inst.target])
+                value = values[inst.target]
+                if isinstance(value, dag.Operation):
+                    value = value.value
+                e = inst.ty.elements(value)
                 if e is None:
                     continue
                 if elements is not None:

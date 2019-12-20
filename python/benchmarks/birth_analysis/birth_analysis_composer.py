@@ -34,7 +34,7 @@ def run(filename, threads, batch_size, force_cpu):
     names = pd.read_csv(filename, names=columns)
     print("done")
 
-    print("Size of names:", len(names))
+    # print("Size of names:", len(names))
 
     e2e_start = time.time()
 
