@@ -243,6 +243,10 @@ def series_str_contains(series, target):
     result = series.str.contains(target)
     return result
 
+@alloc(DataFrameSplit(), gpu=True, gpu_func=cudf.Series)
+def Series(*args, **kwargs):
+    return pd.Series(*args, **kwargs)
+
 @alloc(DataFrameSplit(), gpu=True, gpu_func=cudf.read_csv)
 def read_csv(filename, names=None):
     return pd.read_csv(filename, names=names)
