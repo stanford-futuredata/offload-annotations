@@ -97,7 +97,7 @@ def _run_program_piece(
         if isinstance(inst, To) or inst.batch_size == batch_size:
             # print('EVALUATE ' + str(inst))
             start = time.time()
-            print(inst)
+            # print(inst)
             result = inst.evaluate(worker_id, index_range, batch_index, _VALUES, context)
             inst_times[_inst_to_key(inst)] += time.time() - start
             i += 1
@@ -189,11 +189,11 @@ def _run_program(
         batch_index += 1
 
     process_end = time.time()
-    print('\nINSTRUCTION PROFILING')
-    total_time = sum(inst_times.values())
-    for key, val in sorted(inst_times.items()):
-        print('{}\t{:.2f}%\t{:.4f}'.format(key, val / total_time * 100, val))
-    print()
+    # print('\nINSTRUCTION PROFILING')
+    # total_time = sum(inst_times.values())
+    # for key, val in sorted(inst_times.items()):
+    #     print('{}\t{:.2f}%\t{:.4f}'.format(key, val / total_time * 100, val))
+    # print()
 
     # Free non-shared memory on this worker.
     # Replace the data in the original pointer if we are the top level thread.
