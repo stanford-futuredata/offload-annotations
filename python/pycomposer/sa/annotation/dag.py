@@ -583,7 +583,9 @@ def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"]
         batch_size = config["batch_size"]
         batch_size[Backend.CPU] = cpu_batch_size
 
+    start = time.time()
     vms = dag.to_vm(batch_size, force_cpu)
+    print('to_vm:', time.time() - start)
     for _, vm in vms:
         # print(vm.program)
         # print()
