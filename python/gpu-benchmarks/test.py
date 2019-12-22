@@ -18,8 +18,8 @@ class TestCrimeIndex(unittest.TestCase):
         self.filenames = [prefix + f for f in filenames]
         self.data_size = 1 << 20
         self.batch_size = {
-            Backend.CPU: 1 << 14,
-            Backend.GPU: 1 << 19,
+            Backend.CPU: crime_index.DEFAULT_CPU,
+            Backend.GPU: crime_index.DEFAULT_GPU,
         }
         # The expected result for the given data size
         self.expected = 5242.88

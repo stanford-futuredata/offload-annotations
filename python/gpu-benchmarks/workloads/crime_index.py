@@ -17,6 +17,10 @@ filenames = ['total_population.csv', 'adult_population.csv', 'num_robberies.csv'
 filenames = [prefix + f for f in filenames]
 values = [500000, 250000, 1000]
 
+DEFAULT_SIZE = 1 << 26
+DEFAULT_CPU = 1 << 16
+DEFAULT_GPU = 1 << 26
+
 
 def _write_data(size, filenames=filenames):
     for i, filename in enumerate(filenames):
@@ -138,10 +142,29 @@ def run_cuda(total_population, adult_population, num_robberies):
     return crime_index.sum()
 
 
-def run(mode, size, batch_size, threads, data_mode='file'):
+def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
+    # Optimal defaults
+    if size == None:
+        size = DEFAULT_SIZE
+    if cpu is None:
+        cpu = DEFAULT_CPU
+    if gpu is None:
+        gpu = DEFAULT_GPU
+    if threads is None:
+        if mode == Mode.MOZART:
+            threads = 16
+        else:
+            threads = 1
+
+    # Initialize data
     if data_mode == 'file':
         _write_data(size)
+    batch_size = {
+        Backend.CPU: cpu,
+        Backend.GPU: gpu,
+    }
 
+    # Get inputs
     start = time.time()
     if data_mode == 'generated':
         inputs = gen_data(mode, size)

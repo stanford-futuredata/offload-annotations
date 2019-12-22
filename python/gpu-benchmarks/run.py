@@ -43,13 +43,13 @@ def median(arr):
         return (arr[m] + arr[m-1]) / 2
 
 
-def run(ntrials, bm, mode, size, batch_size, threads):
+def run(ntrials, bm, mode, size, cpu, gpu, threads):
     print('Trials:', ntrials)
     print('Benchmark:', bm.name.lower())
     print('Mode:', mode.name.lower())
     print('Size:', size)
-    print('CPU piece size:', batch_size[Backend.CPU])
-    print('GPU piece size:', batch_size[Backend.GPU])
+    print('CPU piece size:', cpu)
+    print('GPU piece size:', gpu)
     print('Threads:', threads)
 
     bm_func = to_function(bm)
@@ -57,7 +57,7 @@ def run(ntrials, bm, mode, size, batch_size, threads):
     init_times = []
     runtimes = []
     for _ in range(ntrials):
-        init_time, runtime = bm_func(mode, size, batch_size, threads)
+        init_time, runtime = bm_func(mode, size, cpu, gpu, threads)
         init_times.append(init_time)
         runtimes.append(runtime)
     print('Median Init:', median(init_times))
@@ -73,10 +73,10 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--benchmark', type=str, required=True,
         help='Benchmark name ({}) or (0-{})'.format('|'.join(bm_names), len(Benchmark) - 1))
     parser.add_argument('-m', '--mode', type=str, required=True, help='Mode (naive|mozart|bach|cuda)')
-    parser.add_argument('-s', '--size', type=int, default=27, help='Data size')
-    parser.add_argument('--cpu', type=int, default=14, help='Log CPU piece size')
-    parser.add_argument('--gpu', type=int, default=19, help='Log GPU piece size')
-    parser.add_argument('--threads', type=int, default=1, help='Number of threads (naive only)')
+    parser.add_argument('-s', '--size', type=int, help='Log data size')
+    parser.add_argument('--cpu', type=int, help='Log CPU piece size')
+    parser.add_argument('--gpu', type=int, help='Log GPU piece size')
+    parser.add_argument('--threads', type=int, help='Number of threads (naive only)')
     parser.add_argument('--trials', type=int, default=1, help='Number of trials')
     args = parser.parse_args()
 
@@ -97,13 +97,11 @@ if __name__ == '__main__':
         raise ValueError('Invalid mode:', mode)
 
     # Parse other arguments
-    size = 1 << args.size
-    batch_size = {
-        Backend.CPU: 1 << args.cpu,
-        Backend.GPU: 1 << args.gpu,
-    }
+    size = None if args.size is None else 1 << args.size
+    cpu = None if args.cpu is None else 1 << args.cpu
+    gpu = None if args.gpu is None else 1 << args.gpu
     threads = args.threads
     ntrials = args.trials
     assert ntrials > 0
 
-    run(ntrials, bm, mode, size, batch_size, threads)
+    run(ntrials, bm, mode, size, cpu, gpu, threads)
