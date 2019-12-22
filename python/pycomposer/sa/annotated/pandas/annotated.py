@@ -247,9 +247,17 @@ def series_str_contains(series, target):
 def Series(*args, **kwargs):
     return pd.Series(*args, **kwargs)
 
-@alloc(DataFrameSplit(), gpu=True, gpu_func=cudf.read_csv)
-def read_csv(filename, names=None):
-    return pd.read_csv(filename, names=names)
+def _cudf_read_csv(*args, **kwargs):
+    result = cudf.read_csv(*args, **kwargs)
+    if 'squeeze' in kwargs and kwargs['squeeze'] and result.shape[1] == 1:
+        result = result.iloc[:,0]
+    return result
+
+@alloc(DataFrameSplit(), gpu=True, gpu_func=_cudf_read_csv)
+def read_csv(*args, **kwargs):
+    result = pd.read_csv(*args, **kwargs)
+    # import pdb; pdb.set_trace()
+    return result
 
 dfgroupby = sa((DataFrameSplit(), Broadcast()), {}, GroupBySplit())(dfgroupby)
 merge = sa((DataFrameSplit(), Broadcast()), {}, DataFrameSplit())(merge)
