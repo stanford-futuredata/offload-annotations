@@ -29,6 +29,7 @@ perf.data*
 
 # Ignore Python virtualenv.
 python/benchmarks/benchmarks
+python/gpu-benchmarks/benchmarks
 
 # Ignore various projects
 weld/
@@ -38,10 +39,12 @@ bohrium/
 # Data
 babynames*
 ml-*
+*.csv
 
 # Benchmark output
 *.stdout
 *.stderr
+prof/
 
 # Ignore Python distribution stuff
 python/pycomposer/build/
