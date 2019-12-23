@@ -43,7 +43,7 @@ class TestBlackscholesNumpy(unittest.TestCase):
     def test_cuda(self):
         inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
         tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_numpy.run_cuda(*inputs, *tmp_arrays)
+        call, put = blackscholes_numpy.run_cuda(blackscholes_numpy.DEFAULT_GPU, *inputs, *tmp_arrays)
         self.assertTrue(isinstance(call, np.ndarray))
         self.assertTrue(isinstance(put, np.ndarray))
         self.validateArray(call, self.expected_call)

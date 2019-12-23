@@ -75,7 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--mode', type=str, required=True, help='Mode (naive|mozart|bach|cuda)')
     parser.add_argument('-s', '--size', type=int, help='Log data size')
     parser.add_argument('--cpu', type=int, help='Log CPU piece size')
-    parser.add_argument('--gpu', type=int, help='Log GPU piece size')
+    parser.add_argument('--gpu', type=int, help='Log GPU piece size in bach or stream size in cuda')
     parser.add_argument('--threads', type=int, help='Number of threads (naive only)')
     parser.add_argument('--trials', type=int, default=1, help='Number of trials')
     args = parser.parse_args()
