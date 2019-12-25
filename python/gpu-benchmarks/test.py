@@ -12,6 +12,45 @@ from sa.annotation import Backend
 from workloads import *
 
 
+class TestBlackscholesTorch(unittest.TestCase):
+
+    def setUp(self):
+        self.data_size = 1 << 20
+        self.batch_size = {
+            Backend.CPU: blackscholes_torch.DEFAULT_CPU,
+            Backend.GPU: blackscholes_torch.DEFAULT_GPU,
+        }
+        # The expected result for the given data size
+        self.expected_call = 24.0
+        self.expected_put = 18.0
+
+    def validateArray(self, arr, val):
+        self.assertAlmostEqual(arr[0].item(), val, places=5)
+        self.assertAlmostEqual(arr[-1].item(), val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
+
+    def test_naive(self):
+        inputs = blackscholes_torch.get_data(Mode.NAIVE, self.data_size)
+        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.NAIVE, self.data_size)
+        call, put = blackscholes_torch.run_naive(*inputs, *tmp_arrays)
+        self.assertEqual(call.device.type, 'cpu')
+        self.assertEqual(put.device.type, 'cpu')
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+    def test_mozart(self):
+        inputs = blackscholes_torch.get_data(Mode.MOZART, self.data_size)
+        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.MOZART, self.data_size)
+        call, put = blackscholes_torch.run_composer(
+            Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16)
+        self.assertEqual(call.device.type, 'cpu')
+        self.assertEqual(put.device.type, 'cpu')
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+
 class TestBlackscholesNumpy(unittest.TestCase):
 
     def setUp(self):
