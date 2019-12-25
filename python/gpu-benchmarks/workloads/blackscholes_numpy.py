@@ -326,9 +326,12 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
         Backend.GPU: gpu,
     }
 
-    # Get inputs
     start = time.time()
     inputs = get_data(mode, size)
+    print('Inputs (doesn\'t count):', time.time() - start)
+
+    # Get inputs
+    start = time.time()
     tmp_arrays = get_tmp_arrays(mode, size)
     init_time = time.time() - start
     print('Initialization:', init_time)
