@@ -50,7 +50,7 @@ def get_tmp_arrays(mode, size):
     if mode == Mode.CUDA:
         return _get_tmp_arrays_cuda(size)
 
-    if mode in [Mode.MOZART, Mode.BACH]:
+    if mode.is_composer():
         import sa.annotated.numpy as np
     else:
         import numpy as np
@@ -337,12 +337,14 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     print('Initialization:', init_time)
 
     start = time.time()
-    if mode in [Mode.BACH, Mode.MOZART]:
+    if mode.is_composer():
         call, put = run_composer(mode, *inputs, *tmp_arrays, batch_size, threads)
     elif mode == Mode.NAIVE:
         call, put = run_naive(*inputs, *tmp_arrays)
     elif mode == Mode.CUDA:
         call, put = run_cuda(gpu, *inputs, *tmp_arrays)
+    else:
+        raise ValueError
     runtime = time.time() - start
 
     print('Runtime:', runtime)

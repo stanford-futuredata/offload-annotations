@@ -47,7 +47,7 @@ def read_data(mode, filenames=filenames):
     if mode == Mode.CUDA:
         return _read_data_cuda(filenames)
 
-    if mode == Mode.MOZART or mode == Mode.BACH:
+    if mode.is_composer():
         import sa.annotated.pandas as pd
     else:
         import pandas as pd
@@ -69,7 +69,7 @@ def gen_data(mode, size):
     if mode == Mode.CUDA:
         return _gen_data_cuda(size)
 
-    if mode == Mode.MOZART or mode == Mode.BACH:
+    if mode.is_composer():
         import sa.annotated.pandas as pd
     else:
         import pandas as pd
@@ -176,12 +176,14 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     print("Get {} data: {}".format(data_mode, init_time))
 
     start = time.time()
-    if mode in [Mode.BACH, Mode.MOZART]:
+    if mode.is_composer():
         result = run_composer(mode, *inputs, batch_size, threads)
     elif mode == Mode.NAIVE:
         result = run_naive(*inputs)
     elif mode == Mode.CUDA:
         result = run_cuda(*inputs)
+    else:
+        raise ValueError
     runtime = time.time() - start
 
     print('Runtime:', runtime)

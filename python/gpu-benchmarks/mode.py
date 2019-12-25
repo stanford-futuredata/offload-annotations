@@ -9,3 +9,6 @@ class Mode(enum.Enum):
     BACH = 2
     # Hand-optimized CUDA implementation
     CUDA = 3
+
+    def is_composer(self):
+        return self in [Mode.MOZART, Mode.BACH]
