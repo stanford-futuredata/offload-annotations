@@ -346,6 +346,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     runtime = time.time() - start
 
     print('Runtime:', runtime)
+    print('Total:', init_time + runtime)
     print(call)
     print(put)
     return init_time, runtime
