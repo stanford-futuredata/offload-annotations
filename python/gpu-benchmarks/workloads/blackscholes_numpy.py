@@ -296,13 +296,14 @@ def run_cuda(stream_size, a, b, c, d, e, f, g, h, i, j, k, l):
             torch.sub(put, tmp, out=put)
 
     # Transfer to CPU
-    for m in range(num_pieces):
-        s = streams[m % nstreams]
+    for index in range(num_pieces):
+        m = index * n
+        s = streams[index % nstreams]
         with torch.cuda.stream(s):
-            kis[m] = kis[m].to(torch.device('cpu'), non_blocking=True)
-            lis[m] = lis[m].to(torch.device('cpu'), non_blocking=True)
-            x[m:m+n]=kis[m][:]
-            y[m:m+n]=lis[m][:]
+            kis[index] = kis[index].to(torch.device('cpu'), non_blocking=True)
+            lis[index] = lis[index].to(torch.device('cpu'), non_blocking=True)
+            x[m:m+n]=kis[index][:]
+            y[m:m+n]=lis[index][:]
     torch.cuda.synchronize()
     return x.numpy(), y.numpy()
 
