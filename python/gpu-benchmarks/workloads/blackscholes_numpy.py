@@ -348,6 +348,9 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
         Backend.GPU: gpu,
     }
 
+    torch.cuda.init()
+    torch.cuda.synchronize()
+
     start = time.time()
     inputs = get_data(mode, size)
     print('Inputs (doesn\'t count):', time.time() - start)
