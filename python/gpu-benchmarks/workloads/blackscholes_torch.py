@@ -264,7 +264,10 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     if gpu is None:
         gpu = DEFAULT_GPU
     if threads is None:
-        threads = 16
+        if mode == Mode.BACH:
+            threads = 1
+        else:
+            threads = 16
 
     batch_size = {
         Backend.CPU: cpu,
@@ -287,7 +290,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     print('Temporary arrays:', init_time)
 
     start = time.time()
-    if mode == Mode.MOZART:
+    if mode.is_composer():
         # Composer runs on a single thread for manual parallelization
         torch.set_num_threads(1)
         call, put = run_composer(mode, *inputs, *tmp_arrays, batch_size, threads)
