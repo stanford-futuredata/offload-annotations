@@ -16,6 +16,7 @@ DEFAULT_SIZE = 1 << 26
 DEFAULT_CPU = 1 << 14
 # Same for both cuda streams and bach gpu piece size
 DEFAULT_GPU = 1 << 26
+DEFAULT_STREAMS = 16
 
 
 def get_data(mode, size):
@@ -32,7 +33,24 @@ def get_data(mode, size):
     return price, strike, t, rate, vol
 
 
+def _get_tmp_arrays_cuda(size):
+    # Tmp arrays
+    tmp = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+    vol_sqrt = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+    rsig = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+    d1 = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+    d2 = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+
+    # Outputs
+    call = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+    put = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+    return tmp, vol_sqrt, rsig, d1, d2, call, put
+
+
 def get_tmp_arrays(mode, size):
+    if mode == Mode.CUDA:
+        return _get_tmp_arrays_cuda(size)
+
     if mode.is_composer():
         import sa.annotated.torch as torch
     else:
@@ -156,6 +174,86 @@ def run_naive(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, pu
     return call, put
 
 
+def run_cuda_nostream(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put):
+    # Transfer to GPU
+    price = price.cuda()
+    strike = strike.cuda()
+    t = t.cuda()
+    rate = rate.cuda()
+    vol = vol.cuda()
+
+    # Compute
+    torch_bs(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put, composer=False)
+
+    # Transfer to CPU
+    call = call.cpu()
+    put = put.cpu()
+    torch.cuda.synchronize()
+    return call, put
+
+
+def run_cuda(stream_size, a, b, c, d, e, f, g, h, i, j, k, l):
+    c05 = 3.0
+    c10 = 1.5
+    invsqrt2 = 1.0 / math.sqrt(2.0)
+
+    size = len(a)
+    n = stream_size
+    num_pieces = int(size/n)
+    nstreams = min(num_pieces, DEFAULT_STREAMS)
+    x = torch.empty(size, dtype=torch.float64)
+    y = torch.empty(size, dtype=torch.float64)
+    ais,bis,cis,dis,eis,fis,gis,his,iis,jis,kis,lis = [],[],[],[],[],[],[],[],[],[],[],[]
+    streams = [torch.cuda.Stream() for _ in range(nstreams)]
+
+    # Transfer to GPU
+    for index in range(num_pieces):
+        m = index * n
+        s = streams[index % nstreams]
+        with torch.cuda.stream(s):
+            ai, bi, ci, di, ei = a[m:m+n], b[m:m+n], c[m:m+n], d[m:m+n], e[m:m+n]
+            fi, gi, hi, ii, ji = f[m:m+n], g[m:m+n], h[m:m+n], i[m:m+n], j[m:m+n]
+            ki, li = k[m:m+n], l[m:m+n]
+
+            ai = ai.to(torch.device('cuda'), non_blocking=True)
+            bi = bi.to(torch.device('cuda'), non_blocking=True)
+            ci = ci.to(torch.device('cuda'), non_blocking=True)
+            di = di.to(torch.device('cuda'), non_blocking=True)
+            ei = ei.to(torch.device('cuda'), non_blocking=True)
+            ais.append(ai)
+            bis.append(bi)
+            cis.append(ci)
+            dis.append(di)
+            eis.append(ei)
+            fis.append(fi)
+            gis.append(gi)
+            his.append(hi)
+            iis.append(ii)
+            jis.append(ji)
+            kis.append(ki)
+            lis.append(li)
+
+    # Compute
+    for m in range(num_pieces):
+        s = streams[m % nstreams]
+        with torch.cuda.stream(s):
+            price, strike, t, rate, vol = ais[m], bis[m], cis[m], dis[m], eis[m]
+            tmp, vol_sqrt, rsig, d1, d2 = fis[m], gis[m], his[m], iis[m], jis[m]
+            call, put = kis[m], lis[m]
+            torch_bs(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put, composer=False)
+
+    # Transfer to CPU
+    for m in range(num_pieces):
+        s = streams[m % nstreams]
+        with torch.cuda.stream(s):
+            kis[m] = kis[m].to(torch.device('cpu'), non_blocking=True)
+            lis[m] = lis[m].to(torch.device('cpu'), non_blocking=True)
+            x[m:m+n]=kis[m][:]
+            y[m:m+n]=lis[m][:]
+    torch.cuda.synchronize()
+    return x, y
+
+
 def run(mode, size=None, cpu=None, gpu=None, threads=None):
     # Optimal defaults
     if size == None:
@@ -174,6 +272,8 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
 
     # Single-threaded allocation
     torch.set_num_threads(1)
+    torch.cuda.init()
+    torch.cuda.synchronize()
 
     start = time.time()
     inputs = get_data(mode, size)
@@ -194,6 +294,9 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
         # Allow naive PyTorch the number of requested threads for parallel execution
         torch.set_num_threads(threads)
         call, put = run_naive(*inputs, *tmp_arrays)
+    elif mode == Mode.CUDA:
+        torch.set_num_threads(1)
+        call, put = run_cuda_nostream(*inputs, *tmp_arrays)
     else:
         raise ValueError
     runtime = time.time() - start

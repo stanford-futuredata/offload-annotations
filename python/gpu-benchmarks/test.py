@@ -40,6 +40,24 @@ class TestBlackscholesTorch(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    def test_cuda_nostream(self):
+        inputs = blackscholes_torch.get_data(Mode.CUDA, self.data_size)
+        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.CUDA, self.data_size)
+        call, put = blackscholes_torch.run_cuda_nostream(*inputs, *tmp_arrays)
+        self.assertEqual(call.device.type, 'cpu')
+        self.assertEqual(put.device.type, 'cpu')
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+    def test_cuda(self):
+        inputs = blackscholes_torch.get_data(Mode.CUDA, self.data_size)
+        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.CUDA, self.data_size)
+        call, put = blackscholes_torch.run_cuda(blackscholes_torch.DEFAULT_GPU, *inputs, *tmp_arrays)
+        self.assertEqual(call.device.type, 'cpu')
+        self.assertEqual(put.device.type, 'cpu')
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
     def test_mozart(self):
         inputs = blackscholes_torch.get_data(Mode.MOZART, self.data_size)
         tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.MOZART, self.data_size)
