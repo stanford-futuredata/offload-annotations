@@ -14,8 +14,8 @@ from mode import Mode
 
 DEFAULT_SIZE = 1 << 26
 DEFAULT_CPU = 1 << 14
-# Same for both cuda streams and bach gpu piece size
-DEFAULT_GPU = 1 << 26
+DEFAULT_GPU = 1 << 21
+DEFAULT_STREAM_SIZE = 1 << 21
 DEFAULT_STREAMS = 16
 
 
@@ -262,12 +262,15 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     if cpu is None:
         cpu = DEFAULT_CPU
     if gpu is None:
-        gpu = DEFAULT_GPU
-    if threads is None:
-        if mode == Mode.BACH:
-            threads = 1
+        if mode == Mode.CUDA:
+            gpu = DEFAULT_STREAM_SIZE
         else:
+            gpu = DEFAULT_GPU
+    if threads is None:
+        if mode == Mode.MOZART:
             threads = 16
+        else:
+            threads = 1
 
     batch_size = {
         Backend.CPU: cpu,
