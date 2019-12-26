@@ -163,6 +163,15 @@ class TestBlackscholesNumpy(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    def test_cuda_nostream(self):
+        inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
+        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)
+        call, put = blackscholes_numpy.run_cuda_nostream(*inputs, *tmp_arrays)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
     def test_cuda(self):
         inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
         tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)

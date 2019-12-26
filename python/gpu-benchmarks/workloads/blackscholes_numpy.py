@@ -181,11 +181,91 @@ def run_naive(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, pu
     return call, put
 
 
-def run_cuda(stream_size, a, b, c, d, e, f, g, h, i, j, k, l):
+def torch_bs(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put):
     c05 = 3.0
     c10 = 1.5
     invsqrt2 = 1.0 / math.sqrt(2.0)
 
+    torch.mul(vol, vol, out=rsig)
+    torch.mul(rsig, c05, out=rsig)
+    torch.add(rsig, rate, out=rsig)
+
+    torch.sqrt(t, out=vol_sqrt)
+    torch.mul(vol_sqrt, vol, out=vol_sqrt)
+
+    torch.mul(rsig, t, out=tmp)
+    torch.div(price, strike, out=d1)
+    torch.log2(d1, out=d1)
+    torch.add(d1, tmp, out=d1)
+
+    torch.div(d1, vol_sqrt, out=d1)
+    torch.sub(d1, vol_sqrt, out=d2)
+
+    # d1 = c05 + c05 * erf(d1 * invsqrt2)
+    torch.mul(d1, invsqrt2, out=d1)
+    torch.erf(d1, out=d1)
+    torch.mul(d1, c05, out=d1)
+    torch.add(d1, c05, out=d1)
+
+    # d2 = c05 + c05 * erf(d2 * invsqrt2)
+    torch.mul(d2, invsqrt2, out=d2)
+    torch.erf(d2, out=d2)
+    torch.mul(d2, c05, out=d2)
+    torch.add(d2, c05, out=d2)
+
+    # Reuse existing buffers
+    e_rt = vol_sqrt
+    tmp2 = rsig
+
+    # e_rt = exp(-rate * t)
+    torch.mul(rate, -1.0, out=e_rt)
+    torch.mul(e_rt, t, out=e_rt)
+    torch.exp(e_rt, out=e_rt)
+
+    # call = price * d1 - e_rt * strike * d2
+    #
+    # tmp = price * d1
+    # tmp2 = e_rt * strike * d2
+    # call = tmp - tmp2
+    torch.mul(price, d1, out=tmp)
+    torch.mul(e_rt, strike, out=tmp2)
+    torch.mul(tmp2, d2, out=tmp2)
+    torch.sub(tmp, tmp2, out=call)
+
+    # put = e_rt * strike * (c10 - d2) - price * (c10 - d1)
+    # tmp = e_rt * strike
+    # tmp2 = (c10 - d2)
+    # put = tmp - tmp2
+    # tmp = c10 - d1
+    # tmp = price * tmp
+    # put = put - tmp
+    torch.mul(e_rt, strike, out=tmp)
+    torch.sub(c10, d2, out=tmp2)
+    torch.mul(tmp, tmp2, out=put)
+    torch.sub(c10, d1, out=tmp)
+    torch.mul(price, tmp, out=tmp)
+    torch.sub(put, tmp, out=put)
+
+
+def run_cuda_nostream(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put):
+    # Transfer to GPU
+    price = torch.from_numpy(price).cuda()
+    strike = torch.from_numpy(strike).cuda()
+    t = torch.from_numpy(t).cuda()
+    rate = torch.from_numpy(rate).cuda()
+    vol = torch.from_numpy(vol).cuda()
+
+    # Compute
+    torch_bs(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put)
+
+    # Transfer to CPU
+    call = call.cpu().numpy()
+    put = put.cpu().numpy()
+    torch.cuda.synchronize()
+    return call, put
+
+
+def run_cuda(stream_size, a, b, c, d, e, f, g, h, i, j, k, l):
     a = torch.from_numpy(a)
     b = torch.from_numpy(b)
     c = torch.from_numpy(c)
@@ -234,66 +314,7 @@ def run_cuda(stream_size, a, b, c, d, e, f, g, h, i, j, k, l):
             price, strike, t, rate, vol = ais[m], bis[m], cis[m], dis[m], eis[m]
             tmp, vol_sqrt, rsig, d1, d2 = fis[m], gis[m], his[m], iis[m], jis[m]
             call, put = kis[m], lis[m]
-
-            torch.mul(vol, vol, out=rsig)
-            torch.mul(rsig, c05, out=rsig)
-            torch.add(rsig, rate, out=rsig)
-
-            torch.sqrt(t, out=vol_sqrt)
-            torch.mul(vol_sqrt, vol, out=vol_sqrt)
-
-            torch.mul(rsig, t, out=tmp)
-            torch.div(price, strike, out=d1)
-            torch.log2(d1, out=d1)
-            torch.add(d1, tmp, out=d1)
-
-            torch.div(d1, vol_sqrt, out=d1)
-            torch.sub(d1, vol_sqrt, out=d2)
-
-            # d1 = c05 + c05 * erf(d1 * invsqrt2)
-            torch.mul(d1, invsqrt2, out=d1)
-            torch.erf(d1, out=d1)
-            torch.mul(d1, c05, out=d1)
-            torch.add(d1, c05, out=d1)
-
-            # d2 = c05 + c05 * erf(d2 * invsqrt2)
-            torch.mul(d2, invsqrt2, out=d2)
-            torch.erf(d2, out=d2)
-            torch.mul(d2, c05, out=d2)
-            torch.add(d2, c05, out=d2)
-
-            # Reuse existing buffers
-            e_rt = vol_sqrt
-            tmp2 = rsig
-
-            # e_rt = exp(-rate * t)
-            torch.mul(rate, -1.0, out=e_rt)
-            torch.mul(e_rt, t, out=e_rt)
-            torch.exp(e_rt, out=e_rt)
-
-            # call = price * d1 - e_rt * strike * d2
-            #
-            # tmp = price * d1
-            # tmp2 = e_rt * strike * d2
-            # call = tmp - tmp2
-            torch.mul(price, d1, out=tmp)
-            torch.mul(e_rt, strike, out=tmp2)
-            torch.mul(tmp2, d2, out=tmp2)
-            torch.sub(tmp, tmp2, out=call)
-
-            # put = e_rt * strike * (c10 - d2) - price * (c10 - d1)
-            # tmp = e_rt * strike
-            # tmp2 = (c10 - d2)
-            # put = tmp - tmp2
-            # tmp = c10 - d1
-            # tmp = price * tmp
-            # put = put - tmp
-            torch.mul(e_rt, strike, out=tmp)
-            torch.sub(c10, d2, out=tmp2)
-            torch.mul(tmp, tmp2, out=put)
-            torch.sub(c10, d1, out=tmp)
-            torch.mul(price, tmp, out=tmp)
-            torch.sub(put, tmp, out=put)
+            torch_bs(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put)
 
     # Transfer to CPU
     for index in range(num_pieces):
