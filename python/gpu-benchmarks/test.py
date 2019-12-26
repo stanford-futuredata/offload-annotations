@@ -56,9 +56,18 @@ class TestBlackscholesTorch(unittest.TestCase):
     def test_cuda(self):
         inputs = blackscholes_torch.get_data(Mode.CUDA, self.data_size)
         tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_torch.run_cuda(blackscholes_torch.DEFAULT_GPU, *inputs, *tmp_arrays)
+        call, put = blackscholes_torch.run_cuda(self.batch_size[Backend.GPU], *inputs, *tmp_arrays)
         self.assertEqual(call.device.type, 'cpu')
         self.assertEqual(put.device.type, 'cpu')
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+    def test_cuda_large_stream_size(self):
+        stream_size = 1 << 21
+        self.assertGreater(stream_size, self.data_size)
+        inputs = blackscholes_torch.get_data(Mode.CUDA, self.data_size)
+        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.CUDA, self.data_size)
+        call, put = blackscholes_torch.run_cuda(stream_size, *inputs, *tmp_arrays)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
@@ -111,6 +120,15 @@ class TestBlackscholesNumpy(unittest.TestCase):
         call, put = blackscholes_numpy.run_cuda(self.batch_size[Backend.GPU], *inputs, *tmp_arrays)
         self.assertTrue(isinstance(call, np.ndarray))
         self.assertTrue(isinstance(put, np.ndarray))
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+    def test_cuda_large_stream_size(self):
+        stream_size = 1 << 21
+        self.assertGreater(stream_size, self.data_size)
+        inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
+        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)
+        call, put = blackscholes_numpy.run_cuda(stream_size, *inputs, *tmp_arrays)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 

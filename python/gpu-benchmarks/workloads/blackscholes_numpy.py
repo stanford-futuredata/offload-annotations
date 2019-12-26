@@ -194,7 +194,7 @@ def run_cuda(stream_size, a, b, c, d, e, f, g, h, i, j, k, l):
 
     size = len(a)
     n = stream_size
-    num_pieces = int(size/n)
+    num_pieces = int((size+n-1)/n)
     nstreams = min(num_pieces, DEFAULT_STREAMS)
     x = torch.empty(size, dtype=torch.float64)
     y = torch.empty(size, dtype=torch.float64)
