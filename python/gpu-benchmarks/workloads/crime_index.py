@@ -187,6 +187,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     runtime = time.time() - start
 
     print('Runtime:', runtime)
-    print('Total:', init_time + runtime)
+    sys.stdout.write('Total: {}\n'.format(init_time + runtime))
+    sys.stdout.flush()
     print(result)
     return init_time, runtime
