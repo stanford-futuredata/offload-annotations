@@ -109,8 +109,8 @@ class TestBlackscholesNumpy(unittest.TestCase):
         inputs = blackscholes_numpy.get_data(Mode.NAIVE, self.data_size)
         tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.NAIVE, self.data_size)
         call, put = blackscholes_numpy.run_naive(*inputs, *tmp_arrays)
-        self.assertTrue(isinstance(call, np.ndarray))
-        self.assertTrue(isinstance(put, np.ndarray))
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
@@ -118,8 +118,8 @@ class TestBlackscholesNumpy(unittest.TestCase):
         inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
         tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)
         call, put = blackscholes_numpy.run_cuda(self.batch_size[Backend.GPU], *inputs, *tmp_arrays)
-        self.assertTrue(isinstance(call, np.ndarray))
-        self.assertTrue(isinstance(put, np.ndarray))
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
@@ -137,8 +137,8 @@ class TestBlackscholesNumpy(unittest.TestCase):
         tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.MOZART, self.data_size)
         call, put = blackscholes_numpy.run_composer(
             Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16)
-        self.assertTrue(isinstance(call, np.ndarray))
-        self.assertTrue(isinstance(put, np.ndarray))
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
@@ -147,8 +147,8 @@ class TestBlackscholesNumpy(unittest.TestCase):
         tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.BACH, self.data_size)
         call, put = blackscholes_numpy.run_composer(
             Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1)
-        self.assertTrue(isinstance(call, np.ndarray))
-        self.assertTrue(isinstance(put, np.ndarray))
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
