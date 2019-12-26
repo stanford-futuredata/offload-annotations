@@ -2,6 +2,9 @@ import random
 import sys
 import unittest
 import numpy as np
+import torch
+import pandas as pd
+import cudf
 
 sys.path.append("../lib")
 sys.path.append("../pycomposer")
@@ -9,6 +12,7 @@ sys.path.append('.')
 
 from mode import Mode
 from sa.annotation import Backend
+from sa.annotation import dag
 from workloads import *
 
 
@@ -34,6 +38,23 @@ class TestBlackscholesTorch(unittest.TestCase):
         self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
         self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
         self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
+
+    def test_get_data(self):
+        size = 2
+        for mode in Mode:
+            for array in blackscholes_torch.get_data(Mode.NAIVE, size):
+                self.assertEqual(array.device.type, 'cpu')
+
+    def test_get_tmp_arrays(self):
+        size = 2
+        for array in blackscholes_torch.get_tmp_arrays(Mode.NAIVE, size):
+            self.assertEqual(array.device.type, 'cpu')
+        for array in blackscholes_torch.get_tmp_arrays(Mode.CUDA, size):
+            self.assertEqual(array.device.type, 'cuda')
+        for array in blackscholes_torch.get_tmp_arrays(Mode.MOZART, size):
+            self.assertIsInstance(array, dag.Operation)
+        for array in blackscholes_torch.get_tmp_arrays(Mode.BACH, size):
+            self.assertIsInstance(array, dag.Operation)
 
     def test_naive(self):
         inputs = blackscholes_torch.get_data(Mode.NAIVE, self.data_size)
@@ -81,6 +102,16 @@ class TestBlackscholesTorch(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    def test_bach(self):
+        inputs = blackscholes_torch.get_data(Mode.BACH, self.data_size)
+        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.BACH, self.data_size)
+        call, put = blackscholes_torch.run_composer(
+            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1)
+        self.assertEqual(call.device.type, 'cpu')
+        self.assertEqual(put.device.type, 'cpu')
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
 
 class TestBlackscholesNumpy(unittest.TestCase):
 
@@ -104,6 +135,24 @@ class TestBlackscholesNumpy(unittest.TestCase):
         self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
         self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
         self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
+
+    def test_get_data(self):
+        size = 2
+        for mode in Mode:
+            for array in blackscholes_numpy.get_data(Mode.NAIVE, size):
+                self.assertIsInstance(array, np.ndarray)
+
+    def test_get_tmp_arrays(self):
+        size = 2
+        for array in blackscholes_numpy.get_tmp_arrays(Mode.NAIVE, size):
+            self.assertIsInstance(array, np.ndarray)
+        for array in blackscholes_numpy.get_tmp_arrays(Mode.CUDA, size):
+            self.assertIsInstance(array, torch.Tensor)
+            self.assertEqual(array.device.type, 'cuda')
+        for array in blackscholes_numpy.get_tmp_arrays(Mode.MOZART, size):
+            self.assertIsInstance(array, dag.Operation)
+        for array in blackscholes_numpy.get_tmp_arrays(Mode.BACH, size):
+            self.assertIsInstance(array, dag.Operation)
 
     def test_naive(self):
         inputs = blackscholes_numpy.get_data(Mode.NAIVE, self.data_size)
@@ -170,6 +219,27 @@ class TestCrimeIndex(unittest.TestCase):
     def test_batch_parameters(self):
         self.assertLess(self.batch_size[Backend.CPU], self.data_size)
         self.assertLess(self.batch_size[Backend.GPU], self.data_size)
+
+    def test_read_data(self):
+        for array in crime_index.read_data(Mode.NAIVE, filenames=self.filenames):
+            self.assertIsInstance(array, pd.Series)
+        for array in crime_index.read_data(Mode.CUDA, filenames=self.filenames):
+            self.assertIsInstance(array, cudf.Series)
+        for array in crime_index.read_data(Mode.MOZART, filenames=self.filenames):
+            self.assertIsInstance(array, dag.Operation)
+        for array in crime_index.read_data(Mode.BACH, filenames=self.filenames):
+            self.assertIsInstance(array, dag.Operation)
+
+    def test_gen_data(self):
+        size = 2
+        for array in crime_index.gen_data(Mode.NAIVE, size):
+            self.assertIsInstance(array, pd.Series)
+        for array in crime_index.gen_data(Mode.CUDA, size):
+            self.assertIsInstance(array, cudf.Series)
+        for array in crime_index.gen_data(Mode.MOZART, size):
+            self.assertIsInstance(array, dag.Operation)
+        for array in crime_index.gen_data(Mode.BACH, size):
+            self.assertIsInstance(array, dag.Operation)
 
     def test_read_naive(self):
         inputs = crime_index.read_data(Mode.NAIVE, filenames=self.filenames)
