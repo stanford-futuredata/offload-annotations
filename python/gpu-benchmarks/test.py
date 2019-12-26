@@ -18,11 +18,15 @@ class TestBlackscholesTorch(unittest.TestCase):
         self.data_size = 1 << 20
         self.batch_size = {
             Backend.CPU: blackscholes_torch.DEFAULT_CPU,
-            Backend.GPU: blackscholes_torch.DEFAULT_GPU,
+            Backend.GPU: 1 << 16,
         }
         # The expected result for the given data size
         self.expected_call = 24.0
         self.expected_put = 18.0
+
+    def test_batch_parameters(self):
+        self.assertLess(self.batch_size[Backend.CPU], self.data_size)
+        self.assertLess(self.batch_size[Backend.GPU], self.data_size)
 
     def validateArray(self, arr, val):
         self.assertAlmostEqual(arr[0].item(), val, places=5)
@@ -75,11 +79,15 @@ class TestBlackscholesNumpy(unittest.TestCase):
         self.data_size = 1 << 20
         self.batch_size = {
             Backend.CPU: blackscholes_numpy.DEFAULT_CPU,
-            Backend.GPU: blackscholes_numpy.DEFAULT_GPU,
+            Backend.GPU: 1 << 16,
         }
         # The expected result for the given data size
         self.expected_call = 24.0
         self.expected_put = 18.0
+
+    def test_batch_parameters(self):
+        self.assertLess(self.batch_size[Backend.CPU], self.data_size)
+        self.assertLess(self.batch_size[Backend.GPU], self.data_size)
 
     def validateArray(self, arr, val):
         self.assertAlmostEqual(arr[0], val, places=5)
@@ -100,7 +108,7 @@ class TestBlackscholesNumpy(unittest.TestCase):
     def test_cuda(self):
         inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
         tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_numpy.run_cuda(blackscholes_numpy.DEFAULT_GPU, *inputs, *tmp_arrays)
+        call, put = blackscholes_numpy.run_cuda(self.batch_size[Backend.GPU], *inputs, *tmp_arrays)
         self.assertTrue(isinstance(call, np.ndarray))
         self.assertTrue(isinstance(put, np.ndarray))
         self.validateArray(call, self.expected_call)
@@ -136,10 +144,14 @@ class TestCrimeIndex(unittest.TestCase):
         self.data_size = 1 << 20
         self.batch_size = {
             Backend.CPU: crime_index.DEFAULT_CPU,
-            Backend.GPU: crime_index.DEFAULT_GPU,
+            Backend.GPU: 1 << 16,
         }
         # The expected result for the given data size
         self.expected = 5242.88
+
+    def test_batch_parameters(self):
+        self.assertLess(self.batch_size[Backend.CPU], self.data_size)
+        self.assertLess(self.batch_size[Backend.GPU], self.data_size)
 
     def test_read_naive(self):
         inputs = crime_index.read_data(Mode.NAIVE, filenames=self.filenames)
