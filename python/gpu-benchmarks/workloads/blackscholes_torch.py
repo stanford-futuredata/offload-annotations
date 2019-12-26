@@ -130,8 +130,8 @@ def run_composer(
 ):
     start = time.time()
     import sa.annotated.torch as torch
-    # call.materialize = Backend.CPU
-    # put.materialize = Backend.CPU
+    call.materialize = Backend.CPU
+    put.materialize = Backend.CPU
 
     if mode == Mode.MOZART:
         force_cpu = True
