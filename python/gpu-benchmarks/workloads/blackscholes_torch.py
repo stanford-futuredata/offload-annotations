@@ -13,7 +13,7 @@ from sa.annotation import Backend
 from mode import Mode
 
 DEFAULT_SIZE = 1 << 26
-DEFAULT_CPU = 1 << 18
+DEFAULT_CPU = 1 << 14
 # Same for both cuda streams and bach gpu piece size
 DEFAULT_GPU = 1 << 26
 
