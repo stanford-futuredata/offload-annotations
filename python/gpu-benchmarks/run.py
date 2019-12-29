@@ -15,8 +15,8 @@ class Benchmark(enum.Enum):
     BLACKSCHOLES_NUMPY = 1
     BLACKSCHOLES_TORCH = 2
     CRIME_INDEX = 3
+    SGD_CLASSIFIER = 4
     # IMAGE_PROCESSING = 4
-    # LINEAR_REGRESSION = 5
     # PREPROCESSING = 6
     # XGBOOST = 7
 
@@ -30,6 +30,8 @@ def to_function(bm):
         return blackscholes_torch.run
     elif bm == Benchmark.CRIME_INDEX:
         return crime_index.run
+    elif bm == Benchmark.SGD_CLASSIFIER:
+        return sgd_classifier.run
     else:
         raise Exception
 

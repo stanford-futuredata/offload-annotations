@@ -16,6 +16,15 @@ from sa.annotation import dag
 from workloads import *
 
 
+class TestSGDClassifier(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def test_naive(self):
+        pass
+
+
 class TestBlackscholesTorch(unittest.TestCase):
 
     def setUp(self):
