@@ -61,6 +61,16 @@ def gen_data(
         return _gen_data(X0, y0, columns, predictions)
 
 
+def accuracy(actual, expected):
+    assert len(actual) == len(expected)
+    total = len(actual)
+    correct = 0
+    for i in range(total):
+        if actual[i] == expected[i]:
+            correct += 1
+    return correct / total
+
+
 def run_composer(mode, inputs, batch_size, threads):
     raise Exception
 
@@ -122,5 +132,6 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     sys.stdout.flush()
     print(intercept)
     print(pred)
+    print('Accuracy:', accuracy(pred, pred_results))
     return init_time, runtime
 
