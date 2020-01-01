@@ -17,13 +17,16 @@ sys.path.append(".")
 from sa.annotation import Backend
 from mode import Mode
 
-DEFAULT_SIZE = 1 << 12
+DEFAULT_SIZE = 1 << 14
 DEFAULT_CPU = 1 << 16
 DEFAULT_GPU = 1 << 26
 
 DEFAULT_INFORMATIVE = 32
 DEFAULT_FEATURES = 256
-DEFAULT_PREDICTIONS = 1 << 11
+DEFAULT_PREDICTIONS = 1 << 21
+
+DEFAULT_REPEATED = 0
+DEFAULT_REDUNDANT = 0
 
 
 def _gen_data_cuda(X0, y0, columns, predictions):
@@ -53,7 +56,8 @@ def gen_data(
     predictions=DEFAULT_PREDICTIONS,
 ):
     X0, y0 = datasets.make_classification(n_samples=size + predictions, n_features=features,
-                                          n_informative=informative, n_classes=2, random_state=0)
+                                          n_informative=informative, n_classes=2, random_state=0,
+                                          n_redundant=DEFAULT_REDUNDANT, n_repeated=DEFAULT_REPEATED)
     columns = [str(i) for i in range(features)]
     if mode == Mode.CUDA:
         return _gen_data_cuda(X0, y0, columns, predictions)
