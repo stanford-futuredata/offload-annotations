@@ -81,15 +81,23 @@ def run_composer(mode, inputs, batch_size, threads):
 
 def run_naive(X, y, pred_data):
     sgd = SGDClassifier(eta0=0.005, max_iter=2000, fit_intercept=True, tol=1e-3)
+    start = time.time()
     sgd.fit(X, y)
+    print('Fit:', time.time() - start)
+    start = time.time()
     pred = sgd.predict(pred_data)
+    print('Prediction:', time.time() - start)
     return sgd.intercept_, pred
 
 
 def run_cuda(X, y, pred_data):
     cu_sgd = cumlSGD(eta0=0.005, epochs=2000, fit_intercept=True, tol=1e-3)
+    start = time.time()
     cu_sgd.fit(X, y)
+    print('Fit:', time.time() - start)
+    start = time.time()
     cu_pred = cu_sgd.predictClass(pred_data).to_array()
+    print('Prediction:', time.time() - start)
     return cu_sgd.intercept_, cu_pred
 
 
