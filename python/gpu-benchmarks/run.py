@@ -16,6 +16,9 @@ class Benchmark(enum.Enum):
     BLACKSCHOLES_TORCH = 2
     CRIME_INDEX = 3
     SGD_CLASSIFIER = 4
+    TSVD = 5
+    PCA = 6
+    DBSCAN = 7
     # IMAGE_PROCESSING = 4
     # PREPROCESSING = 6
     # XGBOOST = 7
@@ -32,6 +35,12 @@ def to_function(bm):
         return crime_index.run
     elif bm == Benchmark.SGD_CLASSIFIER:
         return sgd_classifier.run
+    elif bm == Benchmark.TSVD:
+        return tsvd.run
+    elif bm == Benchmark.PCA:
+        return tsvd.run
+    elif bm == Benchmark.DBSCAN:
+        return tsvd.run
     else:
         raise Exception
 
