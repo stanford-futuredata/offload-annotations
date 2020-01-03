@@ -19,10 +19,43 @@ from workloads import *
 class TestSGDClassifier(unittest.TestCase):
 
     def setUp(self):
-        pass
+        self.data_size = sgd_classifier.DEFAULT_SIZE
+        self.prediction_size = 1 << 14
 
     def test_naive(self):
-        pass
+        X, y, pred_data, pred_results = sgd_classifier.gen_data(
+            Mode.NAIVE, self.data_size, predictions=self.prediction_size)
+        self.assertIsInstance(X, pd.DataFrame)
+        self.assertIsInstance(y, pd.Series)
+        self.assertIsInstance(pred_data, pd.DataFrame)
+        self.assertIsInstance(pred_results, pd.Series)
+        self.assertEqual(len(X), self.data_size)
+        self.assertEqual(len(y), self.data_size)
+        self.assertEqual(len(pred_data), self.prediction_size)
+        self.assertEqual(len(pred_results), self.prediction_size)
+
+        _, pred = sgd_classifier.run_naive(X, y, pred_data)
+        print(type(pred))
+        self.assertIsInstance(pred, np.ndarray)
+        accuracy = sgd_classifier.accuracy(pred, pred_results)
+        self.assertGreater(accuracy, 0.8)
+
+    def test_cuda(self):
+        X, y, pred_data, pred_results = sgd_classifier.gen_data(
+            Mode.CUDA, self.data_size, predictions=self.prediction_size)
+        self.assertIsInstance(X, cudf.DataFrame)
+        self.assertIsInstance(y, cudf.Series)
+        self.assertIsInstance(pred_data, cudf.DataFrame)
+        self.assertIsInstance(pred_results, pd.Series)  # Final prediction is on CPU
+        self.assertEqual(len(X), self.data_size)
+        self.assertEqual(len(y), self.data_size)
+        self.assertEqual(len(pred_data), self.prediction_size)
+        self.assertEqual(len(pred_results), self.prediction_size)
+
+        _, pred = sgd_classifier.run_cuda(X, y, pred_data)
+        self.assertIsInstance(pred, np.ndarray)
+        accuracy = sgd_classifier.accuracy(pred, pred_results)
+        self.assertGreater(accuracy, 0.8)
 
 
 class TestBlackscholesTorch(unittest.TestCase):
