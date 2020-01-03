@@ -68,10 +68,7 @@ def gen_data(
 def accuracy(actual, expected):
     assert len(actual) == len(expected)
     total = len(actual)
-    correct = 0
-    for i in range(total):
-        if actual[i] == expected[i]:
-            correct += 1
+    correct = sum([1 if x == y else 0 for (x, y) in zip(actual, expected)])
     return correct / total
 
 
