@@ -35,7 +35,6 @@ class TestSGDClassifier(unittest.TestCase):
         self.assertEqual(len(pred_results), self.prediction_size)
 
         _, pred = sgd_classifier.run_naive(X, y, pred_data)
-        print(type(pred))
         self.assertIsInstance(pred, np.ndarray)
         accuracy = sgd_classifier.accuracy(pred, pred_results)
         self.assertGreater(accuracy, 0.8)
