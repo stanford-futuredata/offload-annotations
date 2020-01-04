@@ -16,6 +16,36 @@ from sa.annotation import dag
 from workloads import *
 
 
+class TestBirthAnalysis(unittest.TestCase):
+
+    def setUp(self):
+        self.years = (1880, 1940)
+
+    def test_naive(self):
+        names = birth_analysis.read_data(Mode.NAIVE, years=self.years)
+        self.assertIsInstance(names, pd.DataFrame)
+        self.assertEqual(len(names), 366305)
+
+        table = birth_analysis.run_naive(names)
+        num_years = self.years[1] - self.years[0]
+        self.assertIsInstance(table, pd.DataFrame)
+        self.assertEqual(len(table), num_years)
+        self.assertAlmostEqual(table['F'].iloc[0], 0.091954)
+        self.assertAlmostEqual(table['M'].iloc[0], 0.908046)
+
+    def test_cuda(self):
+        names = birth_analysis.read_data(Mode.CUDA, years=self.years)
+        self.assertIsInstance(names, cudf.DataFrame)
+        self.assertEqual(len(names), 366305)
+
+        table = birth_analysis.run_cuda(names)
+        num_years = self.years[1] - self.years[0]
+        self.assertIsInstance(table, pd.DataFrame)
+        self.assertEqual(len(table), num_years)
+        self.assertAlmostEqual(table['F'].iloc[0], 0.091954)
+        self.assertAlmostEqual(table['M'].iloc[0], 0.908046)
+
+
 class TestSGDClassifier(unittest.TestCase):
 
     def setUp(self):
