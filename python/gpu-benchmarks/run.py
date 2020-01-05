@@ -40,7 +40,7 @@ def to_function(bm):
     elif bm == Benchmark.PCA:
         return tsvd.run
     elif bm == Benchmark.DBSCAN:
-        return tsvd.run
+        return dbscan.run
     else:
         raise Exception
 

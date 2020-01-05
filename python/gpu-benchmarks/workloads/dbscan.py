@@ -1,43 +1,94 @@
 #!/usr/bin/python
 import sys
 import time
+import numpy as np
+import cuml
 
 sys.path.append("../../lib")
 sys.path.append("../../pycomposer")
 sys.path.append(".")
 
+from sklearn.cluster import DBSCAN
+from sklearn import metrics
+from sklearn.datasets import make_blobs
+from sklearn.preprocessing import StandardScaler
+
 from sa.annotation import Backend
 from mode import Mode
 
-DEFAULT_SIZE = 1 << 14
+DEFAULT_SIZE = 1 << 16
 DEFAULT_CPU = 1 << 16
 DEFAULT_GPU = 1 << 26
 
+DEFAULT_FEATURES = 256
+DEFAULT_CENTERS = 4
+DEFAULT_CLUSTER_STD = 0.3
+
+
+def _gen_data_cuda(size):
+    X, labels_true = cuml.datasets.make_blobs(n_samples=size,
+                                              n_features=DEFAULT_FEATURES,
+                                              centers=DEFAULT_CENTERS,
+                                              cluster_std=DEFAULT_CLUSTER_STD,
+                                              random_state=42)
+    X = StandardScaler().fit_transform(X)
+    return X, labels_true
+
 
 def gen_data(mode, size):
-    X = None
-    y = None
-    pred_data = None
-    pred_results = None
-    return X, y, pred_data, pred_results
+    if mode == Mode.CUDA:
+        return _gen_data_cuda(size)
+
+    X, labels_true = make_blobs(n_samples=size,
+                                n_features=DEFAULT_FEATURES,
+                                centers=DEFAULT_CENTERS,
+                                cluster_std=DEFAULT_CLUSTER_STD,
+                                random_state=42)
+    X = StandardScaler().fit_transform(X)
+    return X, labels_true
 
 
-def accuracy(actual, expected):
-    return 0.0
-
-
-def run_composer(mode, inputs, batch_size, threads):
+def run_composer(mode, X, batch_size, threads):
     raise Exception
 
 
-def run_naive(X, y, pred_data):
-    results = None
-    return results
+def run_naive(X, labels_true):
+    db = DBSCAN(eps=0.3, min_samples=10).fit(X)
+    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+    core_samples_mask[db.core_sample_indices_] = True
+    labels = db.labels_
+
+    # Number of clusters in labels, ignoring noise if present.
+    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise_ = list(labels).count(-1)
+
+    # print('Estimated number of clusters: %d' % n_clusters_)
+    # print('Estimated number of noise points: %d' % n_noise_)
+    # print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels_true, labels))
+    # print("Completeness: %0.3f" % metrics.completeness_score(labels_true, labels))
+    # print("V-measure: %0.3f" % metrics.v_measure_score(labels_true, labels))
+    # print("Adjusted Rand Index: %0.3f"
+    #       % metrics.adjusted_rand_score(labels_true, labels))
+    # print("Adjusted Mutual Information: %0.3f"
+    #       % metrics.adjusted_mutual_info_score(labels_true, labels))
+    # print("Silhouette Coefficient: %0.3f"
+    #       % metrics.silhouette_score(X, labels))
+
+    return n_clusters_, n_noise_
 
 
-def run_cuda(X, y, pred_data):
-    results = None
-    return results
+def run_cuda(X, labels_true):
+    db = cuml.DBSCAN(eps=0.3, min_samples=10)
+    db = db.fit(X)
+    core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+    core_samples_mask[db.core_sample_indices_] = True
+    labels = db.labels_
+
+    # Number of clusters in labels, ignoring noise if present.
+    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise_ = list(labels).count(-1)
+
+    return n_clusters_, n_noise_
 
 
 def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
@@ -61,8 +112,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
 
     # Get inputs
     start = time.time()
-    X, y, pred_data, pred_results = gen_data(mode, size)
-    inputs = (X, y, pred_data)
+    inputs = gen_data(mode, size)
     init_time = time.time() - start
     sys.stdout.write('Initialization: {}\n'.format(init_time))
 
@@ -82,6 +132,5 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     sys.stdout.write('Total: {}\n'.format(init_time + runtime))
     sys.stdout.flush()
     print(results)
-    print('Accuracy:', accuracy(results, pred_results))
     return init_time, runtime
 
