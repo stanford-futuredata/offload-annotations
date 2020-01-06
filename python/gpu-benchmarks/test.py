@@ -61,6 +61,55 @@ class TestPCA(unittest.TestCase):
         self.assertGreater(accuracy_std, accuracy)
 
 
+class TestDBSCAN(unittest.TestCase):
+
+    def setUp(self):
+        self.data_size = 1 << 10
+        self.centers = dbscan.DEFAULT_CENTERS
+
+    def test_naive(self):
+        X, eps, min_samples = dbscan.gen_data(Mode.NAIVE, self.data_size, centers=self.centers)
+        self.assertIsInstance(X, np.ndarray)
+        labels = dbscan.run_naive(X, eps, min_samples)
+        self.assertIsInstance(labels, np.ndarray)
+
+        clusters, noise = dbscan.clusters(labels)
+        self.assertEqual(clusters, self.centers)
+        self.assertLess(noise, self.data_size * 0.3)
+
+    def test_cuda(self):
+        X, eps, min_samples = dbscan.gen_data(Mode.CUDA, self.data_size, centers=self.centers)
+        self.assertIsInstance(X, cudf.DataFrame)
+        labels = dbscan.run_cuda(X, eps, min_samples)
+        self.assertIsInstance(labels, np.ndarray)
+
+        clusters, noise = dbscan.clusters(labels)
+        self.assertEqual(clusters, self.centers)
+        self.assertLess(noise, self.data_size * 0.3)
+
+    def validateResults(self, size, centers, cluster_std):
+        inputs = dbscan.gen_data(Mode.NAIVE, size, centers=centers, cluster_std=cluster_std)
+        labels = dbscan.run_naive(*inputs)
+        clusters, noise = dbscan.clusters(labels)
+        self.assertGreater(clusters, centers * 0.5)
+        self.assertLess(clusters, centers * 2.0)
+        self.assertLess(noise, size * 0.3)
+
+        inputs = dbscan.gen_data(Mode.CUDA, size, centers=centers, cluster_std=cluster_std)
+        labels = dbscan.run_cuda(*inputs)
+        clusters, noise = dbscan.clusters(labels)
+        self.assertGreater(clusters, centers * 0.5)
+        self.assertLess(clusters, centers * 2.0)
+        self.assertLess(noise, size * 0.3)
+
+    def test_parameter_sensitivity(self):
+        self.validateResults(self.data_size, centers=32, cluster_std=1.0)
+        self.validateResults(self.data_size, centers=32, cluster_std=1.1)
+        self.validateResults(self.data_size, centers=32, cluster_std=0.9)
+        self.validateResults(self.data_size, centers=4, cluster_std=1.0)
+        self.validateResults(self.data_size, centers=128, cluster_std=1.0)
+
+
 class TestBirthAnalysis(unittest.TestCase):
 
     def setUp(self):
