@@ -19,7 +19,7 @@ class Benchmark(enum.Enum):
     TSVD = 5
     PCA = 6
     DBSCAN = 7
-    # IMAGE_PROCESSING = 4
+    IMAGE_PROCESSING = 8
     # PREPROCESSING = 6
     # XGBOOST = 7
 

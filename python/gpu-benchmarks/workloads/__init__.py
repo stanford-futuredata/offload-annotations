@@ -6,3 +6,4 @@ from . import sgd_classifier
 from . import tsvd
 from . import pca
 from . import dbscan
+from . import image_processing
