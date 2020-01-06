@@ -38,7 +38,7 @@ def to_function(bm):
     elif bm == Benchmark.TSVD:
         return tsvd.run
     elif bm == Benchmark.PCA:
-        return tsvd.run
+        return pca.run
     elif bm == Benchmark.DBSCAN:
         return dbscan.run
     else:

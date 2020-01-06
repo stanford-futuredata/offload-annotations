@@ -16,6 +16,51 @@ from sa.annotation import dag
 from workloads import *
 
 
+class TestPCA(unittest.TestCase):
+
+    def setUp(self):
+        self.data_size = 1 << 4
+
+    def test_gen_data(self):
+        X_train, X_test, y_train, y_test = pca.gen_data(Mode.NAIVE, size=self.data_size)
+        self.assertIsInstance(X_train, np.ndarray)
+        self.assertIsInstance(X_test, np.ndarray)
+        self.assertIsInstance(y_train, np.ndarray)
+        self.assertIsInstance(y_test, np.ndarray)
+
+        X_train, X_test, y_train, y_test = pca.gen_data(Mode.CUDA, size=self.data_size)
+        self.assertIsInstance(X_train, np.ndarray)
+        self.assertIsInstance(X_test, np.ndarray)
+        self.assertIsInstance(y_train, np.ndarray)
+        self.assertIsInstance(y_test, np.ndarray)
+
+    def test_naive(self):
+        X_train, X_test, y_train, y_test = pca.gen_data(Mode.NAIVE, size=self.data_size)
+        pred_test = pca.run_naive_unscaled(X_train, X_test, y_train, y_test)
+        self.assertIsInstance(pred_test, np.ndarray)
+        pred_test_std = pca.run_naive_scaled(X_train, X_test, y_train, y_test)
+        self.assertIsInstance(pred_test_std, np.ndarray)
+
+        accuracy = pca.accuracy(y_test, pred_test)
+        accuracy_std = pca.accuracy(y_test, pred_test_std)
+        self.assertGreater(accuracy, 0.7)
+        self.assertGreater(accuracy_std, 0.9)
+        self.assertGreater(accuracy_std, accuracy)
+
+    def test_cuda(self):
+        X_train, X_test, y_train, y_test = pca.gen_data(Mode.CUDA, size=self.data_size)
+        pred_test = pca.run_cuda_unscaled(X_train, X_test, y_train, y_test)
+        self.assertIsInstance(pred_test, cudf.DataFrame)
+        pred_test_std = pca.run_cuda_scaled(X_train, X_test, y_train, y_test)
+        self.assertIsInstance(pred_test_std, cudf.DataFrame)
+
+        accuracy = pca.accuracy(y_test, pred_test)
+        accuracy_std = pca.accuracy(y_test, pred_test_std)
+        self.assertGreater(accuracy, 0.7)
+        self.assertGreater(accuracy_std, 0.9)
+        self.assertGreater(accuracy_std, accuracy)
+
+
 class TestBirthAnalysis(unittest.TestCase):
 
     def setUp(self):
