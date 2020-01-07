@@ -207,7 +207,7 @@ class TestBlackscholesTorch(unittest.TestCase):
     def test_get_data(self):
         size = 2
         for mode in Mode:
-            for array in blackscholes_torch.get_data(Mode.NAIVE, size):
+            for array in blackscholes_torch.get_data(mode, size):
                 self.assertEqual(array.device.type, 'cpu')
 
     def test_get_tmp_arrays(self):
