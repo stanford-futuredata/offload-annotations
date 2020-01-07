@@ -2,6 +2,7 @@ import random
 import sys
 import unittest
 import numpy as np
+import cupy as cp
 import torch
 import pandas as pd
 import cudf
@@ -14,6 +15,53 @@ from mode import Mode
 from sa.annotation import Backend
 from sa.annotation import dag
 from workloads import *
+
+
+class TestBlackscholesCupy(unittest.TestCase):
+
+    def setUp(self):
+        self.data_size = 1 << 20
+        # The expected result for the given data size
+        self.expected_call = 24.0
+        self.expected_put = 18.0
+
+    def validateArray(self, arr, val):
+        self.assertAlmostEqual(arr[0], val, places=5)
+        self.assertAlmostEqual(arr[-1], val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
+
+    def test_get_data(self):
+        size = 2
+        for mode in Mode:
+            for array in blackscholes_cupy.get_data(mode, size):
+                self.assertIsInstance(array, np.ndarray)
+
+    def test_get_tmp_arrays(self):
+        size = 2
+        for array in blackscholes_cupy.get_tmp_arrays(Mode.NAIVE, size):
+            self.assertIsInstance(array, np.ndarray)
+        for array in blackscholes_cupy.get_tmp_arrays(Mode.CUDA, size):
+            self.assertIsInstance(array, cp.ndarray)
+
+    def test_naive(self):
+        inputs = blackscholes_cupy.get_data(Mode.NAIVE, self.data_size)
+        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.NAIVE, self.data_size)
+        call, put = blackscholes_cupy.run_naive(*inputs, *tmp_arrays)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+    def test_cuda(self):
+        inputs = blackscholes_cupy.get_data(Mode.CUDA, self.data_size)
+        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.CUDA, self.data_size)
+        call, put = blackscholes_cupy.run_cuda(*inputs, *tmp_arrays)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
 
 
 class TestPCA(unittest.TestCase):

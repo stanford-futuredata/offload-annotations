@@ -20,6 +20,7 @@ class Benchmark(enum.Enum):
     PCA = 6
     DBSCAN = 7
     IMAGE_PROCESSING = 8
+    BLACKSCHOLES_CUPY = 9
     # PREPROCESSING = 6
     # XGBOOST = 7
 
@@ -41,6 +42,8 @@ def to_function(bm):
         return pca.run
     elif bm == Benchmark.DBSCAN:
         return dbscan.run
+    elif bm == Benchmark.BLACKSCHOLES_CUPY:
+        return blackscholes_cupy.run
     else:
         raise Exception
 
