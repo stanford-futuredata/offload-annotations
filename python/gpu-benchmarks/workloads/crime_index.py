@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+import math
 import cudf
 import numpy as np
 
@@ -12,9 +13,8 @@ sys.path.append(".")
 from sa.annotation import Backend
 from mode import Mode
 
-prefix = '../benchmarks/crime_index/'
-filenames = ['total_population.csv', 'adult_population.csv', 'num_robberies.csv']
-filenames = [prefix + f for f in filenames]
+prefix = 'datasets/crime_index'
+filenames = ['total_population', 'adult_population', 'num_robberies']
 values = [500000, 250000, 1000]
 
 DEFAULT_SIZE = 1 << 26
@@ -24,9 +24,8 @@ DEFAULT_GPU = 1 << 26
 
 def _write_data(size, filenames=filenames):
     for i, filename in enumerate(filenames):
+        filename = '{}/{}_{}.csv'.format(prefix, filename, int(math.log2(size)))
         if os.path.exists(filename):
-            # os.remove(filename)
-            print('File {} already exists.'.format(filename))
             continue
         sys.stdout.write('Writing {}...'.format(filename))
         sys.stdout.flush()
@@ -36,25 +35,33 @@ def _write_data(size, filenames=filenames):
         print('done.')
 
 
-def _read_data_cuda(filenames):
-    total_population = cudf.read_csv(filenames[0], header=None).iloc[:,0]
-    adult_population = cudf.read_csv(filenames[1], header=None).iloc[:,0]
-    num_robberies = cudf.read_csv(filenames[2], header=None).iloc[:,0]
+def _read_data_cuda(size=None, filenames=filenames):
+    if size is None:
+        fs = filenames
+    else:
+        fs = ['{}/{}_{}.csv'.format(prefix, filename, int(math.log2(size))) for filename in filenames]
+    total_population = cudf.read_csv(fs[0], header=None).iloc[:,0]
+    adult_population = cudf.read_csv(fs[1], header=None).iloc[:,0]
+    num_robberies = cudf.read_csv(fs[2], header=None).iloc[:,0]
     return total_population, adult_population, num_robberies
 
 
-def read_data(mode, filenames=filenames):
+def read_data(mode, size=None, filenames=filenames):
     if mode == Mode.CUDA:
-        return _read_data_cuda(filenames)
+        return _read_data_cuda(size, filenames)
 
     if mode.is_composer():
         import sa.annotated.pandas as pd
     else:
         import pandas as pd
 
-    total_population = pd.read_csv(filenames[0], squeeze=True, header=None)
-    adult_population = pd.read_csv(filenames[1], squeeze=True, header=None)
-    num_robberies = pd.read_csv(filenames[2], squeeze=True, header=None)
+    if size is None:
+        fs = filenames
+    else:
+        fs = ['{}/{}_{}.csv'.format(prefix, filename, int(math.log2(size))) for filename in filenames]
+    total_population = pd.read_csv(fs[0], squeeze=True, header=None)
+    adult_population = pd.read_csv(fs[1], squeeze=True, header=None)
+    num_robberies = pd.read_csv(fs[2], squeeze=True, header=None)
     return total_population, adult_population, num_robberies
 
 
@@ -169,7 +176,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     if data_mode == 'generated':
         inputs = gen_data(mode, size)
     elif data_mode == 'file':
-        inputs = read_data(mode)
+        inputs = read_data(mode, size)
     else:
         raise ValueError
     init_time = time.time() - start
