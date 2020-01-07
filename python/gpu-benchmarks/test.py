@@ -17,6 +17,51 @@ from sa.annotation import dag
 from workloads import *
 
 
+class TestHaversine(unittest.TestCase):
+
+    def setUp(self):
+        self.data_size = 1 << 16
+        self.expected = 4839.95983063
+
+    def validateResult(self, arr, val):
+        self.assertIsInstance(arr, np.ndarray)
+        self.assertAlmostEqual(arr[0], val, places=5)
+        self.assertAlmostEqual(arr[-1], val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
+        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
+
+    def test_get_data(self):
+        size = 2
+        for array in haversine.get_data(size):
+            self.assertIsInstance(array, np.ndarray)
+        for array in haversine.get_tmp_arrays(Mode.NAIVE, size):
+            self.assertIsInstance(array, np.ndarray)
+        for array in haversine.get_tmp_arrays(Mode.CUDA, size, use_torch=True):
+            self.assertIsInstance(array, torch.Tensor)
+            self.assertEqual(array.device.type, 'cuda')
+        for array in haversine.get_tmp_arrays(Mode.CUDA, size, use_torch=False):
+            self.assertIsInstance(array, cp.ndarray)
+
+    def test_naive(self):
+        inputs = haversine.get_data(self.data_size)
+        tmp_arrays = haversine.get_tmp_arrays(Mode.NAIVE, self.data_size)
+        im = haversine.run_naive(*inputs, *tmp_arrays)
+        self.validateResult(im, self.expected)
+
+    def test_cuda_torch(self):
+        inputs = haversine.get_data(self.data_size)
+        tmp_arrays = haversine.get_tmp_arrays(Mode.CUDA, self.data_size, use_torch=True)
+        im = haversine.run_cuda_torch(*inputs, *tmp_arrays)
+        self.validateResult(im, self.expected)
+
+    def test_cuda_cupy(self):
+        inputs = haversine.get_data(self.data_size)
+        tmp_arrays = haversine.get_tmp_arrays(Mode.CUDA, self.data_size, use_torch=False)
+        im = haversine.run_cuda_cupy(*inputs, *tmp_arrays)
+        self.validateResult(im, self.expected)
+
+
 class TestBlackscholesCupy(unittest.TestCase):
 
     def setUp(self):
