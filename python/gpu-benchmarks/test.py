@@ -206,29 +206,27 @@ class TestDBSCAN(unittest.TestCase):
 class TestBirthAnalysis(unittest.TestCase):
 
     def setUp(self):
-        self.years = (1880, 1940)
+        self.num_years = 60
 
     def test_naive(self):
-        names = birth_analysis.read_data(Mode.NAIVE, years=self.years)
+        names = birth_analysis.read_data(Mode.NAIVE, num_years=self.num_years)
         self.assertIsInstance(names, pd.DataFrame)
         self.assertEqual(len(names), 366305)
 
         table = birth_analysis.run_naive(names)
-        num_years = self.years[1] - self.years[0]
         self.assertIsInstance(table, pd.DataFrame)
-        self.assertEqual(len(table), num_years)
+        self.assertEqual(len(table), self.num_years)
         self.assertAlmostEqual(table['F'].iloc[0], 0.091954)
         self.assertAlmostEqual(table['M'].iloc[0], 0.908046)
 
     def test_cuda(self):
-        names = birth_analysis.read_data(Mode.CUDA, years=self.years)
+        names = birth_analysis.read_data(Mode.CUDA, num_years=self.num_years)
         self.assertIsInstance(names, cudf.DataFrame)
         self.assertEqual(len(names), 366305)
 
         table = birth_analysis.run_cuda(names)
-        num_years = self.years[1] - self.years[0]
         self.assertIsInstance(table, pd.DataFrame)
-        self.assertEqual(len(table), num_years)
+        self.assertEqual(len(table), self.num_years)
         self.assertAlmostEqual(table['F'].iloc[0], 0.091954)
         self.assertAlmostEqual(table['M'].iloc[0], 0.908046)
 

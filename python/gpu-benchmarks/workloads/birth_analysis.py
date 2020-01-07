@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import sys
+import math
 import time
 import pandas as pd
 import cudf
@@ -12,18 +13,20 @@ sys.path.append(".")
 from sa.annotation import Backend
 from mode import Mode
 
-DEFAULT_SIZE = 1 << 14
+DEFAULT_SIZE = 1
+MAX_SIZE = 2011-1880+1
 DEFAULT_CPU = 1 << 16
 DEFAULT_GPU = 1 << 26
 
 PREFIX = 'datasets/birth_analysis'
-YEARS = (1880, 2011)
+FIRST_YEAR = 1880
 
 
-def _read_data_cuda(years):
+def _read_data_cuda(num_years):
     pieces = []
     columns = ['name', 'sex', 'births']
-    for year in range(*years):
+    for i in range(num_years):
+        year = FIRST_YEAR + i
         path = '{}/yob{}.txt'.format(PREFIX, year)
         frame = cudf.read_csv(path, names=columns)
         frame['year'] = year
@@ -32,13 +35,14 @@ def _read_data_cuda(years):
     return names
 
 
-def read_data(mode, years=YEARS):
+def read_data(mode, num_years):
     if mode == Mode.CUDA:
-        return _read_data_cuda(years)
+        return _read_data_cuda(num_years)
 
     pieces = []
     columns = ['name', 'sex', 'births']
-    for year in range(*years):
+    for i in range(num_years):
+        year = FIRST_YEAR + i
         path = '{}/yob{}.txt'.format(PREFIX, year)
         frame = pd.read_csv(path, names=columns)
         frame['year'] = year
@@ -87,6 +91,10 @@ def run_cuda(names):
 
 
 def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
+    if size is not None:
+        size = int(math.log2(size))
+        assert size <= MAX_SIZE
+
     # Optimal defaults
     if size == None:
         size = DEFAULT_SIZE
@@ -107,7 +115,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
 
     # Get inputs
     start = time.time()
-    inputs = read_data(mode)
+    inputs = read_data(mode, size)
     init_time = time.time() - start
     sys.stdout.write('Initialization: {}\n'.format(init_time))
 
