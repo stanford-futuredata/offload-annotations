@@ -370,7 +370,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     elif mode == Mode.NAIVE:
         call, put = run_naive(*inputs, *tmp_arrays)
     elif mode == Mode.CUDA:
-        call, put = run_cuda(gpu, *inputs, *tmp_arrays)
+        call, put = run_cuda_nostream(*inputs, *tmp_arrays)
     else:
         raise ValueError
     runtime = time.time() - start
