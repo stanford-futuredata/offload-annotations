@@ -22,6 +22,10 @@ class TestHaversine(unittest.TestCase):
     def setUp(self):
         self.data_size = 1 << 16
         self.expected = 4839.95983063
+        self.batch_size = {
+            Backend.CPU: 1 << 14,
+            Backend.GPU: 1 << 14,
+        }
 
     def validateResult(self, arr, val):
         self.assertIsInstance(arr, np.ndarray)
@@ -60,6 +64,27 @@ class TestHaversine(unittest.TestCase):
         tmp_arrays = haversine.get_tmp_arrays(Mode.CUDA, self.data_size, use_torch=False)
         im = haversine.run_cuda_cupy(*inputs, *tmp_arrays)
         self.validateResult(im, self.expected)
+
+    # def test_mozart(self):
+    #     inputs = haversine.get_data(self.data_size)
+    #     tmp_arrays = haversine.get_tmp_arrays(Mode.MOZART, self.data_size)
+    #     # im = haversine.run_composer(
+    #     #     Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16, use_torch=None)
+    #     # self.validateResult(im, self.expected)
+
+    # def test_bach_torch(self):
+    #     inputs = haversine.get_data(self.data_size)
+    #     tmp_arrays = haversine.get_tmp_arrays(Mode.BACH, self.data_size, use_torch=True)
+    #     im = haversine.run_composer(
+    #         Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=True)
+    #     self.validateResult(im, self.expected)
+
+    # def test_bach_cupy(self):
+    #     inputs = haversine.get_data(self.data_size)
+    #     tmp_arrays = haversine.get_tmp_arrays(Mode.BACH, self.data_size, use_torch=False)
+    #     im = haversine.run_composer(
+    #         Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=False)
+    #     self.validateResult(im, self.expected)
 
 
 class TestBlackscholesCupy(unittest.TestCase):
