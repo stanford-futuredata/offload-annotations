@@ -40,13 +40,27 @@ def get_tmp_arrays(mode, size, use_torch=True):
     if mode == Mode.CUDA:
         return _get_tmp_arrays_cuda(size, use_torch=use_torch)
 
+    if mode.is_composer() and use_torch:
+        import sa.annotated.numpy as np
+    elif mode.is_composer() and not use_torch:
+        import sa.annotated.cupy as np
+    else:
+        import numpy as np
+
     a = np.empty(size, dtype='float64')
     dlat = np.empty(size, dtype='float64')
     dlon = np.empty(size, dtype='float64')
     return a, dlat, dlon
 
 
-def run_naive(lat2, lon2, a, dlat, dlon):
+def haversine(lat2, lon2, a, dlat, dlon, composer, use_torch=None):
+    if composer and use_torch:
+        import sa.annotated.numpy as np
+    elif composer and not use_torch:
+        import sa.annotated.cupy as np
+    else:
+        import numpy as np
+
     lat1 = 0.70984286
     lon1 = 1.23892197
     MILES_CONST = 3959.0
@@ -78,7 +92,33 @@ def run_naive(lat2, lon2, a, dlat, dlon):
 
     mi = c
     np.multiply(c, MILES_CONST, out=mi)
-    return mi
+
+
+def run_composer(mode, lat2, lon2, a, dlat, dlon, batch_size, threads, use_torch):
+    if use_torch:
+        import sa.annotated.numpy as np
+    else:
+        import sa.annotated.cupy as np
+
+    a.materialize = Backend.CPU
+
+    if mode == Mode.MOZART:
+        force_cpu = True
+    elif mode == Mode.BACH:
+        force_cpu = False
+        # TODO: don't allow different batch sizes for now
+        batch_size[Backend.CPU] = batch_size[Backend.GPU]
+    else:
+        raise Exception
+
+    haversine(lat2, lon2, a, dlat, dlon, composer=True, use_torch=use_torch)
+    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    return a.value
+
+
+def run_naive(lat2, lon2, a, dlat, dlon):
+    haversine(lat2, lon2, a, dlat, dlon, composer=False)
+    return a
 
 
 def run_cuda_torch(lat2, lon2, a, dlat, dlon):
@@ -187,7 +227,8 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
         else:
             threads = 1
 
-    use_torch = True
+    use_torch = threads % 2 == 1
+    threads = 1
     batch_size = {
         Backend.CPU: cpu,
         Backend.GPU: gpu,
@@ -205,7 +246,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
 
     start = time.time()
     if mode.is_composer():
-        results = run_composer(mode, *inputs, *tmp_arrays, batch_size, threads)
+        results = run_composer(mode, *inputs, *tmp_arrays, batch_size, threads, use_torch=use_torch)
     elif mode == Mode.NAIVE:
         results = run_naive(*inputs, *tmp_arrays)
     elif mode == Mode.CUDA and use_torch:
