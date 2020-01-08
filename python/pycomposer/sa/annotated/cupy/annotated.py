@@ -112,15 +112,18 @@ erf         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp_erf)(ss
 addreduce = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add.reduce)
 
 def ones(shape, dtype=None, order='C'):
-    result = sharedmem.empty(shape)
-    result[:] = np.ones(shape, dtype, order)[:]
-    return result
+    # result = sharedmem.empty(shape)
+    # result[:] = np.ones(shape, dtype, order)[:]
+    # return result
+    return np.ones(shape, dtype, order)
 
 def zeros(shape, dtype=None, order='C'):
-    result = sharedmem.empty(shape)
-    result[:] = np.zeros(shape, dtype, order)[:]
-    return result
+    # result = sharedmem.empty(shape)
+    # result[:] = np.zeros(shape, dtype, order)[:]
+    # return result
+    return np.zeros(shape, dtype, order)
 
 @alloc(NdArraySplit(), gpu=True, gpu_func=cp.empty)
 def empty(shape, dtype=None):
-    return sharedmem.empty(shape)
+    # return sharedmem.empty(shape)
+    return np.empty(shape, dtype=dtype)
