@@ -129,22 +129,22 @@ def run_naive(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, pu
 
 
 def run_cuda(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put):
-    t = time.time()
+    start = time.time()
     price = cp.array(price)
     strike = cp.array(strike)
     t = cp.array(t)
     rate = cp.array(rate)
     vol = cp.array(vol)
-    print('Transfer inputs:', time.time() - t)
+    print('Transfer inputs:', time.time() - start)
 
     c05 = 3.0
     c10 = 1.5
     invsqrt2 = 1.0 / math.sqrt(2.0)
 
-    t = time.time()
+    start = time.time()
     cp.multiply(vol, vol, out=rsig)
     cp.multiply(rsig, c05, out=rsig)
-    cp.add(rsig, rate, out=rsig)
+    cp.add(rsig, rate, out=t)
 
     cp.sqrt(t, out=vol_sqrt)
     cp.multiply(vol_sqrt, vol, out=vol_sqrt)
@@ -205,12 +205,12 @@ def run_cuda(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
     cp.subtract(c10, d1, out=tmp)
     cp.multiply(price, tmp, out=tmp)
     cp.subtract(put, tmp, out=put)
-    print('Compute:', time.time() - t)
+    print('Compute:', time.time() - start)
 
-    t = time.time()
+    start = time.time()
     call = cp.asnumpy(call)
     put = cp.asnumpy(put)
-    print('Transfer outputs:', time.time() - t)
+    print('Transfer outputs:', time.time() - start)
     return call, put
 
 
