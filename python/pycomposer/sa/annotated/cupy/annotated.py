@@ -90,6 +90,14 @@ power       = sa(dc(_args), dc(_kwargs), dc(_ret))(np.power)
 
 _args = (NdArraySplit(),)
 
+# https://github.com/cupy/cupy/blob/master/cupyx/scipy/special/erf.py
+cp_erf = cp.core.create_ufunc(
+    'cupyx_scipy_erf', ('f->f', 'd->d'),
+    'out0 = erf(in0)',
+    doc='''Error function.
+    .. seealso:: :meth:`scipy.special.erf`
+    ''')
+
 # Unary ops.
 log         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.log)
 log2        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.log2)(np.log2)
@@ -98,7 +106,7 @@ sin         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.sin)(np
 arcsin      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.arcsin)(np.arcsin)
 cos         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.cos)(np.cos)
 sqrt        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.sqrt)(np.sqrt)
-erf         = sa(dc(_args), dc(_kwargs), dc(_ret))(ss.erf)
+erf         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp_erf)(ss.erf)
 
 # addreduce = np.add.reduce
 addreduce = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add.reduce)

@@ -6,7 +6,6 @@ import time
 import scipy.special as ss
 import numpy as np
 import cupy as cp
-import cupyx as cpx
 
 sys.path.append("../../lib")
 sys.path.append("../../pycomposer")
@@ -18,6 +17,15 @@ from mode import Mode
 DEFAULT_SIZE = 1 << 26
 DEFAULT_CPU = 1 << 13
 DEFAULT_GPU = 1 << 26
+
+
+# https://github.com/cupy/cupy/blob/master/cupyx/scipy/special/erf.py
+cp_erf = cp.core.create_ufunc(
+    'cupyx_scipy_erf', ('f->f', 'd->d'),
+    'out0 = erf(in0)',
+    doc='''Error function.
+    .. seealso:: :meth:`scipy.special.erf`
+    ''')
 
 
 def get_data(mode, size):
@@ -205,17 +213,13 @@ def run_cuda(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
 
     # d1 = c05 + c05 * erf(d1 * invsqrt2)
     cp.multiply(d1, invsqrt2, out=d1)
-    d1 = cp.asnumpy(d1)
-    ss.erf(d1, out=d1)
-    d1 = cp.array(d1)
+    cp_erf(d1, out=d1)
     cp.multiply(d1, c05, out=d1)
     cp.add(d1, c05, out=d1)
 
     # d2 = c05 + c05 * erf(d2 * invsqrt2)
     cp.multiply(d2, invsqrt2, out=d2)
-    d2 = cp.asnumpy(d2)
-    ss.erf(d2, out=d2)
-    d2 = cp.array(d2)
+    cp_erf(d2, out=d2)
     cp.multiply(d2, c05, out=d2)
     cp.add(d2, c05, out=d2)
 
