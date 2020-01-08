@@ -261,7 +261,6 @@ def run_cuda_nostream(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, 
     # Transfer to CPU
     call = call.cpu().numpy()
     put = put.cpu().numpy()
-    torch.cuda.synchronize()
     return call, put
 
 
@@ -348,8 +347,9 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
         Backend.GPU: gpu,
     }
 
-    torch.cuda.init()
-    torch.cuda.synchronize()
+    if mode == Mode.CUDA or mode == Mode.BACH:
+        torch.cuda.init()
+        torch.cuda.synchronize()
 
     start = time.time()
     inputs = get_data(mode, size)
