@@ -27,22 +27,22 @@ def get_data(size):
 
 def _get_tmp_arrays_cuda(size, use_torch):
     if use_torch:
-        a = torch.zeros(size, dtype=torch.float64, device=torch.device('cuda'))
-        dlat = torch.zeros(size, dtype=torch.float64, device=torch.device('cuda'))
-        dlon = torch.zeros(size, dtype=torch.float64, device=torch.device('cuda'))
+        a = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+        dlat = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+        dlon = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
     else:
-        a = cp.zeros(size, dtype='float64')
-        dlat = cp.zeros(size, dtype='float64')
-        dlon = cp.zeros(size, dtype='float64')
+        a = cp.empty(size, dtype='float64')
+        dlat = cp.empty(size, dtype='float64')
+        dlon = cp.empty(size, dtype='float64')
     return a, dlat, dlon
 
 def get_tmp_arrays(mode, size, use_torch=True):
     if mode == Mode.CUDA:
         return _get_tmp_arrays_cuda(size, use_torch=use_torch)
 
-    a = np.zeros(size, dtype='float64')
-    dlat = np.zeros(size, dtype='float64')
-    dlon = np.zeros(size, dtype='float64')
+    a = np.empty(size, dtype='float64')
+    dlat = np.empty(size, dtype='float64')
+    dlon = np.empty(size, dtype='float64')
     return a, dlat, dlon
 
 
