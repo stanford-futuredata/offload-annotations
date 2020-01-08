@@ -189,7 +189,8 @@ def run_cuda(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
     t = cp.array(t)
     rate = cp.array(rate)
     vol = cp.array(vol)
-    print('Transfer inputs:', time.time() - start)
+    transfer_inputs = time.time() - start
+    print('Transfer(inputs):', transfer_inputs)
 
     c05 = 3.0
     c10 = 1.5
@@ -260,7 +261,9 @@ def run_cuda(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
     start = time.time()
     call = cp.asnumpy(call)
     put = cp.asnumpy(put)
-    print('Transfer outputs:', time.time() - start)
+    transfer_outputs = time.time() - start
+    print('Transfer(outputs):', transfer_outputs)
+    print('Transfer(total):', transfer_inputs + transfer_outputs)
     return call, put
 
 

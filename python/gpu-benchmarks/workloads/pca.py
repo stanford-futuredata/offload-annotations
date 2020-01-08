@@ -65,16 +65,20 @@ def run_naive_unscaled(X_train, X_test, y_train, y_test):
 
 def run_naive_scaled(X_train, X_test, y_train, y_test):
     # Fit to data and predict using pipelined scaling, GNB and PCA.
+    t0 = time.time()
     ss = StandardScaler()
     pca = PCA(n_components=2)
     knc = KNeighborsClassifier()
     X_train_ = ss.fit_transform(X_train)
     X_train_ = pca.fit_transform(X_train_)
     knc.fit(X_train_, y_train)
+    print('Fit(naive):', time.time() - t0)
 
+    t0 = time.time()
     X_test_ = ss.transform(X_test)
     X_test_ = pca.transform(X_test_)
     pred_test_std = knc.predict(X_test_)
+    print('Predict(naive):', time.time() - t0)
     return pred_test_std
 
 
@@ -94,6 +98,7 @@ def run_cuda_unscaled(X_train, X_test, y_train, y_test):
 
 def run_cuda_scaled(X_train, X_test, y_train, y_test):
     # Fit to data and predict using pipelined scaling, GNB and PCA.
+    t0 = time.time()
     ss = StandardScaler()
     pca = cuml.PCA(n_components=2)
     knc = cuml.neighbors.KNeighborsClassifier()
@@ -102,11 +107,14 @@ def run_cuda_scaled(X_train, X_test, y_train, y_test):
     X_train_ = pca.fit_transform(X_train_)
     y_train = cudf.from_pandas(pd.Series(y_train))
     knc.fit(X_train_, y_train)
+    print('Fit(cuda):', time.time() - t0)
 
+    t0 = time.time()
     X_test_ = ss.transform(X_test)
     X_test_ = cudf.from_pandas(pd.DataFrame(X_test_))
     X_test_ = pca.transform(X_test_)
     pred_test_std = knc.predict(X_test_)
+    print('Predict(cuda):', time.time() - t0)
     return pred_test_std
 
 

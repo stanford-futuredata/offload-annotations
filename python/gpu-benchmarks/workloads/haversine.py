@@ -129,7 +129,8 @@ def run_cuda_torch(lat2, lon2, a, dlat, dlon):
     t = time.time()
     lat2 = torch.from_numpy(lat2).cuda()
     lon2 = torch.from_numpy(lon2).cuda()
-    print('Transfer inputs:', time.time() - t)
+    transfer_inputs = time.time() - t
+    print('Transfer(inputs):', transfer_inputs)
 
     t = time.time()
     torch.sub(lat2, lat1, out=dlat)
@@ -163,7 +164,9 @@ def run_cuda_torch(lat2, lon2, a, dlat, dlon):
 
     t = time.time()
     mi = mi.cpu().numpy()
-    print('Transfer outputs:', time.time() - t)
+    transfer_outputs = time.time() - t
+    print('Transfer(outputs):', transfer_outputs)
+    print('Transfer(total):', transfer_inputs + transfer_outputs)
     return mi
 
 
@@ -175,7 +178,8 @@ def run_cuda_cupy(lat2, lon2, a, dlat, dlon):
     t = time.time()
     lat2 = cp.array(lat2)
     lon2 = cp.array(lon2)
-    print('Transfer inputs:', time.time() - t)
+    transfer_inputs = time.time() - t
+    print('Transfer(inputs):', transfer_inputs)
 
     t = time.time()
     cp.subtract(lat2, lat1, out=dlat)
@@ -209,7 +213,9 @@ def run_cuda_cupy(lat2, lon2, a, dlat, dlon):
 
     t = time.time()
     mi = cp.asnumpy(mi)
-    print('Transfer outputs:', time.time() - t)
+    transfer_outputs = time.time() - t
+    print('Transfer(outputs):', transfer_outputs)
+    print('Transfer(total):', transfer_inputs + transfer_outputs)
     return mi
 
 

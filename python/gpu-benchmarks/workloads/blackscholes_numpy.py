@@ -249,18 +249,27 @@ def torch_bs(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put
 
 def run_cuda_nostream(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put):
     # Transfer to GPU
+    start = time.time()
     price = torch.from_numpy(price).cuda()
     strike = torch.from_numpy(strike).cuda()
     t = torch.from_numpy(t).cuda()
     rate = torch.from_numpy(rate).cuda()
     vol = torch.from_numpy(vol).cuda()
+    transfer_inputs = time.time() - start
+    print('Transfer(inputs):', transfer_inputs)
 
     # Compute
+    start = time.time()
     torch_bs(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put)
+    print('Compute:', time.time() - start)
 
     # Transfer to CPU
+    start = time.time()
     call = call.cpu().numpy()
     put = put.cpu().numpy()
+    transfer_outputs = time.time() - start
+    print('Transfer(outputs):', transfer_outputs)
+    print('Transfer(total):', transfer_inputs + transfer_outputs)
     return call, put
 
 

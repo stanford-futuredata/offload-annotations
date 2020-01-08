@@ -63,6 +63,16 @@ def _inst_to_key(inst):
     else:
         raise ValueError
 
+def _default_inst_times():
+    return {
+        'to_cpu': 0,
+        'to_gpu': 0,
+        'to_other': 0,
+        'split': 0,
+        'merge': 0,
+        'call': 0,
+    }
+
 def _run_program_piece(
     i,
     piece_start,
@@ -91,7 +101,7 @@ def _run_program_piece(
     The index of the next instruction to execute.
     """
     from .instruction import To
-    inst_times = defaultdict(lambda: 0)
+    inst_times = _default_inst_times()
     while i < len(_PROGRAM.insts):
         inst = _PROGRAM.insts[i]
         if isinstance(inst, To) or inst.batch_size == batch_size:
@@ -189,11 +199,11 @@ def _run_program(
         batch_index += 1
 
     process_end = time.time()
-    # print('\nINSTRUCTION PROFILING')
-    # total_time = sum(inst_times.values())
-    # for key, val in sorted(inst_times.items()):
-    #     print('{}\t{:.2f}%\t{:.4f}'.format(key, val / total_time * 100, val))
-    # print()
+    print('\nINSTRUCTION PROFILING')
+    total_time = sum(inst_times.values())
+    for key, val in sorted(inst_times.items()):
+        print('{}\t{:.2f}%\t{:.4f}'.format(key, val / total_time * 100, val))
+    print()
 
     # Free non-shared memory on this worker.
     # Replace the data in the original pointer if we are the top level thread.

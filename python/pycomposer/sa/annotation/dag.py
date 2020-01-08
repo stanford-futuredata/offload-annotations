@@ -550,7 +550,7 @@ class LogicalPlan:
                 if hasattr(ty, 'materialize'):
                     transfer(vms[pipeline], var_locs[pipeline], valnum, ty.materialize)
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
-        print('Composer allocation:', sum(alloc_times))
+        print('Allocation:', sum(alloc_times))
         return sorted(list(vms.items()))
 
 
