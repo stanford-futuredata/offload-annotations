@@ -584,6 +584,15 @@ def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"]
         batch_size[Backend.CPU] = cpu_batch_size
 
     start = time.time()
+
+    # HACK(ygina): until this support multiple batch sizes...
+    # 1) set CPU batch size to GPU batch size if GPU is allowed (!force_cpu)
+    # 2) set GPU batch size to CPU batch size if forced execution in CPU (force_cpu)
+    if force_cpu:
+        batch_size[Backend.GPU] = batch_size[Backend.CPU]
+    else:
+        batch_size[Backend.CPU] = batch_size[Backend.GPU]
+
     vms = dag.to_vm(batch_size, force_cpu)
     print('to_vm:', time.time() - start)
     for _, vm in vms:
