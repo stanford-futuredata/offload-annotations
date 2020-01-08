@@ -222,10 +222,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     if gpu is None:
         gpu = DEFAULT_GPU
     if threads is None:
-        if mode == Mode.MOZART:
-            threads = 16
-        else:
-            threads = 1
+        threads = 1
 
     use_torch = threads % 2 == 1
     threads = 1

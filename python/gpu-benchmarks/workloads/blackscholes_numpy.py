@@ -341,10 +341,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
         else:
             gpu = DEFAULT_GPU
     if threads is None:
-        if mode == Mode.MOZART:
-            threads = 16
-        else:
-            threads = 1
+        threads = 1
 
     batch_size = {
         Backend.CPU: cpu,

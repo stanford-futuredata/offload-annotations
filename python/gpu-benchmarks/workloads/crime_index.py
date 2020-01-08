@@ -158,10 +158,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     if gpu is None:
         gpu = DEFAULT_GPU
     if threads is None:
-        if mode == Mode.MOZART:
-            threads = 16
-        else:
-            threads = 1
+        threads = 1
 
     # Initialize data
     if data_mode == 'file':
