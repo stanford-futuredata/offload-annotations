@@ -15,7 +15,7 @@ sys.path.append(".")
 from sa.annotation import Backend
 from mode import Mode
 
-DEFAULT_SIZE = 1 << 2
+DEFAULT_SIZE = 1 << 26
 DEFAULT_CPU = 1 << 13
 DEFAULT_GPU = 1 << 26
 
@@ -48,6 +48,11 @@ def get_tmp_arrays(mode, size):
     if mode == Mode.CUDA:
         return _get_tmp_arrays_cuda(size)
 
+    if mode.is_composer():
+        import sa.annotated.cupy as np
+    else:
+        import numpy as np
+
     # Tmp arrays
     tmp = np.empty(size, dtype='float64')
     vol_sqrt = np.empty(size, dtype='float64')
@@ -61,7 +66,12 @@ def get_tmp_arrays(mode, size):
     return tmp, vol_sqrt, rsig, d1, d2, call, put
 
 
-def run_naive(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put):
+def blackscholes(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put, composer):
+    if composer:
+        import sa.annotated.cupy as np
+    else:
+        import numpy as np
+
     c05 = 3.0
     c10 = 1.5
     invsqrt2 = 1.0 / math.sqrt(2.0)
@@ -83,13 +93,23 @@ def run_naive(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, pu
 
     # d1 = c05 + c05 * erf(d1 * invsqrt2)
     np.multiply(d1, invsqrt2, out=d1)
-    ss.erf(d1, out=d1)
+
+    if composer:
+        np.erf(d1, out=d1)
+    else:
+        ss.erf(d1, out=d1)
+
     np.multiply(d1, c05, out=d1)
     np.add(d1, c05, out=d1)
 
     # d2 = c05 + c05 * erf(d2 * invsqrt2)
     np.multiply(d2, invsqrt2, out=d2)
-    ss.erf(d2, out=d2)
+
+    if composer:
+        np.erf(d2, out=d2)
+    else:
+        ss.erf(d2, out=d2)
+
     np.multiply(d2, c05, out=d2)
     np.add(d2, c05, out=d2)
 
@@ -125,6 +145,32 @@ def run_naive(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, pu
     np.subtract(c10, d1, out=tmp)
     np.multiply(price, tmp, out=tmp)
     np.subtract(put, tmp, out=put)
+
+
+def run_composer(mode,
+                 price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put,
+                 batch_size,
+                 threads):
+    import sa.annotated.cupy as np
+    call.materialize = Backend.CPU
+    put.materialize = Backend.CPU
+
+    if mode == Mode.MOZART:
+        force_cpu = True
+    elif mode == Mode.BACH:
+        force_cpu = False
+        # TODO: don't allow different batch sizes for now
+        batch_size[Backend.CPU] = batch_size[Backend.GPU]
+    else:
+        raise Exception
+
+    blackscholes(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put, composer=True)
+    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    return call.value, put.value
+
+
+def run_naive(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put):
+    blackscholes(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put, composer=False)
     return call, put
 
 

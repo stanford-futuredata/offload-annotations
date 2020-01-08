@@ -66,6 +66,10 @@ class TestBlackscholesCupy(unittest.TestCase):
 
     def setUp(self):
         self.data_size = 1 << 20
+        self.batch_size = {
+            Backend.CPU: 1 << 16,
+            Backend.GPU: 1 << 16,
+        }
         # The expected result for the given data size
         self.expected_call = 24.0
         self.expected_put = 18.0
@@ -89,6 +93,10 @@ class TestBlackscholesCupy(unittest.TestCase):
             self.assertIsInstance(array, np.ndarray)
         for array in blackscholes_cupy.get_tmp_arrays(Mode.CUDA, size):
             self.assertIsInstance(array, cp.ndarray)
+        for array in blackscholes_cupy.get_tmp_arrays(Mode.MOZART, size):
+            self.assertIsInstance(array, dag.Operation)
+        for array in blackscholes_cupy.get_tmp_arrays(Mode.BACH, size):
+            self.assertIsInstance(array, dag.Operation)
 
     def test_naive(self):
         inputs = blackscholes_cupy.get_data(Mode.NAIVE, self.data_size)
@@ -103,6 +111,26 @@ class TestBlackscholesCupy(unittest.TestCase):
         inputs = blackscholes_cupy.get_data(Mode.CUDA, self.data_size)
         tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.CUDA, self.data_size)
         call, put = blackscholes_cupy.run_cuda(*inputs, *tmp_arrays)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+    def test_mozart(self):
+        inputs = blackscholes_cupy.get_data(Mode.MOZART, self.data_size)
+        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.MOZART, self.data_size)
+        # call, put = blackscholes_cupy.run_composer(
+        #     Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16)
+        # self.assertIsInstance(call, np.ndarray)
+        # self.assertIsInstance(put, np.ndarray)
+        # self.validateArray(call, self.expected_call)
+        # self.validateArray(put, self.expected_put)
+
+    def test_bach(self):
+        inputs = blackscholes_cupy.get_data(Mode.BACH, self.data_size)
+        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.BACH, self.data_size)
+        call, put = blackscholes_cupy.run_composer(
+            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1)
         self.assertIsInstance(call, np.ndarray)
         self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
