@@ -76,7 +76,7 @@ def run_composer(mode, X, eps, min_samples, _, threads):
     db = sklearn.DBSCAN(eps=eps, min_samples=min_samples)
     db = sklearn.fit_x(db, X)
     labels = sklearn.labels(db)
-    labels.dontsend = False
+    labels.materialize = Backend.CPU
 
     # Note: batch sizes must be max size
     batch_size = { Backend.CPU: X.shape[0], Backend.GPU: X.shape[0], }

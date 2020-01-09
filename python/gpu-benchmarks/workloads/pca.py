@@ -62,7 +62,7 @@ def run_composer_unscaled(mode, X_train, X_test, y_train, y_test, batch_size, th
 
     X_test_ = sklearn.transform(pca.value, X_test)
     pred_test = sklearn.predict(knc.value, X_test_)
-    pred_test.dontsend = False
+    pred_test.materialize = Backend.CPU
     # Note: here, the batch sizes can be anything because this section can be split
     sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     return pred_test.value
@@ -97,7 +97,7 @@ def run_composer_scaled(mode, X_train, X_test, y_train, y_test, batch_size, thre
     X_test_ = sklearn.transform(ss.value, X_test)
     X_test_ = sklearn.transform(pca.value, X_test_)
     pred_test_std = sklearn.predict(knc.value, X_test_)
-    pred_test_std.dontsend = False
+    pred_test_std.materialize = Backend.CPU
     # Note: here, the batch sizes can be anything because this section can be split
     sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     t0 = print('Predict(composer):', time.time() - t0)

@@ -68,7 +68,7 @@ class NdArraySplit(SplitType):
             else:
                 return cudf.from_pandas(pd.DataFrame(value))
         elif current_backend == Backend.GPU and backend == Backend.CPU:
-            return value.to_pandas()
+            return value.to_pandas().to_numpy()
         else:
             raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
