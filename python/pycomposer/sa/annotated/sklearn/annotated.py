@@ -58,7 +58,11 @@ class ModelSplit(SplitType):
             raise Exception('unknown device: {}'.format(type(value)))
 
     def to(self, value, backend):
-        return value
+        old_backend = self.backend(value)
+        if old_backend == backend:
+            return value
+        else:
+            raise Exception('cannot transfer from {} to {}'.format(old_backend, backend))
 
     def __str__(self):
         return "ModelSplit"
