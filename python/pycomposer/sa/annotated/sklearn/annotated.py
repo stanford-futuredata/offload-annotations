@@ -8,6 +8,22 @@ from sa.annotation.split_types import *
 from sa.annotated.numpy_cudf import NdArraySplit
 
 
+class CPUModelSplit(SplitType):
+
+    def combine(self, values, original=None):
+        assert len(values) == 1
+        return values[0]
+
+    def split(self, _start, _end, value):
+        return value
+
+    def elements(self, value):
+        return None
+
+    def __str__(self):
+        return "CPUModelSplit"
+
+
 class ModelSplit(SplitType):
 
     def __init__(self):
@@ -16,7 +32,6 @@ class ModelSplit(SplitType):
             sklearn.cluster.DBSCAN,
             sklearn.neighbors.KNeighborsClassifier,
             sklearn.decomposition.PCA,
-            sklearn.preprocessing.StandardScaler,
         ])
         self.gpu_models = set([
             cuml.DBSCAN,
@@ -55,7 +70,7 @@ DBSCAN = alloc(ModelSplit(), gpu=True, gpu_func=cuml.DBSCAN)(sklearn.cluster.DBS
 KNeighborsClassifier = alloc(ModelSplit(), gpu=True, gpu_func=cuml.neighbors.KNeighborsClassifier)(
     sklearn.neighbors.KNeighborsClassifier)
 PCA = alloc(ModelSplit(), gpu=True, gpu_func=cuml.PCA)(sklearn.decomposition.PCA)
-StandardScaler = alloc(ModelSplit())(sklearn.preprocessing.StandardScaler)
+StandardScaler = alloc(CPUModelSplit())(sklearn.preprocessing.StandardScaler)
 
 # *************************************************************************************************
 # Method wrappers that CANNOT be split
@@ -71,6 +86,10 @@ def fit_xy(model, X, y):
 def fit_transform(model, X):
     return model.fit_transform(X)
 
+@sa((CPUModelSplit(), NdArraySplit()), {}, NdArraySplit())
+def fit_transform_cpu(model, X):
+    return model.fit_transform(X)
+
 @sa((ModelSplit(),), {}, NdArraySplit(), gpu=True)
 def labels(model):
     return model.labels_
@@ -79,6 +98,10 @@ def labels(model):
 # Method wrappers that CAN be split
 @sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), gpu=True)
 def transform(model, X):
+    return model.transform(X)
+
+@sa((CPUModelSplit(), NdArraySplit()), {}, NdArraySplit())
+def transform_cpu(model, X):
     return model.transform(X)
 
 @sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), gpu=True)

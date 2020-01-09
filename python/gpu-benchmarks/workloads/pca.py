@@ -82,7 +82,7 @@ def run_composer_scaled(mode, X_train, X_test, y_train, y_test, batch_size, thre
     ss = sklearn.StandardScaler()
     pca = sklearn.PCA(n_components=2)
     knc = sklearn.KNeighborsClassifier()
-    X_train_ = sklearn.fit_transform(ss, X_train)
+    X_train_ = sklearn.fit_transform_cpu(ss, X_train)
     X_train_ = sklearn.fit_transform(pca, X_train_)
     sklearn.fit_xy(knc, X_train_, y_train)
     ss.dontsend = False
@@ -94,7 +94,7 @@ def run_composer_scaled(mode, X_train, X_test, y_train, y_test, batch_size, thre
     print('Fit(composer):', time.time() - t0)
 
     t0 = time.time()
-    X_test_ = sklearn.transform(ss.value, X_test)
+    X_test_ = sklearn.transform_cpu(ss.value, X_test)
     X_test_ = sklearn.transform(pca.value, X_test_)
     pred_test_std = sklearn.predict(knc.value, X_test_)
     pred_test_std.materialize = Backend.CPU
