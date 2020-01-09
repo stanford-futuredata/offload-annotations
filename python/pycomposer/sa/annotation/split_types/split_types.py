@@ -22,6 +22,10 @@ class SplitType(ABC):
 
     # The list of supported backends the split type can be transferred to and from.
     supported_backends = [Backend.CPU]
+    # Whether to merge the type at the end of the pipeline
+    mutable = False
+    # Which backend to materialize the merged type on
+    materialize = None
 
     def __init__(self):
         """Initialize a new split type."""

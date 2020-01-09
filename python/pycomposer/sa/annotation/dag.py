@@ -69,6 +69,9 @@ class Operation:
         if supports_gpu:
             self.supported_backends.append(Backend.GPU)
 
+        # The backend to materialize the merged type on, if specified
+        self.materialize = None
+
     def all_args(self):
         """ Returns a list of all the args in this operation. """
         return tuple(self.args) + tuple(self.kwargs.values())
@@ -455,12 +458,12 @@ class LogicalPlan:
             if isinstance(op.annotation, Allocation):
                 ty = op.annotation.return_type
                 result = vm.register_value(op, ty)
-                setattr(ty, "mutable", not op.dontsend)
-                if not op.dontsend:
+                ty.mutable = not op.dontsend
+                if ty.mutable:
                     mutable.add(result)
-                if hasattr(op, 'materialize') and op.materialize is not None:
+                if op.materialize is not None:
                     ty.mutable = True
-                    setattr(ty, 'materialize', op.materialize)
+                    ty.materialize = op.materialize
                 return
 
             args = []
@@ -487,12 +490,9 @@ class LogicalPlan:
                 if valnum is None:
                     ty = op.split_type_of(key)
                     valnum = vm.register_value(value, ty)
-                    setattr(ty, "mutable", op.is_mutable(key))
+                    ty.mutable = op.is_mutable(key)
                     backend = ty.backend(value)
                     var_locs[valnum] = backend
-
-                    # Don't materialize registered inputs by default. Hack.
-                    ty.mutable &= hasattr(value, 'materialize') and value.materialize
                 return valnum
             for (i, arg) in enumerate(op.args):
                 valnum = register(i, arg)
@@ -520,9 +520,14 @@ class LogicalPlan:
 
             # In this context, mutability just means we need to merge objects.
             if op.annotation.return_type is not None:
-                setattr(op.annotation.return_type, "mutable", not op.dontsend)
-                if not op.dontsend:
+                ty = op.annotation.return_type
+                ty.mutable = not op.dontsend
+                if ty.mutable:
                     mutable.add(result)
+                if op.materialize is not None:
+                    ty.mutable = True
+                    ty.materialize = op.materialize
+
             # Choose which function to call based on whether the pipeline is on the gpu.
             if inst_backend == Backend.GPU and op.annotation.gpu_func is not None:
                 func = op.annotation.gpu_func
@@ -547,7 +552,7 @@ class LogicalPlan:
                 ty = vms[pipeline].split_type_of(valnum)
                 if ty is None or not ty.mutable:
                     continue
-                if hasattr(ty, 'materialize'):
+                if ty.materialize is not None:
                     transfer(vms[pipeline], var_locs[pipeline], valnum, ty.materialize)
             # vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         print('Allocation:', sum(alloc_times))
