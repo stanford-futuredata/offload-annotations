@@ -6,15 +6,11 @@ import numpy as np
 import pandas as pd
 import cuml
 import cudf
+import sklearn
 
 sys.path.append("../../lib")
 sys.path.append("../../pycomposer")
 sys.path.append(".")
-
-from sklearn.cluster import DBSCAN
-from sklearn import metrics
-from sklearn.datasets import make_blobs
-from sklearn.preprocessing import StandardScaler
 
 from sa.annotation import Backend
 from mode import Mode
@@ -33,13 +29,13 @@ def gen_data(mode,
              n_features=DEFAULT_FEATURES,
              centers=DEFAULT_CENTERS,
              cluster_std=DEFAULT_CLUSTER_STD):
-    X, _labels_true = make_blobs(n_samples=size,
-                                n_features=n_features,
-                                centers=centers,
-                                cluster_std=cluster_std,
-                                center_box=(-2.0,2.0),
-                                random_state=42)
-    X = StandardScaler().fit_transform(X)
+    X, _labels_true = sklearn.datasets.make_blobs(n_samples=size,
+                                                  n_features=n_features,
+                                                  centers=centers,
+                                                  cluster_std=cluster_std,
+                                                  center_box=(-2.0,2.0),
+                                                  random_state=42)
+    X = sklearn.preprocessing.StandardScaler().fit_transform(X)
     if mode == Mode.CUDA:
         X = cudf.from_pandas(pd.DataFrame(X))
 
@@ -55,15 +51,15 @@ def clusters(labels):
 
     # print('Estimated number of clusters: %d' % n_clusters_)
     # print('Estimated number of noise points: %d' % n_noise_)
-    # print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels_true, labels))
-    # print("Completeness: %0.3f" % metrics.completeness_score(labels_true, labels))
-    # print("V-measure: %0.3f" % metrics.v_measure_score(labels_true, labels))
+    # print("Homogeneity: %0.3f" % sklearn.metrics.homogeneity_score(labels_true, labels))
+    # print("Completeness: %0.3f" % sklearn.metrics.completeness_score(labels_true, labels))
+    # print("V-measure: %0.3f" % sklearn.metrics.v_measure_score(labels_true, labels))
     # print("Adjusted Rand Index: %0.3f"
-    #       % metrics.adjusted_rand_score(labels_true, labels))
+    #       % sklearn.metrics.adjusted_rand_score(labels_true, labels))
     # print("Adjusted Mutual Information: %0.3f"
-    #       % metrics.adjusted_mutual_info_score(labels_true, labels))
+    #       % sklearn.metrics.adjusted_mutual_info_score(labels_true, labels))
     # print("Silhouette Coefficient: %0.3f"
-    #       % metrics.silhouette_score(X, labels))
+    #       % sklearn.metrics.silhouette_score(X, labels))
     return n_clusters, n_noise
 
 
@@ -76,7 +72,7 @@ def run_naive(X, eps, min_samples):
     print('eps={} min_samples={}'.format(eps, min_samples))
 
     # Run DBSCAN
-    db = DBSCAN(eps=eps, min_samples=min_samples).fit(X)
+    db = sklearn.cluster.DBSCAN(eps=eps, min_samples=min_samples).fit(X)
     labels = db.labels_
     return labels
 

@@ -6,18 +6,11 @@ import cudf
 import cuml
 import numpy as np
 import pandas as pd
+import sklearn
 
 sys.path.append("../../lib")
 sys.path.append("../../pycomposer")
 sys.path.append(".")
-
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from sklearn.naive_bayes import GaussianNB
-from sklearn import metrics, datasets
-from sklearn.pipeline import make_pipeline
-from sklearn.neighbors import KNeighborsClassifier
 
 from sa.annotation import Backend
 from mode import Mode
@@ -28,11 +21,10 @@ DEFAULT_GPU = 1 << 26
 
 
 def gen_data(mode, size):
-    features, target = datasets.load_wine(return_X_y=True)
+    features, target = sklearn.datasets.load_wine(return_X_y=True)
     # Make a train/test split using 30% test size
-    X_train, X_test, y_train, y_test = train_test_split(features, target,
-                                                        train_size=0.70,
-                                                        random_state=42)
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+        features, target, train_size=0.70, random_state=42)
     # Increase the data size
     for _ in range(int(math.log2(size))):
         X_train = np.append(X_train, X_train, axis=0)
@@ -45,7 +37,7 @@ def gen_data(mode, size):
 def accuracy(y_test, pred_test):
     if isinstance(pred_test, cudf.Series) or isinstance(pred_test, cudf.DataFrame):
         pred_test = pred_test.to_pandas()
-    return metrics.accuracy_score(y_test, pred_test)
+    return sklearn.metrics.accuracy_score(y_test, pred_test)
 
 
 def run_composer(mode, inputs, batch_size, threads):
@@ -53,8 +45,8 @@ def run_composer(mode, inputs, batch_size, threads):
 
 
 def run_naive_unscaled(X_train, X_test, y_train, y_test):
-    pca = PCA(n_components=2)
-    knc = KNeighborsClassifier()
+    pca = sklearn.decomposition.PCA(n_components=2)
+    knc = sklearn.neighbors.KNeighborsClassifier()
     X_train_ = pca.fit_transform(X_train)
     knc.fit(X_train_, y_train)
 
@@ -66,9 +58,9 @@ def run_naive_unscaled(X_train, X_test, y_train, y_test):
 def run_naive_scaled(X_train, X_test, y_train, y_test):
     # Fit to data and predict using pipelined scaling, GNB and PCA.
     t0 = time.time()
-    ss = StandardScaler()
-    pca = PCA(n_components=2)
-    knc = KNeighborsClassifier()
+    ss = sklearn.preprocessing.StandardScaler()
+    pca = sklearn.decomposition.PCA(n_components=2)
+    knc = sklearn.neighbors.KNeighborsClassifier()
     X_train_ = ss.fit_transform(X_train)
     X_train_ = pca.fit_transform(X_train_)
     knc.fit(X_train_, y_train)
@@ -99,7 +91,7 @@ def run_cuda_unscaled(X_train, X_test, y_train, y_test):
 def run_cuda_scaled(X_train, X_test, y_train, y_test):
     # Fit to data and predict using pipelined scaling, GNB and PCA.
     t0 = time.time()
-    ss = StandardScaler()
+    ss = sklearn.preprocessing.StandardScaler()
     pca = cuml.PCA(n_components=2)
     knc = cuml.neighbors.KNeighborsClassifier()
     X_train_ = ss.fit_transform(X_train)
