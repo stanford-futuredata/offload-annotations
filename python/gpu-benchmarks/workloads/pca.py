@@ -194,14 +194,14 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
 
     # Run program
     start = time.time()
-    # if mode.is_composer():
-    #     pred_test = run_composer_unscaled(mode, *inputs, batch_size, threads)
-    # elif mode == Mode.NAIVE:
-    #     pred_test = run_naive_unscaled(*inputs)
-    # elif mode == Mode.CUDA:
-    #     pred_test = run_cuda_unscaled(*inputs)
-    # else:
-    #     raise ValueError
+    if mode.is_composer():
+        pred_test = run_composer_unscaled(mode, *inputs, batch_size, threads)
+    elif mode == Mode.NAIVE:
+        pred_test = run_naive_unscaled(*inputs)
+    elif mode == Mode.CUDA:
+        pred_test = run_cuda_unscaled(*inputs)
+    else:
+        raise ValueError
     runtime_unscaled = time.time() - start
 
     start = time.time()
@@ -216,11 +216,11 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     runtime_scaled = time.time() - start
 
     total_runtime = runtime_unscaled + runtime_scaled
-    # sys.stdout.write('Runtime unscaled: {}\n'.format(runtime_unscaled))
+    sys.stdout.write('Runtime unscaled: {}\n'.format(runtime_unscaled))
     sys.stdout.write('Runtime scaled: {}\n'.format(runtime_scaled))
     sys.stdout.write('Total: {}\n'.format(init_time + total_runtime))
     sys.stdout.flush()
-    # print('Accuracy unscaled: {:.2%}'.format(accuracy(inputs[3], pred_test)))
+    print('Accuracy unscaled: {:.2%}'.format(accuracy(inputs[3], pred_test)))
     print('Accuracy scaled: {:.2%}'.format(accuracy(inputs[3], pred_test_std)))
     print()
     return init_time, total_runtime
