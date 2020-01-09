@@ -38,8 +38,68 @@ def accuracy(y_test, pred_test):
     return sklearn.metrics.accuracy_score(y_test, pred_test)
 
 
-def run_composer(mode, inputs, batch_size, threads):
-    raise Exception
+def run_composer_unscaled(mode, X_train, X_test, y_train, y_test, batch_size, threads):
+    import sa.annotated.sklearn as sklearn
+
+    if mode == Mode.MOZART:
+        force_cpu = True
+    elif mode == Mode.BACH:
+        force_cpu = False
+    else:
+        raise Exception
+
+    pca = sklearn.PCA(n_components=2)
+    knc = sklearn.KNeighborsClassifier()
+    X_train_ = sklearn.fit_transform(pca, X_train)
+    sklearn.fit_xy(knc, X_train_, y_train)
+    pca.dontsend = False
+    knc.dontsend = False
+    # Note: batch sizes must be max size
+    max_batch_size = { Backend.CPU: X_train.shape[0], Backend.GPU: X_train.shape[0], }
+    sklearn.evaluate(workers=threads, batch_size=max_batch_size, force_cpu=force_cpu)
+
+    X_test_ = sklearn.transform(pca.value, X_test)
+    pred_test = sklearn.predict(knc.value, X_test_)
+    pred_test.dontsend = False
+    # Note: here, the batch sizes can be anything because this section can be split
+    sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    return pred_test.value
+
+
+def run_composer_scaled(mode, X_train, X_test, y_train, y_test, batch_size, threads):
+    import sa.annotated.sklearn as sklearn
+
+    if mode == Mode.MOZART:
+        force_cpu = True
+    elif mode == Mode.BACH:
+        force_cpu = False
+    else:
+        raise Exception
+
+    t0 = time.time()
+    ss = sklearn.StandardScaler()
+    pca = sklearn.PCA(n_components=2)
+    knc = sklearn.KNeighborsClassifier()
+    X_train_ = sklearn.fit_transform(ss, X_train)
+    X_train_ = sklearn.fit_transform(pca, X_train_)
+    sklearn.fit_xy(knc, X_train_, y_train)
+    ss.dontsend = False
+    pca.dontsend = False
+    knc.dontsend = False
+    # Note: batch sizes must be max size
+    max_batch_size = { Backend.CPU: X_train.shape[0], Backend.GPU: X_train.shape[0], }
+    sklearn.evaluate(workers=threads, batch_size=max_batch_size, force_cpu=force_cpu)
+    print('Fit(composer):', time.time() - t0)
+
+    t0 = time.time()
+    X_test_ = sklearn.transform(ss.value, X_test)
+    X_test_ = sklearn.transform(pca.value, X_test_)
+    pred_test_std = sklearn.predict(knc.value, X_test_)
+    pred_test_std.dontsend = False
+    # Note: here, the batch sizes can be anything because this section can be split
+    sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    t0 = print('Predict(composer):', time.time() - t0)
+    return pred_test_std.value
 
 
 def run_naive_unscaled(X_train, X_test, y_train, y_test):
@@ -135,7 +195,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     # Run program
     start = time.time()
     # if mode.is_composer():
-    #     results = run_composer(mode, *inputs, batch_size, threads)
+    #     pred_test = run_composer_unscaled(mode, *inputs, batch_size, threads)
     # elif mode == Mode.NAIVE:
     #     pred_test = run_naive_unscaled(*inputs)
     # elif mode == Mode.CUDA:
@@ -146,7 +206,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
 
     start = time.time()
     if mode.is_composer():
-        results = run_composer(mode, *inputs, batch_size, threads)
+        pred_test_std = run_composer_scaled(mode, *inputs, batch_size, threads)
     elif mode == Mode.NAIVE:
         pred_test_std = run_naive_scaled(*inputs)
     elif mode == Mode.CUDA:

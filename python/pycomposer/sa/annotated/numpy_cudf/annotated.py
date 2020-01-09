@@ -44,9 +44,7 @@ class NdArraySplit(SplitType):
 
     def elements(self, value):
         if isinstance(value, np.ndarray):
-            if len(value.shape) == 2 and value.shape[1] == 1:
-                return value.shape[0]
-            return value.shape[-1]
+            return value.shape[0]
 
     def backend(self, value):
         if isinstance(value, float) or isinstance(value, int) or isinstance(value, str):

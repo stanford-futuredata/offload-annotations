@@ -14,13 +14,19 @@ class ModelSplit(SplitType):
         self.supported_backends = [Backend.CPU, Backend.GPU]
         self.cpu_models = set([
             sklearn.cluster.DBSCAN,
+            sklearn.neighbors.KNeighborsClassifier,
+            sklearn.decomposition.PCA,
+            sklearn.preprocessing.StandardScaler,
         ])
         self.gpu_models = set([
             cuml.DBSCAN,
+            cuml.neighbors.KNeighborsClassifier,
+            cuml.PCA,
         ])
 
     def combine(self, values, original=None):
-        pass
+        assert len(values) == 1
+        return values[0]
 
     def split(self, _start, _end, value):
         return value
@@ -37,20 +43,44 @@ class ModelSplit(SplitType):
             raise Exception('unknown device: {}'.format(type(value)))
 
     def to(self, value, backend):
-        pass
+        return value
 
     def __str__(self):
         return "ModelSplit"
 
 
+# *************************************************************************************************
+# Models
 DBSCAN = alloc(ModelSplit(), gpu=True, gpu_func=cuml.DBSCAN)(sklearn.cluster.DBSCAN)
+KNeighborsClassifier = alloc(ModelSplit(), gpu=True, gpu_func=cuml.neighbors.KNeighborsClassifier)(
+    sklearn.neighbors.KNeighborsClassifier)
+PCA = alloc(ModelSplit(), gpu=True, gpu_func=cuml.PCA)(sklearn.decomposition.PCA)
+StandardScaler = alloc(ModelSplit())(sklearn.preprocessing.StandardScaler)
 
-# CANNOT BE SPLIT
+# *************************************************************************************************
+# Method wrappers that CANNOT be split
 @sa((ModelSplit(), NdArraySplit()), {}, ModelSplit())
 def fit_x(model, X):
     return model.fit(X)
 
-# CANNOT BE SPLIT
+@sa((ModelSplit(), NdArraySplit(), NdArraySplit()), {}, ModelSplit())
+def fit_xy(model, X, y):
+    return model.fit(X, y)
+
+@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
+def fit_transform(model, X):
+    return model.fit_transform(X)
+
 @sa((ModelSplit(),), {}, NdArraySplit())
 def labels(model):
     return model.labels_
+
+# *************************************************************************************************
+# Method wrappers that CAN be split
+@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
+def transform(model, X):
+    return model.transform(X)
+
+@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
+def predict(model, X):
+    return model.predict(X)
