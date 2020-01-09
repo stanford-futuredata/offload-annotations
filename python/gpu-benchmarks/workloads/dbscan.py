@@ -63,26 +63,38 @@ def clusters(labels):
     return n_clusters, n_noise
 
 
-def run_composer(mode, X, batch_size, threads):
-    raise Exception
+def run_composer(mode, X, eps, min_samples, batch_size, threads):
+    import sa.annotated.sklearn as sklearn
+
+    if mode == Mode.MOZART:
+        force_cpu = True
+    elif mode == Mode.BACH:
+        force_cpu = False
+    else:
+        raise Exception
+
+    db = sklearn.DBSCAN(eps=eps, min_samples=min_samples)
+    db = sklearn.fit_x(db, X)
+    labels = sklearn.labels(db)
+    labels.dontsend = False
+
+    # Note: batch sizes must be max size
+    sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    return labels.value
 
 
 def run_naive(X, eps, min_samples):
-    size = len(X)
-    print('eps={} min_samples={}'.format(eps, min_samples))
-
     # Run DBSCAN
-    db = sklearn.cluster.DBSCAN(eps=eps, min_samples=min_samples).fit(X)
+    db = sklearn.cluster.DBSCAN(eps=eps, min_samples=min_samples)
+    db = db.fit(X)
     labels = db.labels_
     return labels
 
 
 def run_cuda(X, eps, min_samples):
-    size = len(X)
-    print('eps={} min_samples={}'.format(eps, min_samples))
-
     # Run DBSCAN
-    db = cuml.DBSCAN(eps=eps, min_samples=min_samples).fit(X)
+    db = cuml.DBSCAN(eps=eps, min_samples=min_samples)
+    db = db.fit(X)
     labels = db.labels_
     labels = labels.to_pandas().to_numpy()
     return labels
@@ -113,7 +125,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     # Run program
     start = time.time()
     if mode.is_composer():
-        results = run_composer(mode, *inputs, batch_size, threads)
+        labels = run_composer(mode, *inputs, batch_size, threads)
     elif mode == Mode.NAIVE:
         labels = run_naive(*inputs)
     elif mode == Mode.CUDA:
