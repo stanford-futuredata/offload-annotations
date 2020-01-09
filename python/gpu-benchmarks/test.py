@@ -241,10 +241,6 @@ class TestDBSCAN(unittest.TestCase):
     def setUp(self):
         self.data_size = 1 << 10
         self.centers = dbscan.DEFAULT_CENTERS
-        self.batch_size = {
-            Backend.CPU: self.data_size,
-            Backend.GPU: self.data_size,
-        }
 
     def test_naive(self):
         X, eps, min_samples = dbscan.gen_data(Mode.NAIVE, self.data_size, centers=self.centers)
@@ -300,7 +296,7 @@ class TestDBSCAN(unittest.TestCase):
     def test_mozart(self):
         X, eps, min_samples = dbscan.gen_data(Mode.MOZART, self.data_size, centers=self.centers)
         self.assertIsInstance(X, np.ndarray)
-        labels = dbscan.run_composer(Mode.MOZART, X, eps, min_samples, self.batch_size, threads=1)
+        labels = dbscan.run_composer(Mode.MOZART, X, eps, min_samples, None, threads=1)
         self.assertIsInstance(labels, np.ndarray)
 
         clusters, noise = dbscan.clusters(labels)
@@ -310,7 +306,7 @@ class TestDBSCAN(unittest.TestCase):
     def test_bach(self):
         X, eps, min_samples = dbscan.gen_data(Mode.BACH, self.data_size, centers=self.centers)
         self.assertIsInstance(X, np.ndarray)
-        labels = dbscan.run_composer(Mode.BACH, X, eps, min_samples, self.batch_size, threads=1)
+        labels = dbscan.run_composer(Mode.BACH, X, eps, min_samples, None, threads=1)
         self.assertIsInstance(labels, np.ndarray)
 
         clusters, noise = dbscan.clusters(labels)

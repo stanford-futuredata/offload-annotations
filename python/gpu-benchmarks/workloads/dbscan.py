@@ -63,7 +63,7 @@ def clusters(labels):
     return n_clusters, n_noise
 
 
-def run_composer(mode, X, eps, min_samples, batch_size, threads):
+def run_composer(mode, X, eps, min_samples, _, threads):
     import sa.annotated.sklearn as sklearn
 
     if mode == Mode.MOZART:
@@ -79,6 +79,7 @@ def run_composer(mode, X, eps, min_samples, batch_size, threads):
     labels.dontsend = False
 
     # Note: batch sizes must be max size
+    batch_size = { Backend.CPU: X.shape[0], Backend.GPU: X.shape[0], }
     sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     return labels.value
 
