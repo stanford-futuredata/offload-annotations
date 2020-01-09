@@ -165,20 +165,23 @@ class TestBlackscholesCupy(unittest.TestCase):
 class TestPCA(unittest.TestCase):
 
     def setUp(self):
-        self.data_size = 1 << 4
+        self.data_size = 1 << 8
+        self.batch_size = {
+            Backend.CPU: 1 << 8,
+            Backend.GPU: 1 << 8,
+        }
+        self.base_data_size = 178
 
     def test_gen_data(self):
-        X_train, X_test, y_train, y_test = pca.gen_data(Mode.NAIVE, size=self.data_size)
-        self.assertIsInstance(X_train, np.ndarray)
-        self.assertIsInstance(X_test, np.ndarray)
-        self.assertIsInstance(y_train, np.ndarray)
-        self.assertIsInstance(y_test, np.ndarray)
-
-        X_train, X_test, y_train, y_test = pca.gen_data(Mode.CUDA, size=self.data_size)
-        self.assertIsInstance(X_train, np.ndarray)
-        self.assertIsInstance(X_test, np.ndarray)
-        self.assertIsInstance(y_train, np.ndarray)
-        self.assertIsInstance(y_test, np.ndarray)
+        size = 1 << 4
+        for mode in Mode:
+            X_train, X_test, y_train, y_test = pca.gen_data(mode, size=size)
+            self.assertIsInstance(X_train, np.ndarray)
+            self.assertIsInstance(X_test, np.ndarray)
+            self.assertIsInstance(y_train, np.ndarray)
+            self.assertIsInstance(y_test, np.ndarray)
+            self.assertEqual(len(X_train) + len(X_test), self.base_data_size * size)
+            self.assertEqual(len(y_train) + len(y_test), self.base_data_size * size)
 
     def test_naive(self):
         X_train, X_test, y_train, y_test = pca.gen_data(Mode.NAIVE, size=self.data_size)
@@ -196,12 +199,38 @@ class TestPCA(unittest.TestCase):
     def test_cuda(self):
         X_train, X_test, y_train, y_test = pca.gen_data(Mode.CUDA, size=self.data_size)
         pred_test = pca.run_cuda_unscaled(X_train, X_test, y_train, y_test)
-        self.assertIsInstance(pred_test, cudf.DataFrame)
+        self.assertIsInstance(pred_test, np.ndarray)
         pred_test_std = pca.run_cuda_scaled(X_train, X_test, y_train, y_test)
-        self.assertIsInstance(pred_test_std, cudf.DataFrame)
+        self.assertIsInstance(pred_test_std, np.ndarray)
 
         accuracy = pca.accuracy(y_test, pred_test)
         accuracy_std = pca.accuracy(y_test, pred_test_std)
+        self.assertGreater(accuracy, 0.7)
+        self.assertGreater(accuracy_std, 0.9)
+        self.assertGreater(accuracy_std, accuracy)
+
+    def test_mozart(self):
+        inputs = pca.gen_data(Mode.MOZART, size=self.data_size)
+        pred_test = pca.run_composer_unscaled(Mode.MOZART, *inputs, self.batch_size, threads=1)
+        self.assertIsInstance(pred_test, np.ndarray)
+        pred_test_std = pca.run_composer_scaled(Mode.MOZART, *inputs, self.batch_size, threads=1)
+        self.assertIsInstance(pred_test_std, np.ndarray)
+
+        accuracy = pca.accuracy(inputs[3], pred_test)
+        accuracy_std = pca.accuracy(inputs[3], pred_test_std)
+        self.assertGreater(accuracy, 0.7)
+        self.assertGreater(accuracy_std, 0.9)
+        self.assertGreater(accuracy_std, accuracy)
+
+    def test_bach(self):
+        inputs = pca.gen_data(Mode.BACH, size=self.data_size)
+        pred_test = pca.run_composer_unscaled(Mode.BACH, *inputs, self.batch_size, threads=1)
+        self.assertIsInstance(pred_test, np.ndarray)
+        pred_test_std = pca.run_composer_scaled(Mode.BACH, *inputs, self.batch_size, threads=1)
+        self.assertIsInstance(pred_test_std, np.ndarray)
+
+        accuracy = pca.accuracy(inputs[3], pred_test)
+        accuracy_std = pca.accuracy(inputs[3], pred_test_std)
         self.assertGreater(accuracy, 0.7)
         self.assertGreater(accuracy_std, 0.9)
         self.assertGreater(accuracy_std, accuracy)

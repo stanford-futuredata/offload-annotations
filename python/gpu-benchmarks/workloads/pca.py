@@ -35,8 +35,6 @@ def gen_data(mode, size):
 
 
 def accuracy(y_test, pred_test):
-    if isinstance(pred_test, cudf.Series) or isinstance(pred_test, cudf.DataFrame):
-        pred_test = pred_test.to_pandas()
     return sklearn.metrics.accuracy_score(y_test, pred_test)
 
 
@@ -85,6 +83,7 @@ def run_cuda_unscaled(X_train, X_test, y_train, y_test):
     X_test = cudf.from_pandas(pd.DataFrame(X_test))
     X_test_ = pca.transform(X_test)
     pred_test = knc.predict(X_test_)
+    pred_test = pred_test.to_pandas().to_numpy()
     return pred_test
 
 
@@ -106,6 +105,7 @@ def run_cuda_scaled(X_train, X_test, y_train, y_test):
     X_test_ = cudf.from_pandas(pd.DataFrame(X_test_))
     X_test_ = pca.transform(X_test_)
     pred_test_std = knc.predict(X_test_)
+    pred_test_std = pred_test_std.to_pandas().to_numpy()
     print('Predict(cuda):', time.time() - t0)
     return pred_test_std
 
