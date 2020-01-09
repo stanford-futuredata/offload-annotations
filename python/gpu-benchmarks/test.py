@@ -167,8 +167,8 @@ class TestPCA(unittest.TestCase):
     def setUp(self):
         self.data_size = 1 << 8
         self.batch_size = {
-            Backend.CPU: 1 << 8,
-            Backend.GPU: 1 << 8,
+            Backend.CPU: (1 << 6) * pca.NUM_TEST,
+            Backend.GPU: (1 << 6) * pca.NUM_TEST,
         }
         self.base_data_size = 178
 

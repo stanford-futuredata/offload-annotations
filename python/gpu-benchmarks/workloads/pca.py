@@ -19,6 +19,8 @@ DEFAULT_SIZE = 1 << 10
 DEFAULT_CPU = 1 << 16
 DEFAULT_GPU = 1 << 26
 
+NUM_TEST = 54
+
 
 def gen_data(mode, size):
     features, target = sklearn.datasets.load_wine(return_X_y=True)
@@ -182,8 +184,8 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
         threads = 1
 
     batch_size = {
-        Backend.CPU: cpu,
-        Backend.GPU: gpu,
+        Backend.CPU: cpu * NUM_TEST,
+        Backend.GPU: gpu * NUM_TEST,
     }
 
     # Get inputs
