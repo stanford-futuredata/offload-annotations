@@ -59,28 +59,28 @@ StandardScaler = alloc(ModelSplit())(sklearn.preprocessing.StandardScaler)
 
 # *************************************************************************************************
 # Method wrappers that CANNOT be split
-@sa((ModelSplit(), NdArraySplit()), {}, ModelSplit())
+@sa((ModelSplit(), NdArraySplit()), {}, ModelSplit(), gpu=True)
 def fit_x(model, X):
     return model.fit(X)
 
-@sa((ModelSplit(), NdArraySplit(), NdArraySplit()), {}, ModelSplit())
+@sa((ModelSplit(), NdArraySplit(), NdArraySplit()), {}, ModelSplit(), gpu=True)
 def fit_xy(model, X, y):
     return model.fit(X, y)
 
-@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
+@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), gpu=True)
 def fit_transform(model, X):
     return model.fit_transform(X)
 
-@sa((ModelSplit(),), {}, NdArraySplit())
+@sa((ModelSplit(),), {}, NdArraySplit(), gpu=True)
 def labels(model):
     return model.labels_
 
 # *************************************************************************************************
 # Method wrappers that CAN be split
-@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
+@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), gpu=True)
 def transform(model, X):
     return model.transform(X)
 
-@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
+@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), gpu=True)
 def predict(model, X):
     return model.predict(X)
