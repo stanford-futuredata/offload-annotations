@@ -459,11 +459,11 @@ class LogicalPlan:
                 ty = op.annotation.return_type
                 result = vm.register_value(op, ty)
                 ty.mutable = not op.dontsend
-                if ty.mutable:
-                    mutable.add(result)
                 if op.materialize is not None:
                     ty.mutable = True
                     ty.materialize = op.materialize
+                if ty.mutable:
+                    mutable.add(result)
                 return
 
             args = []
@@ -522,11 +522,11 @@ class LogicalPlan:
             if op.annotation.return_type is not None:
                 ty = op.annotation.return_type
                 ty.mutable = not op.dontsend
-                if ty.mutable:
-                    mutable.add(result)
                 if op.materialize is not None:
                     ty.mutable = True
                     ty.materialize = op.materialize
+                if ty.mutable:
+                    mutable.add(result)
 
             # Choose which function to call based on whether the pipeline is on the gpu.
             if inst_backend == Backend.GPU and op.annotation.gpu_func is not None:
@@ -554,7 +554,7 @@ class LogicalPlan:
                     continue
                 if ty.materialize is not None:
                     transfer(vms[pipeline], var_locs[pipeline], valnum, ty.materialize)
-            # vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
+            vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         print('Allocation:', sum(alloc_times))
         return sorted(list(vms.items()))
 
