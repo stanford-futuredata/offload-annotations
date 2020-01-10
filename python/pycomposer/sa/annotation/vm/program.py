@@ -76,5 +76,16 @@ class Program:
             if isinstance(inst, Call):
                 inst.remove_target()
 
+    def targets_to_merge(self):
+        merged = {}
+        visited = set()
+        for inst in reversed(self.insts):
+            if inst.target is None or inst.target in visited:
+                continue
+            if inst.ty is not None and inst.ty.mutable:
+                merged[inst.target] = inst.ty
+            visited.add(inst.target)
+        return merged
+
     def __str__(self):
         return "\n".join([str(i) for i in self.insts])

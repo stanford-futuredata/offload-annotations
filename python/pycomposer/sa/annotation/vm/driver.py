@@ -174,6 +174,22 @@ def _run_program(
     batch_index = 0
 
     inst_times = defaultdict(lambda: 0)
+    context_to_merge = defaultdict(list)
+    targets_to_merge = _PROGRAM.targets_to_merge()
+
+    def merge_ctx(context):
+        for key, val in context.items():
+            if key not in targets_to_merge:
+                continue
+            assert len(val) == 1
+            ty = targets_to_merge[key]
+            next_backend = ty.backend(_VALUES[key])
+            curr_backend = ty.backend(val[0])
+            if curr_backend != next_backend:
+                val[0] = ty.to(val[0], next_backend)
+            context_to_merge[key].extend(val)
+
+
     while True:
         piece_start = index_range[0] + batch_size * batch_index
         piece_end = min(piece_start + batch_size, index_range[1])
@@ -182,6 +198,7 @@ def _run_program(
 
         # s = torch.cuda.Stream()
         # with torch.cuda.stream(s):
+        context = defaultdict(list)
         i, inst_times_sub = _run_program_piece(
             initial_i,
             piece_start,
@@ -196,6 +213,7 @@ def _run_program(
         for key, val in inst_times_sub.items():
             inst_times[key] += val
 
+        merge_ctx(context)
         batch_index += 1
 
     process_end = time.time()
@@ -208,7 +226,7 @@ def _run_program(
     # Free non-shared memory on this worker.
     # Replace the data in the original pointer if we are the top level thread.
     # Merge the data if we are the top level thread or are returning execution to the top level.
-    _merge(_PROGRAM, context, top_level=top_level)
+    _merge(_PROGRAM, context_to_merge, top_level=top_level)
 
     merge_end = time.time()
 
@@ -254,6 +272,9 @@ def _merge(program, context, top_level):
                         # value. Return values to the backend they were originally on.
                         prev = _VALUES[inst.target]
                         curr = context[inst.target]
+                        if len(curr) == 0:
+                            context[inst.target] = None
+                            continue
                         prev_backend = inst.ty.backend(prev)
                         curr_backend = inst.ty.backend(curr[0])
                         if curr_backend != prev_backend:
