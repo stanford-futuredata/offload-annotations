@@ -249,10 +249,21 @@ def _merge(program, context, top_level):
                     if isinstance(_VALUES[inst.target], dag.Operation) or not top_level:
                         context[inst.target] = [inst.ty.combine(context[inst.target])]
                     else:
+                        # Since we're merging the data, someone is going to access it and they're
+                        # not going to want to be able to tell the difference from the original
+                        # value. Return values to the backend they were originally on.
+                        prev = _VALUES[inst.target]
+                        curr = context[inst.target]
+                        prev_backend = inst.ty.backend(prev)
+                        curr_backend = inst.ty.backend(curr[0])
+                        if curr_backend != prev_backend:
+                            curr = [inst.ty.to(val, prev_backend) for val in curr]
+
                         # Since we operated on a copy of the original data, we need to
-                        # replace the original pointer with the new data in combine()
-                        original = _VALUES[inst.target]
-                        context[inst.target] = [inst.ty.combine(context[inst.target], original=original)]
+                        # replace the original pointer with the current data in combine().
+                        # This also only works if the current data is on the same backend
+                        # as the data pointed to by the original pointer.
+                        context[inst.target] = [inst.ty.combine(curr, original=prev)]
                     if top_level:
                         context[inst.target] = context[inst.target][0]
                 else:
