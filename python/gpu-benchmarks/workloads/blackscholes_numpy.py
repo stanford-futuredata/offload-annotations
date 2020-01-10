@@ -50,10 +50,10 @@ def get_tmp_arrays(mode, size):
     if mode == Mode.CUDA:
         return _get_tmp_arrays_cuda(size)
 
-    if mode.is_composer():
-        import sa.annotated.numpy as np
-    else:
-        import numpy as np
+    # if mode.is_composer():
+    #     import sa.annotated.numpy as np
+    # else:
+    #     import numpy as np
 
     # Tmp arrays
     tmp = np.empty(size, dtype='float64')
@@ -156,8 +156,6 @@ def run_composer(
     threads,
 ):
     import sa.annotated.numpy as np
-    call.materialize = Backend.CPU
-    put.materialize = Backend.CPU
 
     if mode == Mode.MOZART:
         force_cpu = True
@@ -170,7 +168,7 @@ def run_composer(
     np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     if not force_cpu:
         torch.cuda.synchronize()
-    return call.value, put.value
+    return call, put
 
 
 def run_naive(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put):
