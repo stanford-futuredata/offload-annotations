@@ -57,43 +57,22 @@ class Split(Instruction):
         return "({}:{}) v{} = split {}:{}".format(
             self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
-    def get_index_to_split(self, context):
-        # The index of the value to split in the target context is the last
-        # value with more elements than the batch size.
-        if self.index_to_split is None:
-            self.index_to_split = 0
-            for i in range(len(context[self.target])):
-                num_elements = self.ty.elements(context[self.target][i])
-                if num_elements is None:
-                    break  # scalar
-                if num_elements > self.batch_size:
-                    self.index_to_split = i
-                else:
-                    break
-        return self.index_to_split
-
-    def clear_index_to_split(self, context):
-        context[self.target].pop(self.index_to_split)
-        self.index_to_split = None
-
     def evaluate(self, thread, index_range, batch_index, values, context):
         """ Returns values from the split. """
         start = 0 + self.batch_size * batch_index
         end = start + self.batch_size
-        if len(context[self.target]) == 0:
-            value = values[self.target]
-            from ..dag import Operation
-            if isinstance(value, Operation):
-                value = value.value
-            context[self.target].append(self.ty.split(index_range[0], index_range[1], value))
 
-        index_to_split = self.get_index_to_split(context)
-        num_elements = self.ty.elements(context[self.target][index_to_split])
+        from ..dag import Operation
+        value = values[self.target]
+        if isinstance(value, Operation):
+            value = value.value
+
+        num_elements = self.ty.elements(value)
         if num_elements is not None:
             end = min(end, num_elements)
         if self.splitter is None:
             # First time - check if the splitter is actually a generator.
-            result = self.ty.split(start, end, context[self.target][index_to_split])
+            result = self.ty.split(start, end, value)
             if isinstance(result, types.GeneratorType):
                 self.splitter = result
                 result = next(self.splitter)
@@ -103,11 +82,8 @@ class Split(Instruction):
             if isinstance(self.splitter, types.GeneratorType):
                 result = next(self.splitter)
             else:
-                result = self.splitter(start, end, context[self.target][index_to_split])
+                result = self.splitter(start, end, value)
 
-        if index_range[0] + self.batch_size * (batch_index + 1) >= index_range[1]:
-            # This is the last batch
-            self.clear_index_to_split(context)
         if isinstance(result, str) and result == STOP_ITERATION:
             return STOP_ITERATION
 
@@ -140,20 +116,7 @@ class Merge(Instruction):
             self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
     def evaluate(self, _thread, _index_range, _batch_index, _values, context):
-        # The indices of the values to merge in the target context are the last
-        # values that collectively have <= the number of elements in the batch size.
-        index_to_merge = None
-        total_num_elements = 0
-        for i in reversed(range(len(context[self.target]))):
-            num_elements = self.ty.elements(context[self.target][i])
-            total_num_elements += self.ty.elements(context[self.target][i])
-            if total_num_elements > self.batch_size:
-                break
-            index_to_merge = i
-        values_to_merge = context[self.target][index_to_merge:]
-
-        context[self.target] = context[self.target][:index_to_merge]
-        context[self.target].append(self.ty.combine(values_to_merge))
+        context[self.target] = self.ty.combine(context[self.target])
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
