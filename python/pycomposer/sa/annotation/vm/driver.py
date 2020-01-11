@@ -130,7 +130,7 @@ def _run_program_piece(
 def _run_program(
     worker_id,
     index_range,
-    context,
+    context_to_merge,
     batch_size: int,
     initial_i: int = 0,
     top_level: bool = False,
@@ -174,7 +174,6 @@ def _run_program(
     batch_index = 0
 
     inst_times = defaultdict(lambda: 0)
-    context_to_merge = defaultdict(list)
     targets_to_merge = _PROGRAM.targets_to_merge()
 
     def merge_ctx(context):
