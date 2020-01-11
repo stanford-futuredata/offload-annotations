@@ -177,12 +177,18 @@ def _run_program(
     targets_to_merge = _PROGRAM.targets_to_merge()
 
     def merge_ctx(context):
+        from .. import dag, Backend
         for key, val in context.items():
             if key not in targets_to_merge:
                 continue
             assert len(val) == 1
             ty = targets_to_merge[key]
-            next_backend = ty.backend(_VALUES[key])
+
+            if isinstance(_VALUES[key], dag.Operation):
+                next_backend = Backend.CPU
+            else:
+                next_backend = ty.backend(_VALUES[key])
+
             curr_backend = ty.backend(val[0])
             if curr_backend != next_backend:
                 val[0] = ty.to(val[0], next_backend)
