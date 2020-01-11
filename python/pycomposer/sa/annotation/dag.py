@@ -475,7 +475,7 @@ class LogicalPlan:
                 if isinstance(value, Operation) and value.needs_allocation():
                     ty = value.annotation.return_type
                     valnum = vm.register_value(value, ty)
-                    ty.mutable = not value.dontsend or op.is_mutable(key)
+                    ty.mutable = not value.dontsend
                     if value.materialize is not None:
                         ty.mutable = True
                         ty.materialize = value.materialize

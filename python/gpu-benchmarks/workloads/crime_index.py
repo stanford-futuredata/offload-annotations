@@ -119,7 +119,7 @@ def run_composer(
     crime_index = pd.mask(crime_index, lt, 0.005)
 
     result = pd.pandasum(crime_index)
-    result.dontsend = False
+    result.materialize = Backend.CPU
     pd.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     return result.value
 

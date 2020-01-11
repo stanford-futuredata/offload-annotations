@@ -185,7 +185,10 @@ def _run_program(
             ty = targets_to_merge[key]
 
             if isinstance(_VALUES[key], dag.Operation):
-                next_backend = Backend.CPU
+                if _VALUES[key].materialize is not None:
+                    next_backend = _VALUES[key].materialize
+                else:
+                    next_backend = ty.backend(_VALUES[key].value)
             else:
                 next_backend = ty.backend(_VALUES[key])
 
