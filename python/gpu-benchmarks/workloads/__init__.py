@@ -10,3 +10,5 @@ from . import image_processing
 from . import blackscholes_cupy
 from . import haversine
 from . import kidneys
+from . import clusterdim
+from . import feature_engineering

@@ -23,6 +23,8 @@ class Benchmark(enum.Enum):
     BLACKSCHOLES_CUPY = 9
     HAVERSINE = 10
     KIDNEYS = 11
+    CLUSTER_DIM = 12
+    FEATURE_ENGINEERING = 13
     # PREPROCESSING = 6
     # XGBOOST = 7
 
@@ -50,6 +52,10 @@ def to_function(bm):
         return haversine.run
     elif bm == Benchmark.KIDNEYS:
         return kidneys.run
+    elif bm == Benchmark.CLUSTER_DIM:
+        return clusterdim.run
+    elif bm == Benchmark.FEATURE_ENGINEERING:
+        return feature_engineering.run
     else:
         raise Exception
 
