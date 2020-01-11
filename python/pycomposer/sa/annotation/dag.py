@@ -456,14 +456,6 @@ class LogicalPlan:
             # sizes until they are used.
             added.add(op)
             if isinstance(op.annotation, Allocation):
-                ty = op.annotation.return_type
-                result = vm.register_value(op, ty)
-                ty.mutable = not op.dontsend
-                if op.materialize is not None:
-                    ty.mutable = True
-                    ty.materialize = op.materialize
-                if ty.mutable:
-                    mutable.add(result)
                 return
 
             args = []
@@ -480,13 +472,23 @@ class LogicalPlan:
             # an allocation we should have already registered the value, but now we
             # need to allocate it.
             def register(key, value):
-                valnum = vm.get(value)
                 if isinstance(value, Operation) and value.needs_allocation():
+                    ty = value.annotation.return_type
+                    valnum = vm.register_value(value, ty)
+                    ty.mutable = not value.dontsend or op.is_mutable(key)
+                    if value.materialize is not None:
+                        ty.mutable = True
+                        ty.materialize = value.materialize
+                    if ty.mutable:
+                        mutable.add(valnum)
+
                     start = time.time()
                     value.allocate(inst_backend)
                     alloc_times.append(time.time() - start)
                     assert valnum not in var_locs
                     var_locs[valnum] = inst_backend
+
+                valnum = vm.get(value)
                 if valnum is None:
                     ty = op.split_type_of(key)
                     valnum = vm.register_value(value, ty)
