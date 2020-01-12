@@ -166,6 +166,19 @@ class TestBlackscholesCupy(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    @pytest.mark.paging
+    def test_bach_paging(self):
+        data_size = blackscholes_cupy.MAX_BATCH_SIZE << 2
+        batch_size = { Backend.GPU: blackscholes_cupy.MAX_BATCH_SIZE >> 1 }
+        inputs = blackscholes_cupy.get_data(Mode.BACH, data_size)
+        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.BACH, data_size)
+        call, put = blackscholes_cupy.run_composer(
+            Mode.BACH, *inputs, *tmp_arrays, batch_size, threads=1)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
 
 class TestPCA(unittest.TestCase):
 
@@ -490,7 +503,7 @@ class TestBlackscholesNumpy(unittest.TestCase):
     def setUp(self):
         self.data_size = 1 << 20
         self.batch_size = {
-            Backend.CPU: blackscholes_numpy.DEFAULT_CPU,
+            Backend.CPU: 1 << 16,
             Backend.GPU: 1 << 16,
         }
         # The expected result for the given data size
@@ -582,6 +595,19 @@ class TestBlackscholesNumpy(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    @pytest.mark.paging
+    def test_bach_paging(self):
+        data_size = blackscholes_numpy.MAX_BATCH_SIZE << 2
+        batch_size = { Backend.GPU: blackscholes_numpy.MAX_BATCH_SIZE >> 1 }
+        inputs = blackscholes_numpy.get_data(Mode.BACH, data_size)
+        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.BACH, data_size)
+        call, put = blackscholes_numpy.run_composer(
+            Mode.BACH, *inputs, *tmp_arrays, batch_size, threads=1)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
 
 class TestCrimeIndex(unittest.TestCase):
 
@@ -591,7 +617,7 @@ class TestCrimeIndex(unittest.TestCase):
         self.filenames = [prefix + f for f in filenames]
         self.data_size = 1 << 20
         self.batch_size = {
-            Backend.CPU: crime_index.DEFAULT_CPU,
+            Backend.CPU: 1 << 16,
             Backend.GPU: 1 << 16,
         }
         # The expected result for the given data size
@@ -665,6 +691,22 @@ class TestCrimeIndex(unittest.TestCase):
         result = crime_index.run_composer(
             Mode.BACH, self.data_size, *inputs, self.batch_size, threads=1)
         self.assertAlmostEqual(result, self.expected)
+
+    @pytest.mark.paging
+    def test_bach_paging(self):
+        filenames = [
+            'datasets/crime_index/total_population_28.csv',
+            'datasets/crime_index/adult_population_28.csv',
+            'datasets/crime_index/num_robberies_28.csv',
+        ]
+        batch_size = {
+            Backend.CPU: crime_index.MAX_BATCH_SIZE >> 1,
+            Backend.GPU: crime_index.MAX_BATCH_SIZE >> 1,
+        }
+        inputs = crime_index.read_data(Mode.BACH, filenames=filenames)
+        result = crime_index.run_composer(
+            Mode.BACH, 1 << 28, *inputs, batch_size, threads=1)
+        self.assertAlmostEqual(result, 1342177.28, places=3)
 
 
 if __name__ == '__main__':
