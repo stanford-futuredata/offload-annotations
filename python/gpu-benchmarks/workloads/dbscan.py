@@ -61,6 +61,7 @@ def clusters(labels):
 
 
 def run_composer(mode, X, eps, min_samples, _, threads):
+    import sa.annotated.cupy as np
     import sa.annotated.sklearn as sklearn
 
     if mode == Mode.MOZART:

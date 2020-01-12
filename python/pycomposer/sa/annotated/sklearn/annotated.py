@@ -5,7 +5,7 @@ import cuml
 from copy import deepcopy as dc
 from sa.annotation import *
 from sa.annotation.split_types import *
-from sa.annotated.numpy_cudf import NdArraySplit
+from sa.annotated.cupy import NdArraySplit
 
 
 class CPUModelSplit(SplitType):

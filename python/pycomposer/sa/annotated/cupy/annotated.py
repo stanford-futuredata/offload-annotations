@@ -3,6 +3,7 @@ import numpy as np
 import scipy.special as ss
 import sharedmem
 import cupy as cp
+import cudf
 
 from copy import deepcopy as dc
 from sa.annotation import *
@@ -58,6 +59,8 @@ class NdArraySplit(SplitType):
             return Backend.CPU
         elif isinstance(value, cp.ndarray):
             return Backend.GPU
+        elif isinstance(value, cudf.Series) or isinstance(value, cudf.DataFrame):
+            return Backend.GPU
         else:
             raise Exception('unknown device: {}'.format(type(value)))
 
@@ -69,7 +72,11 @@ class NdArraySplit(SplitType):
             self.merge = True
             return cp.array(value)
         elif current_backend == Backend.GPU and backend == Backend.CPU:
-            return cp.asnumpy(value)
+            if isinstance(value, cp.ndarray):
+                return cp.asnumpy(value)
+            else:
+                # Also convert back from cuDF objects
+                return value.to_pandas().to_numpy()
         else:
             raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
@@ -107,6 +114,8 @@ arcsin      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.arcsin)
 cos         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.cos)(np.cos)
 sqrt        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.sqrt)(np.sqrt)
 erf         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp_erf)(ss.erf)
+mean        = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.mean)(np.mean)
+std         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=cp.std)(np.std)
 
 # addreduce = np.add.reduce
 addreduce = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add.reduce)
