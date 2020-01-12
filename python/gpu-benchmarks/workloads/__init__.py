@@ -12,3 +12,4 @@ from . import haversine
 from . import kidneys
 from . import clusterdim
 from . import feature_engineering
+from . import taxi_rider_stats

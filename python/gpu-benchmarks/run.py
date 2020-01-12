@@ -25,6 +25,7 @@ class Benchmark(enum.Enum):
     KIDNEYS = 11
     CLUSTER_DIM = 12
     FEATURE_ENGINEERING = 13
+    TAXI_RIDER = 14
     # PREPROCESSING = 6
     # XGBOOST = 7
 
@@ -56,6 +57,8 @@ def to_function(bm):
         return clusterdim.run
     elif bm == Benchmark.FEATURE_ENGINEERING:
         return feature_engineering.run
+    elif bm == Benchmark.TAXI_RIDER:
+        return taxi_rider_stats.run
     else:
         raise Exception
 
