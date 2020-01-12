@@ -18,8 +18,8 @@ filenames = ['total_population', 'adult_population', 'num_robberies']
 values = [500000, 250000, 1000]
 
 DEFAULT_SIZE = 1 << 26
-DEFAULT_CPU = 1 << 16
-DEFAULT_GPU = 1 << 26
+DEFAULT_CPU = 1 << 25
+MAX_BATCH_SIZE = 1 << 26
 
 
 def _write_data(size, filenames=filenames):
@@ -89,6 +89,7 @@ def gen_data(mode, size):
 
 def run_composer(
     mode,
+    size,
     total_population,
     adult_population,
     num_robberies,
@@ -102,6 +103,7 @@ def run_composer(
         force_cpu = False
     else:
         raise Exception
+    paging = size > MAX_BATCH_SIZE
 
     # Get all city information with total population greater than 500,000
     big_cities = pd.greater_than(total_population, 500000.0)
@@ -120,7 +122,7 @@ def run_composer(
 
     result = pd.pandasum(crime_index)
     result.materialize = Backend.CPU
-    pd.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    pd.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu, paging=paging)
     return result.value
 
 
@@ -156,7 +158,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     if cpu is None:
         cpu = DEFAULT_CPU
     if gpu is None:
-        gpu = DEFAULT_GPU
+        gpu = MAX_BATCH_SIZE
     if threads is None:
         threads = 1
 
@@ -165,7 +167,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
         _write_data(size)
     batch_size = {
         Backend.CPU: cpu,
-        Backend.GPU: gpu,
+        Backend.GPU: min(gpu, MAX_BATCH_SIZE),
     }
 
     # Get inputs
@@ -181,7 +183,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
 
     start = time.time()
     if mode.is_composer():
-        result = run_composer(mode, *inputs, batch_size, threads)
+        result = run_composer(mode, size, *inputs, batch_size, threads)
     elif mode == Mode.NAIVE:
         result = run_naive(*inputs)
     elif mode == Mode.CUDA:

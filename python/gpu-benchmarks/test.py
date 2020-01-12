@@ -634,12 +634,14 @@ class TestCrimeIndex(unittest.TestCase):
 
     def test_read_mozart(self):
         inputs = crime_index.read_data(Mode.MOZART, filenames=self.filenames)
-        result = crime_index.run_composer(Mode.MOZART, *inputs, self.batch_size, threads=16)
+        result = crime_index.run_composer(
+            Mode.MOZART, self.data_size, *inputs, self.batch_size, threads=16)
         self.assertAlmostEqual(result, self.expected)
 
     def test_read_bach(self):
         inputs = crime_index.read_data(Mode.BACH, filenames=self.filenames)
-        result = crime_index.run_composer(Mode.BACH, *inputs, self.batch_size, threads=1)
+        result = crime_index.run_composer(
+            Mode.BACH, self.data_size, *inputs, self.batch_size, threads=1)
         self.assertAlmostEqual(result, self.expected)
 
     def test_gen_naive(self):
@@ -654,12 +656,14 @@ class TestCrimeIndex(unittest.TestCase):
 
     def test_gen_mozart(self):
         inputs = crime_index.gen_data(Mode.MOZART, self.data_size)
-        result = crime_index.run_composer(Mode.MOZART, *inputs, self.batch_size, threads=16)
+        result = crime_index.run_composer(
+            Mode.MOZART, self.data_size, *inputs, self.batch_size, threads=16)
         self.assertAlmostEqual(result, self.expected)
 
     def test_gen_bach(self):
         inputs = crime_index.gen_data(Mode.BACH, self.data_size)
-        result = crime_index.run_composer(Mode.BACH, *inputs, self.batch_size, threads=1)
+        result = crime_index.run_composer(
+            Mode.BACH, self.data_size, *inputs, self.batch_size, threads=1)
         self.assertAlmostEqual(result, self.expected)
 
 
