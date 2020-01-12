@@ -353,7 +353,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
         threads = 1
 
     batch_size = {
-        Backend.CPU: cpu,
+        Backend.CPU: min(cpu, max(1, int(size / threads))),
         Backend.GPU: min(gpu, MAX_BATCH_SIZE),
     }
 

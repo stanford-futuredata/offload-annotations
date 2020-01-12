@@ -166,7 +166,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     if data_mode == 'file':
         _write_data(size)
     batch_size = {
-        Backend.CPU: cpu,
+        Backend.CPU: min(cpu, max(1, int(size / threads))),
         Backend.GPU: min(gpu, MAX_BATCH_SIZE),
     }
 
