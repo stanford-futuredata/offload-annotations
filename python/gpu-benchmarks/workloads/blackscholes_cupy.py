@@ -167,8 +167,6 @@ def run_composer(mode,
         force_cpu = True
     elif mode == Mode.BACH:
         force_cpu = False
-        # TODO: don't allow different batch sizes for now
-        batch_size[Backend.CPU] = batch_size[Backend.GPU]
     else:
         raise Exception
 
