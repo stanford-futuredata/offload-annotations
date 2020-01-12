@@ -15,8 +15,8 @@ from sa.annotation import Backend
 from mode import Mode
 
 DEFAULT_SIZE = 1 << 26
-DEFAULT_CPU = 1 << 13
-DEFAULT_GPU = 1 << 26
+DEFAULT_CPU = 1 << 27
+MAX_BATCH_SIZE = 1 << 27
 DEFAULT_STREAM_SIZE = 1 << 22
 DEFAULT_STREAMS = 16
 
@@ -165,9 +165,10 @@ def run_composer(
         force_cpu = False
     else:
         raise Exception
+    paging = len(price) > MAX_BATCH_SIZE
 
     numpy_bs(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put, composer=True)
-    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu, paging=paging)
     if not force_cpu:
         torch.cuda.synchronize()
     return call.value, put.value
@@ -347,13 +348,13 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
         if mode == Mode.CUDA:
             gpu = DEFAULT_STREAM_SIZE
         else:
-            gpu = DEFAULT_GPU
+            gpu = MAX_BATCH_SIZE
     if threads is None:
         threads = 1
 
     batch_size = {
         Backend.CPU: cpu,
-        Backend.GPU: gpu,
+        Backend.GPU: min(gpu, MAX_BATCH_SIZE),
     }
 
     if mode == Mode.CUDA or mode == Mode.BACH:

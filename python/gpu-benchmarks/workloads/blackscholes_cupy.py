@@ -16,7 +16,7 @@ from mode import Mode
 
 DEFAULT_SIZE = 1 << 26
 DEFAULT_CPU = 1 << 13
-DEFAULT_GPU = 1 << 26
+MAX_BATCH_SIZE = 1 << 27
 
 
 # https://github.com/cupy/cupy/blob/master/cupyx/scipy/special/erf.py
@@ -169,9 +169,10 @@ def run_composer(mode,
         force_cpu = False
     else:
         raise Exception
+    paging = len(price) > MAX_BATCH_SIZE
 
     blackscholes(price, strike, t, rate, vol, tmp, vol_sqrt, rsig, d1, d2, call, put, composer=True)
-    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu, paging=paging)
     return call.value, put.value
 
 
@@ -278,7 +279,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
 
     batch_size = {
         Backend.CPU: cpu,
-        Backend.GPU: gpu,
+        Backend.GPU: min(gpu, MAX_BATCH_SIZE),
     }
 
     start = time.time()
