@@ -3,6 +3,7 @@ import sys
 import time
 import math
 import numpy as np
+import cupy as cp
 import pandas as pd
 import cuml
 import cudf
@@ -35,10 +36,6 @@ def gen_data(mode,
                                                   cluster_std=cluster_std,
                                                   center_box=(-2.0,2.0),
                                                   random_state=42)
-    X = sklearn.preprocessing.StandardScaler().fit_transform(X)
-    if mode == Mode.CUDA:
-        X = cudf.from_pandas(pd.DataFrame(X))
-
     eps = (n_features * cluster_std**2)**0.5
     min_samples = max(2, size / centers * 0.05)
     return X, eps, min_samples
@@ -73,6 +70,11 @@ def run_composer(mode, X, eps, min_samples, _, threads):
     else:
         raise Exception
 
+    mean = np.mean(X, axis=0)
+    std = np.std(X, axis=0)
+    np.subtract(X, mean, out=X)
+    np.divide(X, std, out=X)
+
     db = sklearn.DBSCAN(eps=eps, min_samples=min_samples)
     db = sklearn.fit_x(db, X)
     labels = sklearn.labels(db)
@@ -85,6 +87,13 @@ def run_composer(mode, X, eps, min_samples, _, threads):
 
 
 def run_naive(X, eps, min_samples):
+    t0 = time.time()
+    mean = np.mean(X, axis=0)
+    std = np.std(X, axis=0)
+    np.subtract(X, mean, out=X)
+    np.divide(X, std, out=X)
+    print('Preprocessing:', time.time() - t0)
+
     # Run DBSCAN
     db = sklearn.cluster.DBSCAN(eps=eps, min_samples=min_samples)
     db = db.fit(X)
@@ -93,6 +102,14 @@ def run_naive(X, eps, min_samples):
 
 
 def run_cuda(X, eps, min_samples):
+    t0 = time.time()
+    X = cp.array(X)
+    mean = cp.mean(X, axis=0)
+    std = cp.std(X, axis=0)
+    cp.subtract(X, mean, out=X)
+    cp.divide(X, std, out=X)
+    print('Preprocessing:', time.time() - t0)
+
     # Run DBSCAN
     db = cuml.DBSCAN(eps=eps, min_samples=min_samples)
     db = db.fit(X)
