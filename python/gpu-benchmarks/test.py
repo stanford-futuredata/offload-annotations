@@ -6,6 +6,7 @@ import cupy as cp
 import torch
 import pandas as pd
 import cudf
+import pytest
 
 sys.path.append("../lib")
 sys.path.append("../pycomposer")
@@ -65,26 +66,29 @@ class TestHaversine(unittest.TestCase):
         im = haversine.run_cuda_cupy(*inputs, *tmp_arrays)
         self.validateResult(im, self.expected)
 
-    # def test_mozart(self):
-    #     inputs = haversine.get_data(self.data_size)
-    #     tmp_arrays = haversine.get_tmp_arrays(Mode.MOZART, self.data_size)
-    #     # im = haversine.run_composer(
-    #     #     Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16, use_torch=None)
-    #     # self.validateResult(im, self.expected)
+    @pytest.mark.skip(reason='fatal Python error')
+    def test_mozart(self):
+        inputs = haversine.get_data(self.data_size)
+        tmp_arrays = haversine.get_tmp_arrays(Mode.MOZART, self.data_size)
+        im = haversine.run_composer(
+            Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16, use_torch=None)
+        self.validateResult(im, self.expected)
 
-    # def test_bach_torch(self):
-    #     inputs = haversine.get_data(self.data_size)
-    #     tmp_arrays = haversine.get_tmp_arrays(Mode.BACH, self.data_size, use_torch=True)
-    #     im = haversine.run_composer(
-    #         Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=True)
-    #     self.validateResult(im, self.expected)
+    @pytest.mark.skip(reason='fatal Python error')
+    def test_bach_torch(self):
+        inputs = haversine.get_data(self.data_size)
+        tmp_arrays = haversine.get_tmp_arrays(Mode.BACH, self.data_size, use_torch=True)
+        im = haversine.run_composer(
+            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=True)
+        self.validateResult(im, self.expected)
 
-    # def test_bach_cupy(self):
-    #     inputs = haversine.get_data(self.data_size)
-    #     tmp_arrays = haversine.get_tmp_arrays(Mode.BACH, self.data_size, use_torch=False)
-    #     im = haversine.run_composer(
-    #         Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=False)
-    #     self.validateResult(im, self.expected)
+    @pytest.mark.skip(reason='fatal Python error')
+    def test_bach_cupy(self):
+        inputs = haversine.get_data(self.data_size)
+        tmp_arrays = haversine.get_tmp_arrays(Mode.BACH, self.data_size, use_torch=False)
+        im = haversine.run_composer(
+            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=False)
+        self.validateResult(im, self.expected)
 
 
 class TestBlackscholesCupy(unittest.TestCase):
@@ -141,15 +145,16 @@ class TestBlackscholesCupy(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    @pytest.mark.skip(reason='fatal Python error')
     def test_mozart(self):
         inputs = blackscholes_cupy.get_data(Mode.MOZART, self.data_size)
         tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.MOZART, self.data_size)
-        # call, put = blackscholes_cupy.run_composer(
-        #     Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16)
-        # self.assertIsInstance(call, np.ndarray)
-        # self.assertIsInstance(put, np.ndarray)
-        # self.validateArray(call, self.expected_call)
-        # self.validateArray(put, self.expected_put)
+        call, put = blackscholes_cupy.run_composer(
+            Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
 
     def test_bach(self):
         inputs = blackscholes_cupy.get_data(Mode.BACH, self.data_size)
