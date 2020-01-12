@@ -104,16 +104,16 @@ erf         = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True, gpu_func=torch.erf)
 addreduce = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add.reduce)
 
 def ones(shape, dtype=None, order='C'):
-    # result = sharedmem.empty(shape)
-    # result[:] = np.ones(shape, dtype, order)[:]
-    # return result
-    return np.ones(shape, dtype, order)
+    result = sharedmem.empty(shape)
+    result[:] = np.ones(shape, dtype, order)[:]
+    return result
+    # return np.ones(shape, dtype, order)
 
 def zeros(shape, dtype=None, order='C'):
-    # result = sharedmem.empty(shape)
-    # result[:] = np.zeros(shape, dtype, order)[:]
-    # return result
-    return np.zeros(shape, dtype, order)
+    result = sharedmem.empty(shape)
+    result[:] = np.zeros(shape, dtype, order)[:]
+    return result
+    # return np.zeros(shape, dtype, order)
 
 def _gpu_empty(shape, dtype=None):
     str_to_torch = {
@@ -126,5 +126,5 @@ def _gpu_empty(shape, dtype=None):
 
 @alloc(NdArraySplit(), gpu=True, gpu_func=_gpu_empty)
 def empty(shape, dtype=None):
-    # return sharedmem.empty(shape)
-    return np.empty(shape, dtype)
+    return sharedmem.empty(shape)
+    # return np.empty(shape, dtype)

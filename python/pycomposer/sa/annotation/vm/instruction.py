@@ -66,6 +66,7 @@ class Split(Instruction):
         value = values[self.target]
         if isinstance(value, Operation):
             value = value.value
+        value = self.ty.split(index_range[0], index_range[1], value)
 
         num_elements = self.ty.elements(value)
         if num_elements is not None:
@@ -116,7 +117,7 @@ class Merge(Instruction):
             self.backend.value, self.batch_size, self.target, self.target, self.ty)
 
     def evaluate(self, _thread, _index_range, _batch_index, _values, context):
-        context[self.target] = self.ty.combine(context[self.target])
+        raise Exception('this is not called since the pipeline can only have a single batch size')
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
