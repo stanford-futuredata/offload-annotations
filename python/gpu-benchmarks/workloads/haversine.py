@@ -16,7 +16,8 @@ from mode import Mode
 
 DEFAULT_SIZE = 1 << 26
 DEFAULT_CPU = 1 << 13
-DEFAULT_GPU = 1 << 26
+DEFAULT_GPU = 1 << 21
+MAX_BATCH_SIZE = 1 << 28
 
 
 def get_data(size):
@@ -106,13 +107,12 @@ def run_composer(mode, lat2, lon2, a, dlat, dlon, batch_size, threads, use_torch
         force_cpu = True
     elif mode == Mode.BACH:
         force_cpu = False
-        # TODO: don't allow different batch sizes for now
-        batch_size[Backend.CPU] = batch_size[Backend.GPU]
     else:
         raise Exception
+    paging = len(lat2) > MAX_BATCH_SIZE
 
     haversine(lat2, lon2, a, dlat, dlon, composer=True, use_torch=use_torch)
-    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu, paging=paging)
     return a.value
 
 
@@ -230,11 +230,14 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     if threads is None:
         threads = 1
 
-    use_torch = threads % 2 == 1
-    threads = 1
+    if threads > 10:
+        threads -= 10
+        use_torch = True
+    else:
+        use_torch = False
     batch_size = {
-        Backend.CPU: cpu,
-        Backend.GPU: gpu,
+        Backend.CPU: min(cpu, max(1, int(size / threads))),
+        Backend.GPU: min(gpu, MAX_BATCH_SIZE),
     }
 
     start = time.time()
