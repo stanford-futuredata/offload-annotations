@@ -10,7 +10,7 @@ def run_naive():
     client = Client(cluster)
 
     start = time.time()
-    df = dask_cudf.read_csv('rows.csv', parse_dates=['tpep_pickup_datetime'])
+    df = dask_cudf.read_csv('nyc_taxi.csv', parse_dates=['tpep_pickup_datetime'])
     df.persist()
     init_time = time.time() - start
     sys.stdout.write('Initialization: {}\n'.format(init_time))
