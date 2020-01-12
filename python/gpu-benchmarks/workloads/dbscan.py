@@ -17,8 +17,7 @@ from sa.annotation import Backend
 from mode import Mode
 
 DEFAULT_SIZE = 1 << 13
-DEFAULT_CPU = 1 << 16
-DEFAULT_GPU = 1 << 26
+MAX_BATCH_SIZE = 1 << 22
 
 DEFAULT_FEATURES = 256
 DEFAULT_CENTERS = 32
@@ -60,7 +59,7 @@ def clusters(labels):
     return n_clusters, n_noise
 
 
-def run_composer(mode, X, eps, min_samples, _, threads):
+def run_composer(mode, X, eps, min_samples, batch_size, threads):
     import sa.annotated.cupy as np
     import sa.annotated.sklearn as sklearn
 
@@ -70,6 +69,8 @@ def run_composer(mode, X, eps, min_samples, _, threads):
         force_cpu = False
     else:
         raise Exception
+    if X.shape[0] > MAX_BATCH_SIZE:
+        print('WARNING: will run out of memory')
 
     mean = np.mean(X, axis=0)
     std = np.std(X, axis=0)
@@ -81,8 +82,6 @@ def run_composer(mode, X, eps, min_samples, _, threads):
     labels = sklearn.labels(db)
     labels.materialize = Backend.CPU
 
-    # Note: batch sizes must be max size
-    batch_size = { Backend.CPU: X.shape[0], Backend.GPU: X.shape[0], }
     sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     return labels.value
 
@@ -119,27 +118,24 @@ def run_cuda(X, eps, min_samples):
     return labels
 
 
-def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
+def run(mode, size=None, _cpu=None, _gpu=None, threads=None, data_mode='file'):
     # Optimal defaults
     if size == None:
         size = DEFAULT_SIZE
-    if cpu is None:
-        cpu = DEFAULT_CPU
-    if gpu is None:
-        gpu = DEFAULT_GPU
     if threads is None:
         threads = 1
-
-    batch_size = {
-        Backend.CPU: cpu,
-        Backend.GPU: gpu,
-    }
 
     # Get inputs
     start = time.time()
     inputs = gen_data(mode, size)
     init_time = time.time() - start
     sys.stdout.write('Initialization: {}\n'.format(init_time))
+
+    # This workload can't be split, so always default to the max size
+    batch_size = {
+        Backend.CPU: inputs[0].shape[0],
+        Backend.GPU: inputs[0].shape[0],
+    }
 
     # Run program
     start = time.time()
