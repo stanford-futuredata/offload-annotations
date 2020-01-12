@@ -74,6 +74,7 @@ class TestHaversine(unittest.TestCase):
             Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16, use_torch=None)
         self.validateResult(im, self.expected)
 
+    @pytest.mark.bach
     @pytest.mark.skip(reason='fatal Python error')
     def test_bach_torch(self):
         inputs = haversine.get_data(self.data_size)
@@ -82,6 +83,7 @@ class TestHaversine(unittest.TestCase):
             Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=True)
         self.validateResult(im, self.expected)
 
+    @pytest.mark.bach
     @pytest.mark.skip(reason='fatal Python error')
     def test_bach_cupy(self):
         inputs = haversine.get_data(self.data_size)
@@ -156,6 +158,7 @@ class TestBlackscholesCupy(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    @pytest.mark.bach
     def test_bach(self):
         inputs = blackscholes_cupy.get_data(Mode.BACH, self.data_size)
         tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.BACH, self.data_size)
@@ -167,6 +170,7 @@ class TestBlackscholesCupy(unittest.TestCase):
         self.validateArray(put, self.expected_put)
 
     @pytest.mark.paging
+    @pytest.mark.bach
     def test_bach_paging(self):
         data_size = blackscholes_cupy.MAX_BATCH_SIZE << 2
         batch_size = { Backend.GPU: blackscholes_cupy.MAX_BATCH_SIZE >> 1 }
@@ -240,6 +244,7 @@ class TestPCA(unittest.TestCase):
         self.assertGreater(accuracy_std, 0.9)
         self.assertGreater(accuracy_std, accuracy)
 
+    @pytest.mark.bach
     def test_bach(self):
         inputs = pca.gen_data(Mode.BACH, size=self.data_size)
         pred_test = pca.run_composer_unscaled(Mode.BACH, *inputs, self.batch_size, threads=1)
@@ -321,6 +326,7 @@ class TestDBSCAN(unittest.TestCase):
         self.assertEqual(clusters, self.centers)
         self.assertLess(noise, self.data_size * 0.3)
 
+    @pytest.mark.bach
     def test_bach(self):
         X, eps, min_samples = dbscan.gen_data(Mode.BACH, self.data_size, centers=self.centers)
         self.assertIsInstance(X, np.ndarray)
@@ -487,6 +493,7 @@ class TestBlackscholesTorch(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    @pytest.mark.bach
     def test_bach(self):
         inputs = blackscholes_torch.get_data(Mode.BACH, self.data_size)
         tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.BACH, self.data_size)
@@ -585,6 +592,7 @@ class TestBlackscholesNumpy(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    @pytest.mark.bach
     def test_bach(self):
         inputs = blackscholes_numpy.get_data(Mode.BACH, self.data_size)
         tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.BACH, self.data_size)
@@ -596,6 +604,7 @@ class TestBlackscholesNumpy(unittest.TestCase):
         self.validateArray(put, self.expected_put)
 
     @pytest.mark.paging
+    @pytest.mark.bach
     def test_bach_paging(self):
         data_size = blackscholes_numpy.MAX_BATCH_SIZE << 2
         batch_size = { Backend.GPU: blackscholes_numpy.MAX_BATCH_SIZE >> 1 }
@@ -693,6 +702,7 @@ class TestCrimeIndex(unittest.TestCase):
         self.assertAlmostEqual(result, self.expected)
 
     @pytest.mark.paging
+    @pytest.mark.bach
     def test_bach_paging(self):
         filenames = [
             'datasets/crime_index/total_population_28.csv',
