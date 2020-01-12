@@ -11,7 +11,6 @@ from sa.annotated.numpy_cudf import NdArraySplit
 class CPUModelSplit(SplitType):
 
     def combine(self, values, original=None):
-        assert len(values) == 1
         return values[0]
 
     def split(self, _start, _end, value):
@@ -40,7 +39,6 @@ class ModelSplit(SplitType):
         ])
 
     def combine(self, values, original=None):
-        assert len(values) == 1
         return values[0]
 
     def split(self, _start, _end, value):
