@@ -395,7 +395,7 @@ class LogicalPlan:
 
         self.walk(finalize, None)
 
-    def to_vm(self, batch_size_dict, force_cpu):
+    def to_vm(self, batch_size_dict, force_cpu, paging):
         """
         Convert the graph to a sequence of VM instructions that can be executed
         on worker nodes. One VM program is constructed per pipeline.
@@ -483,10 +483,12 @@ class LogicalPlan:
                         mutable.add(valnum)
 
                     start = time.time()
-                    value.allocate(inst_backend)
+                    # If paging large datasets, all allocation must start on the cpu
+                    backend = Backend.CPU if paging else inst_backend
+                    value.allocate(backend)
                     alloc_times.append(time.time() - start)
                     assert valnum not in var_locs
-                    var_locs[valnum] = inst_backend
+                    var_locs[valnum] = backend
 
                 valnum = vm.get(value)
                 if valnum is None:
@@ -579,7 +581,12 @@ class LogicalPlan:
         return "\n".join(roots)
 
 
-def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"], profile=False, force_cpu=False):
+def evaluate_dag(dag,
+                 workers=config["workers"],
+                 batch_size=config["batch_size"],
+                 profile=False,
+                 force_cpu=False,
+                 paging=False):
     try:
         dag.infer_types()
     except (SplitTypeError) as e:
@@ -600,7 +607,7 @@ def evaluate_dag(dag, workers=config["workers"], batch_size=config["batch_size"]
     else:
         batch_size[Backend.CPU] = batch_size[Backend.GPU]
 
-    vms = dag.to_vm(batch_size, force_cpu)
+    vms = dag.to_vm(batch_size, force_cpu, paging)
     print('to_vm:', time.time() - start)
     for _, vm in vms:
         # print(vm.program)
