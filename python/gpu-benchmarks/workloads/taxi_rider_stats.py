@@ -13,6 +13,7 @@ import dask_cudf
 import pandas as pd
 from sa.annotation import Backend
 from mode import Mode
+import dask.dataframe as dd
 
 
 DEFAULT_NUM_LINES = 1 << 15
@@ -32,20 +33,20 @@ def read_data(mode, tmp_filename):
     if mode == Mode.CUDA:
         df = _read_data_cuda(tmp_filename)
     else:
-        df = pd.read_csv(tmp_filename, parse_dates=['tpep_pickup_datetime'])
+        df = dd.read_csv(tmp_filename, parse_dates=['tpep_pickup_datetime'])
 
     return df
 
 def run_naive(df):
     # Average trip distance, grouped by passenger count.
-    df.groupby('passenger_count').trip_distance.mean()
+    distance = df.groupby('passenger_count').trip_distance.mean().compute()
     # Average tip fraction, grouped by hour of trip.
     df2 = df[['tpep_pickup_datetime', 'trip_distance', 'tip_amount', 'fare_amount']]
     df2 = df2.query('tip_amount > 0 and fare_amount > 0')
     df2['hour'] = df2.tpep_pickup_datetime.dt.hour
     df2['tip_fraction'] = df2.tip_amount / df2.fare_amount
-    mean = df2.groupby('hour').tip_fraction.mean()
-    return mean
+    tip_mean = df2.groupby('hour').tip_fraction.mean().compute()
+    return distance, tip_mean
 
 def run_cuda(df):
     # Initialize dask cluster
@@ -55,14 +56,14 @@ def run_cuda(df):
     # sys.stdout.write('Initialization(dask): {}\n'.format(dask_init_time))
 
     # Average trip distance, grouped by passenger count.
-    df.groupby('passenger_count').trip_distance.mean().compute()
+    distance = df.groupby('passenger_count').trip_distance.mean().compute()
     # Average tip fraction, grouped by hour of trip.
     df2 = df[['tpep_pickup_datetime', 'trip_distance', 'tip_amount', 'fare_amount']]
     df2 = df2.query('tip_amount > 0 and fare_amount > 0')
     df2['hour'] = df2.tpep_pickup_datetime.dt.hour
     df2['tip_fraction'] = df2.tip_amount / df2.fare_amount
-    mean = df2.groupby('hour').tip_fraction.mean().compute().to_pandas()
-    return mean
+    tip_mean = df2.groupby('hour').tip_fraction.mean().compute().to_pandas()
+    return distance, tip_mean
 
 def run_composer(mode, df, batch_size, threads):
     pass
