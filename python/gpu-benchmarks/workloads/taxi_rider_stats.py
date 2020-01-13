@@ -7,20 +7,34 @@ sys.path.append("../../lib")
 sys.path.append("../../pycomposer")
 sys.path.append(".")
 
-from dask.distributed import Client
+from dask.distributed import Client, LocalCluster
 from dask_cuda import LocalCUDACluster
 import dask_cudf
 import pandas as pd
 from sa.annotation import Backend
 from mode import Mode
 import dask.dataframe as dd
-
+import dask
 
 DEFAULT_NUM_LINES = 1 << 15
 MAX_BATCH_SIZE = 1 << 30
 
 filename = '/lfs/1/deepak/nyc_taxi/split-annotations/python/gpu-benchmarks/workloads/nyc_taxi.csv'
+file_size = 59626358
 
+
+def _write_tmp_file(tmp_filename, size):
+    subprocess.call('rm %s' % tmp_filename, shell=True)
+    if size is None:
+        subprocess.call('cat %s >> %s' % (filename, tmp_filename), shell=True)
+    elif size <= file_size:
+        subprocess.call('head -n %d %s >> %s' % (size, filename, tmp_filename), shell=True)
+    else:
+        d = int(size / file_size)
+        mod = size - file_size * d
+        for _ in range(d):
+            subprocess.call('cat %s >> %s' % (filename, tmp_filename), shell=True)
+        subprocess.call('head -n %d %s >> %s' % (mod, filename, tmp_filename), shell=True)
 
 def _read_data_cuda(filename):
     df = dask_cudf.read_csv(filename, parse_dates=['tpep_pickup_datetime'])
@@ -113,11 +127,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
 
     # Get inputs
     tmp_filename = 'nyc_taxi_tmp.csv'
-    if size is None:
-        subprocess.call('cat %s > %s' % (filename, tmp_filename), shell=True)
-    else:
-        subprocess.call('head -n %d %s > %s' % (size, filename, tmp_filename),
-            shell=True)
+    _write_tmp_file(tmp_filename, size)
 
     start = time.time()
     df = read_data(mode, tmp_filename)
