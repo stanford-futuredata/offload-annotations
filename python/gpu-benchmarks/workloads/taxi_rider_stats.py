@@ -17,9 +17,7 @@ import dask.dataframe as dd
 
 
 DEFAULT_NUM_LINES = 1 << 15
-DEFAULT_CPU = 0
-DEFAULT_GPU = 0
-MAX_BATCH_SIZE = 0
+MAX_BATCH_SIZE = 1 << 30
 
 filename = '/lfs/1/deepak/nyc_taxi/split-annotations/python/gpu-benchmarks/workloads/nyc_taxi.csv'
 
@@ -32,6 +30,9 @@ def _read_data_cuda(filename):
 def read_data(mode, tmp_filename):
     if mode == Mode.CUDA:
         df = _read_data_cuda(tmp_filename)
+    elif mode.is_composer():
+        import sa.annotated.dask as dask
+        df = dask.read_csv(tmp_filename, parse_dates=['tpep_pickup_datetime'])
     else:
         df = dd.read_csv(tmp_filename, parse_dates=['tpep_pickup_datetime'])
 
@@ -66,22 +67,48 @@ def run_cuda(df):
     return distance, tip_mean
 
 def run_composer(mode, df, batch_size, threads):
-    pass
+    import sa.annotated.dask as dask
+    force_cpu = mode == Mode.MOZART
+
+    # Average trip distance, grouped by passenger count.
+    tmp = dask.groupby(df, 'passenger_count')
+    tmp = dask.index(tmp, 'trip_distance')
+    tmp = dask.mean(tmp)
+    distance = dask.compute(tmp)
+    # Average tip fraction, grouped by hour of trip.
+    tmp = dask.index(df, ['tpep_pickup_datetime', 'trip_distance', 'tip_amount', 'fare_amount'])
+    tmp = dask.query(tmp, 'tip_amount > 0 and fare_amount > 0')
+
+    tmp1 = dask.index(tmp, 'tpep_pickup_datetime')
+    tmp1 = dask.dt(tmp1)
+    tmp1 = dask.hour(tmp1)
+    dask.set(tmp, 'hour', tmp1)
+
+    tmp1 = dask.index(tmp, 'tip_amount')
+    tmp2 = dask.index(tmp, 'fare_amount')
+    tmp1 = dask.divide(tmp1, tmp2)
+    dask.set(tmp, 'tip_fraction', tmp1)
+
+    tmp = dask.groupby(tmp, 'hour')
+    tmp = dask.index(tmp, 'tip_fraction')
+    tmp = dask.mean(tmp)
+    tip_mean = dask.compute(tmp)
+
+    distance.materialize = Backend.CPU
+    tip_mean = Backend.CPU
+    dask.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    return distance.value, tip_mean.value
 
 def run(mode, size=None, cpu=None, gpu=None, threads=None):
     # Optimal defaults
     if size == None:
         size = DEFAULT_NUM_LINES
-    if cpu is None:
-        cpu = DEFAULT_CPU
-    if gpu is None:
-        gpu = DEFAULT_GPU
     if threads is None:
         threads = 1
 
     batch_size = {
-        Backend.CPU: min(cpu, max(1, int(size / threads))),
-        Backend.GPU: min(gpu, MAX_BATCH_SIZE),
+        Backend.CPU: size,
+        Backend.GPU: size,
     }
 
     # Get inputs
