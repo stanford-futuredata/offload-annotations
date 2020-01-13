@@ -20,20 +20,15 @@ DEFAULT_CPU = 0
 DEFAULT_GPU = 0
 MAX_BATCH_SIZE = 0
 
+filename = '/lfs/1/deepak/nyc_taxi/split-annotations/python/gpu-benchmarks/workloads/nyc_taxi.csv'
+
 
 def _read_data_cuda(filename):
     df = dask_cudf.read_csv(filename, parse_dates=['tpep_pickup_datetime'])
     df.persist()
     return df
 
-def read_data(mode, num_lines):
-    tmp_filename = 'nyc_taxi_tmp.csv'
-    if num_lines is None:
-        subprocess.call('cat nyc_taxi.csv > %s' % tmp_filename, shell=True)
-    else:
-        subprocess.call('head -n %d nyc_taxi.csv > %s' % (num_lines, tmp_filename),
-            shell=True)
-
+def read_data(mode, tmp_filename):
     if mode == Mode.CUDA:
         df = _read_data_cuda(tmp_filename)
     else:
@@ -49,11 +44,15 @@ def run_naive(df):
     df2 = df2.query('tip_amount > 0 and fare_amount > 0')
     df2['hour'] = df2.tpep_pickup_datetime.dt.hour
     df2['tip_fraction'] = df2.tip_amount / df2.fare_amount
-    df2.groupby('hour').tip_fraction.mean()
+    mean = df2.groupby('hour').tip_fraction.mean()
+    return mean
 
 def run_cuda(df):
-    cluster = LocalCUDACluster(ip='0.0.0.0', n_workers=1, device_memory_limit='10000 MiB')
-    client = Client(cluster)
+    # Initialize dask cluster
+    # start = time.time()
+    # cluster = LocalCUDACluster(n_workers=4)
+    # dask_init_time = time.time() - start
+    # sys.stdout.write('Initialization(dask): {}\n'.format(dask_init_time))
 
     # Average trip distance, grouped by passenger count.
     df.groupby('passenger_count').trip_distance.mean().compute()
@@ -62,7 +61,8 @@ def run_cuda(df):
     df2 = df2.query('tip_amount > 0 and fare_amount > 0')
     df2['hour'] = df2.tpep_pickup_datetime.dt.hour
     df2['tip_fraction'] = df2.tip_amount / df2.fare_amount
-    df2.groupby('hour').tip_fraction.mean().compute().to_pandas()
+    mean = df2.groupby('hour').tip_fraction.mean().compute().to_pandas()
+    return mean
 
 def run_composer(mode, df, batch_size, threads):
     pass
@@ -84,8 +84,15 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     }
 
     # Get inputs
+    tmp_filename = 'nyc_taxi_tmp.csv'
+    if size is None:
+        subprocess.call('cat %s > %s' % (filename, tmp_filename), shell=True)
+    else:
+        subprocess.call('head -n %d %s > %s' % (size, filename, tmp_filename),
+            shell=True)
+
     start = time.time()
-    df = read_data(mode, num_lines=num_lines)
+    df = read_data(mode, tmp_filename)
     init_time = time.time() - start
     sys.stdout.write('Initialization: {}\n'.format(init_time))
 
