@@ -273,7 +273,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None):
     if cpu is None:
         cpu = DEFAULT_CPU
     if gpu is None:
-        gpu = DEFAULT_GPU
+        gpu = MAX_BATCH_SIZE
     if threads is None:
         threads = 1
 
