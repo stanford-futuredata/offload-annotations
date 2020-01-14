@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 import sklearn
 
+from sklearn.decomposition import PCA
+from sklearn.neighbors import KNeighborsClassifier
+
 sys.path.append("../../lib")
 sys.path.append("../../pycomposer")
 sys.path.append(".")
@@ -29,9 +32,7 @@ def gen_data(mode, size):
         features, target, train_size=0.70, random_state=42)
     # Increase the data size
     for _ in range(int(math.log2(size))):
-        X_train = np.append(X_train, X_train, axis=0)
         X_test = np.append(X_test, X_test, axis=0)
-        y_train = np.append(y_train, y_train)
         y_test = np.append(y_test, y_test)
     return X_train, X_test, y_train, y_test
 
@@ -105,8 +106,8 @@ def run_composer_scaled(mode, X_train, X_test, y_train, y_test, batch_size, thre
 
 
 def run_naive_unscaled(X_train, X_test, y_train, y_test):
-    pca = sklearn.decomposition.PCA(n_components=2)
-    knc = sklearn.neighbors.KNeighborsClassifier()
+    pca = PCA(n_components=2)
+    knc = KNeighborsClassifier()
     X_train_ = pca.fit_transform(X_train)
     knc.fit(X_train_, y_train)
 
@@ -119,8 +120,8 @@ def run_naive_scaled(X_train, X_test, y_train, y_test):
     # Fit to data and predict using pipelined scaling, GNB and PCA.
     t0 = time.time()
     ss = sklearn.preprocessing.StandardScaler()
-    pca = sklearn.decomposition.PCA(n_components=2)
-    knc = sklearn.neighbors.KNeighborsClassifier()
+    pca = PCA(n_components=2)
+    knc = KNeighborsClassifier()
     X_train_ = ss.fit_transform(X_train)
     X_train_ = pca.fit_transform(X_train_)
     knc.fit(X_train_, y_train)
@@ -196,14 +197,14 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
 
     # Run program
     start = time.time()
-    if mode.is_composer():
-        pred_test = run_composer_unscaled(mode, *inputs, batch_size, threads)
-    elif mode == Mode.NAIVE:
-        pred_test = run_naive_unscaled(*inputs)
-    elif mode == Mode.CUDA:
-        pred_test = run_cuda_unscaled(*inputs)
-    else:
-        raise ValueError
+    # if mode.is_composer():
+    #     pred_test = run_composer_unscaled(mode, *inputs, batch_size, threads)
+    # elif mode == Mode.NAIVE:
+    #     pred_test = run_naive_unscaled(*inputs)
+    # elif mode == Mode.CUDA:
+    #     pred_test = run_cuda_unscaled(*inputs)
+    # else:
+    #     raise ValueError
     runtime_unscaled = time.time() - start
 
     start = time.time()
@@ -218,11 +219,11 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     runtime_scaled = time.time() - start
 
     total_runtime = runtime_unscaled + runtime_scaled
-    sys.stdout.write('Runtime unscaled: {}\n'.format(runtime_unscaled))
+    # sys.stdout.write('Runtime unscaled: {}\n'.format(runtime_unscaled))
     sys.stdout.write('Runtime scaled: {}\n'.format(runtime_scaled))
     sys.stdout.write('Total: {}\n'.format(init_time + total_runtime))
     sys.stdout.flush()
-    print('Accuracy unscaled: {:.2%}'.format(accuracy(inputs[3], pred_test)))
+    # print('Accuracy unscaled: {:.2%}'.format(accuracy(inputs[3], pred_test)))
     print('Accuracy scaled: {:.2%}'.format(accuracy(inputs[3], pred_test_std)))
     print()
     return init_time, total_runtime
