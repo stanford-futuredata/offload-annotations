@@ -157,15 +157,15 @@ def run_cuda_scaled(X_train, X_test, y_train, y_test):
     pca = cuml.PCA(n_components=2)
     knc = cuml.neighbors.KNeighborsClassifier()
     X_train_ = ss.fit_transform(X_train)
-    X_train_ = cudf.from_pandas(pd.DataFrame(X_train_))
+    X_train_ = cp.array(X_train_)
     X_train_ = pca.fit_transform(X_train_)
-    y_train = cudf.from_pandas(pd.Series(y_train))
+    y_train = cp.array(y_train)
     knc.fit(X_train_, y_train)
     print('Fit(cuda):', time.time() - t0)
 
     t0 = time.time()
     X_test_ = ss.transform(X_test)
-    X_test_ = cudf.from_pandas(pd.DataFrame(X_test_))
+    X_test_ = cp.array(X_test_)
     X_test_ = pca.transform(X_test_)
     pred_test_std = knc.predict(X_test_)
     pred_test_std = pred_test_std.to_pandas().to_numpy()
@@ -194,6 +194,12 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     inputs = gen_data(mode, size)
     init_time = time.time() - start
     sys.stdout.write('Initialization: {}\n'.format(init_time))
+
+    t0 = time.time()
+    import cupy as cp
+    cp.ones(1 << 27)
+    sys.stdout.write('Init cuda?: {}\n'.format(time.time() - t0))
+    sys.stdout.flush()
 
     # Run program
     start = time.time()
