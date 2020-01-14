@@ -60,8 +60,12 @@ class sa(object):
         self.gpu_func = gpu_func
 
     def __call__(self, func):
-        annotation = Annotation(
-            func, self.types, self.kwtypes, self.return_type, self.gpu, self.gpu_func)
+        annotation = Annotation(func,
+                                self.types,
+                                self.kwtypes,
+                                self.return_type,
+                                self.gpu,
+                                self.gpu_func)
 
         @functools.wraps(func)
         def _decorated(*args, **kwargs):
@@ -90,6 +94,54 @@ class alloc(object):
             return _DAG.register(func, args, kwargs, annotation)
 
         return _decorated
+
+
+class sa_gpu(object):
+    """An annotation to indicate another function annotation is eligible for the GPU.
+
+    Optionally supply a gpu function to run when executing on the gpu.
+    """
+
+    def __init__(self, types, kwtypes, return_type, func=None):
+        self.types = types
+        self.kwtypes = kwtypes
+        self.return_type = return_type
+        self.func = func
+
+    def __call__(self, func):
+        annotation = Annotation(func,
+                                self.types,
+                                self.kwtypes,
+                                self.return_type,
+                                True,
+                                self.func)
+
+        @functools.wraps(func)
+        def _decorated(*args, **kwargs):
+            return _DAG.register(func, args, kwargs, annotation)
+
+        return _decorated
+
+
+class alloc_gpu(object):
+    """An annotation to indicate another allocation annotation is eligible for the GPU.
+
+    Optionally supply a gpu function to run when executing on the gpu.
+    """
+
+    def __init__(self, return_type, func=None):
+        self.return_type = return_type
+        self.func = func
+
+    def __call__(self, func):
+        annotation = Allocation(func, self.return_type, True, self.func)
+
+        @functools.wraps(func)
+        def _decorated(*args, **kwargs):
+            return _DAG.register(func, args, kwargs, annotation)
+
+        return _decorated
+
 
 def evaluate(workers=config["workers"],
              batch_size=config["batch_size"],

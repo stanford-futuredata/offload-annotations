@@ -39,5 +39,5 @@ define custom behavior for how the types in their library should be split.
 """
 
 from .backend import Backend
-from .sa import sa, evaluate, mut, alloc
+from .sa import sa, evaluate, mut, alloc, sa_gpu, alloc_gpu
 from .vm.driver import STOP_ITERATION
