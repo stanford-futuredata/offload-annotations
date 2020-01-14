@@ -91,7 +91,7 @@ def _gpu_empty(size, *args, **kwargs):
     result = torch.empty(size, *args, **kwargs, device=torch.device('cuda'))
     return result
 
-@alloc(TorchTensorSplit(), gpu=True, gpu_func=_gpu_empty)
+@alloc_gpu(TorchTensorSplit(), func=_gpu_empty)
 def empty(*args, **kwargs):
     result = torch.empty(*args, **kwargs, device=torch.device('cpu'))
     return result
@@ -101,15 +101,15 @@ _kwargs = { 'out' : mut(TorchTensorSplit()), 'axis': Broadcast() }
 _ret = TorchTensorSplit()
 
 # Binary ops.
-add      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.add)
-sub      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.sub)
-mul      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.mul)
-div      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.div)
+add      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret))(torch.add)
+sub      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret))(torch.sub)
+mul      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret))(torch.mul)
+div      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret))(torch.div)
 
 _args = (TorchTensorSplit(),)
 
 # Unary ops.
-log2     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.log2)
-exp      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.exp)
-sqrt     = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.sqrt)
-erf      = sa(dc(_args), dc(_kwargs), dc(_ret), gpu=True)(torch.erf)
+log2     = sa_gpu(dc(_args), dc(_kwargs), dc(_ret))(torch.log2)
+exp      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret))(torch.exp)
+sqrt     = sa_gpu(dc(_args), dc(_kwargs), dc(_ret))(torch.sqrt)
+erf      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret))(torch.erf)

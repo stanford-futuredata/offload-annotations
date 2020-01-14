@@ -68,23 +68,23 @@ class ModelSplit(SplitType):
 
 # *************************************************************************************************
 # Models
-DBSCAN = alloc(ModelSplit(), gpu=True, gpu_func=cuml.DBSCAN)(sklearn.cluster.DBSCAN)
-KNeighborsClassifier = alloc(ModelSplit(), gpu=True, gpu_func=cuml.neighbors.KNeighborsClassifier)(
+DBSCAN = alloc_gpu(ModelSplit(), func=cuml.DBSCAN)(sklearn.cluster.DBSCAN)
+KNeighborsClassifier = alloc_gpu(ModelSplit(), func=cuml.neighbors.KNeighborsClassifier)(
     sklearn.neighbors.KNeighborsClassifier)
-PCA = alloc(ModelSplit(), gpu=True, gpu_func=cuml.PCA)(sklearn.decomposition.PCA)
+PCA = alloc_gpu(ModelSplit(), func=cuml.PCA)(sklearn.decomposition.PCA)
 StandardScaler = alloc(CPUModelSplit())(sklearn.preprocessing.StandardScaler)
 
 # *************************************************************************************************
 # Method wrappers that CANNOT be split
-@sa((ModelSplit(), NdArraySplit()), {}, ModelSplit(), gpu=True)
+@sa_gpu((ModelSplit(), NdArraySplit()), {}, ModelSplit())
 def fit_x(model, X):
     return model.fit(X)
 
-@sa((ModelSplit(), NdArraySplit(), NdArraySplit()), {}, ModelSplit(), gpu=True)
+@sa_gpu((ModelSplit(), NdArraySplit(), NdArraySplit()), {}, ModelSplit())
 def fit_xy(model, X, y):
     return model.fit(X, y)
 
-@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), gpu=True)
+@sa_gpu((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
 def fit_transform(model, X):
     return model.fit_transform(X)
 
@@ -92,13 +92,13 @@ def fit_transform(model, X):
 def fit_transform_cpu(model, X):
     return model.fit_transform(X)
 
-@sa((ModelSplit(),), {}, NdArraySplit(), gpu=True)
+@sa_gpu((ModelSplit(),), {}, NdArraySplit())
 def labels(model):
     return model.labels_
 
 # *************************************************************************************************
 # Method wrappers that CAN be split
-@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), gpu=True)
+@sa_gpu((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
 def transform(model, X):
     return model.transform(X)
 
@@ -106,6 +106,6 @@ def transform(model, X):
 def transform_cpu(model, X):
     return model.transform(X)
 
-@sa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), gpu=True)
+@sa_gpu((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
 def predict(model, X):
     return model.predict(X)

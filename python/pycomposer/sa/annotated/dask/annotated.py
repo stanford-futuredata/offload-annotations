@@ -69,7 +69,7 @@ class DateTimeSplit(SplitType):
 
 
 # Tertiary broadcast op
-@sa((DaskDfSplit(), DaskDfSplit(), DaskDfSplit()), {}, DaskDfSplit(), gpu=True)
+@sa_gpu((DaskDfSplit(), DaskDfSplit(), DaskDfSplit()), {}, DaskDfSplit())
 def set(df, index, val):
     df[index] = val
 
@@ -77,41 +77,41 @@ def set(df, index, val):
 _args = (DaskDfSplit(), DaskDfSplit())
 _ret = DaskDfSplit()
 
-@sa(dc(_args), {}, dc(_ret), gpu=True)
+@sa_gpu(dc(_args), {}, dc(_ret))
 def groupby(df, keys):
     return df.groupby(keys)
 
-@sa(dc(_args), {}, dc(_ret), gpu=True)
+@sa_gpu(dc(_args), {}, dc(_ret))
 def index(df, index):
     return df[index]
 
-@sa(dc(_args), {}, dc(_ret), gpu=True)
+@sa_gpu(dc(_args), {}, dc(_ret))
 def query(df, query):
     return df.query(query)
 
-@sa(dc(_args), {}, dc(_ret), gpu=True)
+@sa_gpu(dc(_args), {}, dc(_ret))
 def divide(df, val):
     return df / val
 
 # Unary broadcast ops
-@sa((DaskDfSplit(),), {}, DaskDfSplit(), gpu=True)
+@sa_gpu((DaskDfSplit(),), {}, DaskDfSplit())
 def mean(df):
     return df.mean()
 
 # Datetime
-@sa((DaskDfSplit(),), {}, DateTimeSplit(), gpu=True)
+@sa_gpu((DaskDfSplit(),), {}, DateTimeSplit())
 def dt(df):
     return df.dt
 
-@sa((DateTimeSplit(),), {}, DaskDfSplit(), gpu=True)
+@sa_gpu((DateTimeSplit(),), {}, DaskDfSplit())
 def hour(dt):
     return dt.hour
 
 # Compute
-@sa((DaskDfSplit(),), {}, DataFrameSplit(), gpu=True)
+@sa_gpu((DaskDfSplit(),), {}, DataFrameSplit())
 def compute(df):
     return df.compute()
 
 # Allocation
-read_csv = alloc(DaskDfSplit(), gpu=True, gpu_func=dask_cudf.read_csv)(dask.dataframe.read_csv)
+read_csv = alloc_gpu(DaskDfSplit(), func=dask_cudf.read_csv)(dask.dataframe.read_csv)
 
