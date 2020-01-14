@@ -21,7 +21,7 @@ class sa(object):
 
     """
 
-    def __init__(self, types, kwtypes, return_type, gpu=False, gpu_func=None):
+    def __init__(self, types, kwtypes, return_type, gpu=False, gpu_func=None, splittable=True):
         """ Creates a split annotation (SA) for the provided function signature.
 
         The SA can either be used as a Python decorator or as a function that
@@ -52,12 +52,16 @@ class sa(object):
             the function to call on the inputs if offloaded to the gpu in
             place if the original function, if they are different.
 
+        splittable : boolean
+            whether the annotated function can be split. defaults to true.
+
         """
         self.types = types
         self.kwtypes = kwtypes
         self.return_type = return_type
         self.gpu = gpu
         self.gpu_func = gpu_func
+        self.splittable = splittable
 
     def __call__(self, func):
         annotation = Annotation(func,
@@ -65,7 +69,8 @@ class sa(object):
                                 self.kwtypes,
                                 self.return_type,
                                 self.gpu,
-                                self.gpu_func)
+                                self.gpu_func,
+                                self.splittable)
 
         @functools.wraps(func)
         def _decorated(*args, **kwargs):
@@ -102,11 +107,12 @@ class sa_gpu(object):
     Optionally supply a gpu function to run when executing on the gpu.
     """
 
-    def __init__(self, types, kwtypes, return_type, func=None):
+    def __init__(self, types, kwtypes, return_type, func=None, splittable=True):
         self.types = types
         self.kwtypes = kwtypes
         self.return_type = return_type
         self.func = func
+        self.splittable = splittable
 
     def __call__(self, func):
         annotation = Annotation(func,
@@ -114,7 +120,8 @@ class sa_gpu(object):
                                 self.kwtypes,
                                 self.return_type,
                                 True,
-                                self.func)
+                                self.func,
+                                self.splittable)
 
         @functools.wraps(func)
         def _decorated(*args, **kwargs):

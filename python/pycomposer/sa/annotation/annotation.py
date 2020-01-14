@@ -89,7 +89,7 @@ class Annotation(BaseAnnotation):
 
     """
 
-    def __init__(self, func, types, kwtypes, return_type, gpu, gpu_func):
+    def __init__(self, func, types, kwtypes, return_type, gpu, gpu_func, splittable):
         """Initialize an annotation for a function invocation with the given
         arguments.
 
@@ -101,6 +101,7 @@ class Annotation(BaseAnnotation):
         kwtypes : the split types of the keyword arguments.
         gpu: whether the function can run on the gpu.
         gpu_func : the gpu version of the function that was invoked, if it exists.
+        splittable : whether the function is splittable.
 
         """
 
@@ -159,4 +160,7 @@ class Annotation(BaseAnnotation):
         # GPU function version.
         self.gpu = gpu
         self.gpu_func = gpu_func
+
+        # Whether the function is splittable.
+        self.splittable = splittable
 
