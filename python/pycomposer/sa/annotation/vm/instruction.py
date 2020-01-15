@@ -159,6 +159,41 @@ class Call(Instruction):
     def get_kwargs(self, context):
         return dict([ (name, context[target][-1]) for (name, target) in self.kwargs.items() ])
 
+    def _finalize_backend(self, context):
+        if self.backend == Backend.CPU:
+            return
+
+        cpu_cost = 0
+        gpu_cost = 0
+
+        # Check if estimators exist
+        if self.estimator is None:
+            return
+        for target, ty in self.tys.items():
+            if ty.estimator is None:
+                return
+
+        # Add compute estimate
+        values = []
+        tys = []
+        for target, ty in self.tys.items():
+            values.append(context[target][-1])
+            tys.append(ty)
+        cpu_cost += self.estimator(values, tys, Backend.CPU)
+        gpu_cost += self.estimator(values, tys, Backend.GPU)
+
+        # Add transfer estimate
+        for target, ty in self.tys.items():
+            backend = ty.backend(context[target][-1])
+            if backend == Backend.CPU:
+                gpu_cost += ty.estimator(context[target][-1], ty, Backend.GPU)
+            elif backend == Backend.GPU:
+                cpu_cost += ty.estimator(context[target][-1], ty, Backend.CPU)
+
+        if cpu_cost < gpu_cost:
+            self.backend = Backend.CPU
+
+
     def _transfer_args_kwargs(self, context):
         # Transfer each argument to the operation backend
         for target, ty in self.tys.items():
@@ -172,6 +207,7 @@ class Call(Instruction):
         function.
 
         """
+        self._finalize_backend(context)
         self._transfer_args_kwargs(context)
         args = self.get_args(context)
         kwargs = self.get_kwargs(context)
