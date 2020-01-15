@@ -543,7 +543,7 @@ class LogicalPlan:
             else:
                 func = op.func
             vm.program.insts.append(Call(
-                result, func, args, kwargs, op.annotation.return_type, tys, inst_backend, batch_size))
+                result, func, args, kwargs, op.annotation, tys, inst_backend, batch_size))
 
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.

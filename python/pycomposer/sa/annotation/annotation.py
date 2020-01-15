@@ -32,7 +32,7 @@ def mut(x):
 
 class BaseAnnotation(object):
 
-    __slots__ = [ "mutables", "arg_types", "return_type", "kwarg_types", "gpu", "gpu_func" ]
+    __slots__ = [ "mutables", "arg_types", "return_type", "kwarg_types", "gpu", "gpu_func", "estimator" ]
 
     def types(self):
         """ Iterate over the split types in this annotation. """
@@ -79,6 +79,7 @@ class Allocation(BaseAnnotation):
         self.mutables = set()
         self.arg_types = []
         self.kwarg_types = {}
+        self.estimator = None
 
 
 class Annotation(BaseAnnotation):
@@ -89,7 +90,7 @@ class Annotation(BaseAnnotation):
 
     """
 
-    def __init__(self, func, types, kwtypes, return_type, gpu, gpu_func, splittable):
+    def __init__(self, func, types, kwtypes, return_type, gpu, gpu_func, splittable, estimator):
         """Initialize an annotation for a function invocation with the given
         arguments.
 
@@ -102,6 +103,7 @@ class Annotation(BaseAnnotation):
         gpu: whether the function can run on the gpu.
         gpu_func : the gpu version of the function that was invoked, if it exists.
         splittable : whether the function is splittable.
+        estimator: the compute estimator function
 
         """
 
@@ -163,4 +165,7 @@ class Annotation(BaseAnnotation):
 
         # Whether the function is splittable.
         self.splittable = splittable
+
+        # The compute estimator for this function.
+        self.estimator = estimator
 

@@ -121,7 +121,7 @@ class Merge(Instruction):
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
-    def __init__(self,  target, func, args, kwargs, ty, tys, backend, batch_size):
+    def __init__(self,  target, func, args, kwargs, annotation, tys, backend, batch_size):
         self.target = target
         # Function to call.
         self.func = func
@@ -130,13 +130,15 @@ class Call(Instruction):
         # Keyword arguments: Maps { name -> target }
         self.kwargs = kwargs
         # Return split type.
-        self.ty = ty
+        self.ty = annotation.return_type
         # Argument split types.
         self.tys = tys
         # The backend the instruction is executed on.
         self.backend = backend
         # The batch size of the instruction split.
         self.batch_size = batch_size
+        # Compute estimator.
+        self.estimator = annotation.estimator
 
     def __str__(self):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))

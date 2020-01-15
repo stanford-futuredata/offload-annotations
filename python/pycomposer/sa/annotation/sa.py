@@ -21,7 +21,14 @@ class sa(object):
 
     """
 
-    def __init__(self, types, kwtypes, return_type, gpu=False, gpu_func=None, splittable=True):
+    def __init__(self,
+                 types,
+                 kwtypes,
+                 return_type,
+                 gpu=False,
+                 gpu_func=None,
+                 splittable=True,
+                 estimator=None):
         """ Creates a split annotation (SA) for the provided function signature.
 
         The SA can either be used as a Python decorator or as a function that
@@ -55,6 +62,9 @@ class sa(object):
         splittable : boolean
             whether the annotated function can be split. defaults to true.
 
+        estimator : callable function or None
+            compute estimator function
+
         """
         self.types = types
         self.kwtypes = kwtypes
@@ -62,6 +72,7 @@ class sa(object):
         self.gpu = gpu
         self.gpu_func = gpu_func
         self.splittable = splittable
+        self.estimator = estimator
 
     def __call__(self, func):
         annotation = Annotation(func,
@@ -70,7 +81,8 @@ class sa(object):
                                 self.return_type,
                                 self.gpu,
                                 self.gpu_func,
-                                self.splittable)
+                                self.splittable,
+                                self.estimator)
 
         @functools.wraps(func)
         def _decorated(*args, **kwargs):
@@ -107,12 +119,13 @@ class sa_gpu(object):
     Optionally supply a gpu function to run when executing on the gpu.
     """
 
-    def __init__(self, types, kwtypes, return_type, func=None, splittable=True):
+    def __init__(self, types, kwtypes, return_type, func=None, splittable=True, estimator=None):
         self.types = types
         self.kwtypes = kwtypes
         self.return_type = return_type
         self.func = func
         self.splittable = splittable
+        self.estimator = estimator
 
     def __call__(self, func):
         annotation = Annotation(func,
@@ -121,7 +134,8 @@ class sa_gpu(object):
                                 self.return_type,
                                 True,
                                 self.func,
-                                self.splittable)
+                                self.splittable,
+                                self.estimator)
 
         @functools.wraps(func)
         def _decorated(*args, **kwargs):
