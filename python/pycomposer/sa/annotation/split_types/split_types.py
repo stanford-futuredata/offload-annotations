@@ -26,6 +26,8 @@ class SplitType(ABC):
     mutable = False
     # Which backend to materialize the merged type on
     materialize = None
+    # Transfer estimator function
+    estimator = None
 
     def __init__(self):
         """Initialize a new split type."""
