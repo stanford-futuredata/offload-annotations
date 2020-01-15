@@ -562,7 +562,7 @@ class LogicalPlan:
                 if ty is None or not ty.mutable:
                     continue
                 if ty.materialize is not None:
-                    transfer(vms[pipeline], var_locs[pipeline], valnum, ty.materialize)
+                    vms[pipeline].program.insts.append(To(valnum, ty, ty.materialize))
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         print('Allocation:', sum(alloc_times))
         return sorted(list(vms.items()))
