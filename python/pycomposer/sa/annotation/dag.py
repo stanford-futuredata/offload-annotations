@@ -498,12 +498,17 @@ class LogicalPlan:
                     backend = ty.backend(value)
                     var_locs[valnum] = backend
                 return valnum
+
+            # Simultaneously generate a dictionary of split types in the function call.
+            tys = {}
             for (i, arg) in enumerate(op.args):
                 valnum = register(i, arg)
                 args.append(valnum)
+                tys[valnum] = op.split_type_of(i)
             for (key, value) in op.kwargs.items():
                 valnum = register(key, value)
                 kwargs[key] = valnum
+                tys[valnum] = op.split_type_of(key)
 
             # Change the batch size with a split or merge if necessary.
             for valnum in args:
@@ -538,7 +543,7 @@ class LogicalPlan:
             else:
                 func = op.func
             vm.program.insts.append(Call(
-                result, func, args, kwargs, op.annotation.return_type, inst_backend, batch_size))
+                result, func, args, kwargs, op.annotation.return_type, tys, inst_backend, batch_size))
 
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.

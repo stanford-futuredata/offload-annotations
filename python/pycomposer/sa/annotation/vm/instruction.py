@@ -121,7 +121,7 @@ class Merge(Instruction):
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
-    def __init__(self,  target, func, args, kwargs, ty, backend, batch_size):
+    def __init__(self,  target, func, args, kwargs, ty, tys, backend, batch_size):
         self.target = target
         # Function to call.
         self.func = func
@@ -131,6 +131,8 @@ class Call(Instruction):
         self.kwargs = kwargs
         # Return split type.
         self.ty = ty
+        # Argument split types.
+        self.tys = tys
         # The backend the instruction is executed on.
         self.backend = backend
         # The batch size of the instruction split.
