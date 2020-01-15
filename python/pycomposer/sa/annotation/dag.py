@@ -615,8 +615,8 @@ def evaluate_dag(dag,
     vms = dag.to_vm(batch_size, force_cpu, paging)
     print('to_vm:', time.time() - start)
     for _, vm in vms:
-        print(vm.program)
-        print()
+        # print(vm.program)
+        # print()
         driver = Driver(workers=workers, batch_size=batch_size, optimize_single=True, profile=profile)
         results = driver.run(vm.program, vm.backends, vm.values)
 

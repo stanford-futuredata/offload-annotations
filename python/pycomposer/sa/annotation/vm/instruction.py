@@ -138,7 +138,7 @@ class Call(Instruction):
         # The batch size of the instruction split.
         self.batch_size = batch_size
         # Compute estimator.
-        self.estimator = annotation.estimator
+        self.estimator = [annotation.estimator]
 
     def __str__(self):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))
@@ -179,16 +179,16 @@ class Call(Instruction):
         for target, ty in self.tys.items():
             values.append(context[target][-1])
             tys.append(ty)
-        cpu_cost += self.estimator(values, tys, Backend.CPU)
-        gpu_cost += self.estimator(values, tys, Backend.GPU)
+        cpu_cost += self.estimator[0](values, tys, Backend.CPU)
+        gpu_cost += self.estimator[0](values, tys, Backend.GPU)
 
         # Add transfer estimate
         for target, ty in self.tys.items():
             backend = ty.backend(context[target][-1])
             if backend == Backend.CPU:
-                gpu_cost += ty.estimator(context[target][-1], ty, Backend.GPU)
+                gpu_cost += ty.estimator(context[target][-1], Backend.GPU)
             elif backend == Backend.GPU:
-                cpu_cost += ty.estimator(context[target][-1], ty, Backend.CPU)
+                cpu_cost += ty.estimator(context[target][-1], Backend.CPU)
 
         if cpu_cost < gpu_cost:
             self.backend = Backend.CPU
