@@ -157,12 +157,20 @@ class Call(Instruction):
     def get_kwargs(self, context):
         return dict([ (name, context[target][-1]) for (name, target) in self.kwargs.items() ])
 
+    def _transfer_args_kwargs(self, context):
+        # Transfer each argument to the operation backend
+        for target, ty in self.tys.items():
+            value = context[target][-1]
+            if ty.backend(value) != self.backend:
+                context[target][-1] = ty.to(value, self.backend)
+
     def evaluate(self, _thread, _index_range, _batch_index, _values, context):
         """
         Evaluates a function call by gathering arguments and calling the
         function.
 
         """
+        self._transfer_args_kwargs(context)
         args = self.get_args(context)
         kwargs = self.get_kwargs(context)
         result = self.func(*args, **kwargs)

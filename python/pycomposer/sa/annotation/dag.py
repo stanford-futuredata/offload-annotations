@@ -414,17 +414,17 @@ class LogicalPlan:
                 vm.program.insts.append(Split(valnum, ty, backend, batch_size))
             var_sizes[valnum] = batch_size
 
-        # Transfer values between backends as necessary.
-        def transfer(vm, var_locs, valnum, backend):
-            ty = vm.split_type_of(valnum)
-            assert ty is not None
-            assert valnum in var_locs
+        # # Transfer values between backends as necessary.
+        # def transfer(vm, var_locs, valnum, backend):
+        #     ty = vm.split_type_of(valnum)
+        #     assert ty is not None
+        #     assert valnum in var_locs
 
-            if var_locs[valnum] == Backend.SCALAR:
-                var_locs[valnum] = backend
-            elif var_locs[valnum] != backend:
-                vm.program.insts.append(To(valnum, ty, backend))
-                var_locs[valnum] = backend
+        #     if var_locs[valnum] == Backend.SCALAR:
+        #         var_locs[valnum] = backend
+        #     elif var_locs[valnum] != backend:
+        #         vm.program.insts.append(To(valnum, ty, backend))
+        #         var_locs[valnum] = backend
 
         def mark_backends(op, vms):
             if force_cpu:
@@ -516,11 +516,11 @@ class LogicalPlan:
             for _, valnum in kwargs.items():
                 change_batch_size(vm, var_sizes, valnum, var_locs[valnum], batch_size)
 
-            # Transfer arguments between backends as necessary.
-            for valnum in args:
-                transfer(vm, var_locs, valnum, inst_backend)
-            for _, valnum in kwargs.items():
-                transfer(vm, var_locs, valnum, inst_backend)
+            # # Transfer arguments between backends as necessary.
+            # for valnum in args:
+            #     transfer(vm, var_locs, valnum, inst_backend)
+            # for _, valnum in kwargs.items():
+            #     transfer(vm, var_locs, valnum, inst_backend)
 
             # Register the valnum of the return value and its backend location
             result = vm.register_value(op, op.annotation.return_type)
@@ -615,8 +615,8 @@ def evaluate_dag(dag,
     vms = dag.to_vm(batch_size, force_cpu, paging)
     print('to_vm:', time.time() - start)
     for _, vm in vms:
-        # print(vm.program)
-        # print()
+        print(vm.program)
+        print()
         driver = Driver(workers=workers, batch_size=batch_size, optimize_single=True, profile=profile)
         results = driver.run(vm.program, vm.backends, vm.values)
 
