@@ -189,17 +189,14 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
         Backend.GPU: gpu * NUM_TEST,
     }
 
+    # Initialize CUDA driver
+    cuml.LogisticRegression()
+
     # Get inputs
     start = time.time()
     inputs = gen_data(mode, size)
     init_time = time.time() - start
     sys.stdout.write('Initialization: {}\n'.format(init_time))
-
-    t0 = time.time()
-    import cupy as cp
-    cp.ones(1 << 27)
-    sys.stdout.write('Init cuda?: {}\n'.format(time.time() - t0))
-    sys.stdout.flush()
 
     # Run program
     start = time.time()
