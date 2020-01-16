@@ -15,14 +15,13 @@ class Benchmark(enum.Enum):
     BLACKSCHOLES_NUMPY = 1
     BLACKSCHOLES_TORCH = 2
     CRIME_INDEX = 3
-    SGD_CLASSIFIER = 4
-    TSVD = 5
-    PCA = 6
-    DBSCAN = 7
-    IMAGE_PROCESSING = 8
-    BLACKSCHOLES_CUPY = 9
-    HAVERSINE = 10
-    # TAXI_RIDER = 11
+    TSVD = 4
+    PCA = 5
+    DBSCAN = 6
+    IMAGE_PROCESSING = 7
+    BLACKSCHOLES_CUPY = 8
+    HAVERSINE = 9
+    # TAXI_RIDER = 10
 
 
 def to_function(bm):
@@ -34,8 +33,6 @@ def to_function(bm):
         return blackscholes_torch.run
     elif bm == Benchmark.CRIME_INDEX:
         return crime_index.run
-    elif bm == Benchmark.SGD_CLASSIFIER:
-        return sgd_classifier.run
     elif bm == Benchmark.TSVD:
         return tsvd.run
     elif bm == Benchmark.PCA:
