@@ -80,7 +80,7 @@ class NdArraySplit(SplitType):
                 return cp.asnumpy(value)
             else:
                 # Also convert back from cuDF objects
-                return value.to_pandas().to_numpy()
+                return np.asarray(value.as_gpu_matrix())
         else:
             raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
