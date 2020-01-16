@@ -38,13 +38,25 @@ def compute_estimate(values, tys, backend):
     #     function backend
     pass
 """
-def transfer_estimator(value, ty, backend):
-    if backend == ty.value(backend):
-        return 0
-    return 0.01 * ty.elements(value)
+import math
+from sa.annotation import Backend
 
-def compute_estimator(values, tys, backend):
-    if backend == Backend.CPU:
-        return 100
-    else:
-        return 0
+
+def gen_linear_transfer_estimator(a, b):
+    """Generates a linear heuristic for estimating transfer cost.
+    """
+    def e(ty, value, backend):
+        x = math.log2(ty.elements(value))
+        return a * x + b
+    return e
+
+def gen_linear_compute_estimator(a_cpu, b_cpu, a_gpu, b_gpu):
+    """Generates a linear heuristic for estimating compute cost.
+    """
+    def e(tys, values, backend):
+        x = math.log2(tys[0].elements(values[0]))
+        if backend == Backend.CPU:
+            return a_cpu * x + b_cpu
+        else:
+            return a_gpu * x + b_gpu
+    return e

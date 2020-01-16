@@ -26,7 +26,7 @@ class CPUModelSplit(SplitType):
 
 class ModelSplit(SplitType):
 
-    estimator = transfer_estimator
+    estimator = gen_linear_transfer_estimator(1, 0)
 
     def __init__(self):
         self.supported_backends = [Backend.CPU, Backend.GPU]
@@ -97,14 +97,16 @@ StandardScaler = alloc(CPUModelSplit())(sklearn.preprocessing.StandardScaler)
 
 # *************************************************************************************************
 # Method wrappers that CANNOT be split
-@sa_gpu((ModelSplit(), NdArraySplit()), {}, ModelSplit(), estimator=compute_estimator)
+
+@sa_gpu((ModelSplit(), NdArraySplit()), {}, ModelSplit())
 def fit_x(model, X):
     return model.fit(X)
 
-@sa_gpu((ModelSplit(), NdArraySplit(), NdArraySplit()), {}, ModelSplit(), estimator=compute_estimator)
+@sa_gpu((ModelSplit(), NdArraySplit(), NdArraySplit()), {}, ModelSplit())
 def fit_xy(model, X, y):
     return model.fit(X, y)
 
+compute_estimator = gen_linear_compute_estimator(2, 0, 0, 14)
 @sa_gpu((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), estimator=compute_estimator)
 def fit_transform(model, X):
     return model.fit_transform(X)
@@ -119,7 +121,7 @@ def labels(model):
 
 # *************************************************************************************************
 # Method wrappers that CAN be split
-@sa_gpu((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), estimator=compute_estimator)
+@sa_gpu((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
 def transform(model, X):
     return model.transform(X)
 
@@ -127,6 +129,6 @@ def transform(model, X):
 def transform_cpu(model, X):
     return model.transform(X)
 
-@sa_gpu((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), estimator=compute_estimator)
+@sa_gpu((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
 def predict(model, X):
     return model.predict(X)

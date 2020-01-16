@@ -12,7 +12,7 @@ from sa.annotation.split_types import *
 
 class NdArraySplit(SplitType):
 
-    estimator = transfer_estimator
+    estimator = gen_linear_transfer_estimator(1, 0)
 
     def __init__(self):
         self.slice_col = False

@@ -179,8 +179,8 @@ class Call(Instruction):
         for target, ty in self.tys.items():
             values.append(context[target][-1])
             tys.append(ty)
-        cpu_cost += self.estimator[0](values, tys, Backend.CPU)
-        gpu_cost += self.estimator[0](values, tys, Backend.GPU)
+        cpu_cost += self.estimator[0](tys, values, Backend.CPU)
+        gpu_cost += self.estimator[0](tys, values, Backend.GPU)
 
         # Add transfer estimate
         for target, ty in self.tys.items():
