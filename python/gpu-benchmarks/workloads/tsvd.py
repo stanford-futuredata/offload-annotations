@@ -1,24 +1,19 @@
 #!/usr/bin/python
-# Based on sklearn example "Clustering text documents using k-means"
-# Link: https://scikit-learn.org/stable/auto_examples/text/plot_document_clustering.html
+# https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/tsvd_demo.ipynb
 import sys
-import time
-import logging
+from time import time
+
 import numpy as np
+from sklearn.datasets import make_blobs
+from sklearn.decomposition import TruncatedSVD as skTSVD
+
+import cupy as cp
+from cuml.decomposition import TruncatedSVD as cumlTSVD
 
 sys.path.append("../../lib")
 sys.path.append("../../pycomposer")
 sys.path.append(".")
 
-from sklearn.datasets import fetch_20newsgroups
-from sklearn.decomposition import TruncatedSVD
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.feature_extraction.text import HashingVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import Normalizer
-from sklearn import metrics
-from sklearn.cluster import KMeans, MiniBatchKMeans
 from sa.annotation import Backend
 from mode import Mode
 
@@ -26,149 +21,56 @@ DEFAULT_SIZE = 1 << 14
 DEFAULT_CPU = 1 << 16
 DEFAULT_GPU = 1 << 26
 
-
-# Preprocess documents with latent semantic analysis.
-DEFAULT_LSA = True
-# Desired dimensionality of Truncated SVD output.
-DEFAULT_N_COMPONENTS = 100
-# Use minibatch k-means algorithm as opposed to ordinary k-means.
-DEFAULT_MINIBATCH = False
-# Use Inverse Document Frequency feature weighting.
-DEFAULT_IDF = False
-# Use a hashing feature vectorizer as opposed to Tfidf.
-DEFAULT_HASHING = True
-# Maximum number of features (dimensions) to extract from text.
-DEFAULT_N_FEATURES = 100000
+n_features = 512
+n_components = 2
+random_state = 42
 
 
-def gen_data(
-    mode,
-    # categories=['alt.atheism', 'talk.religion.misc', 'comp.graphics', 'sci.space'],
-    categories=None,
-):
-    print("Loading 20 newsgroups dataset for categories:")
-    print(categories)
-
-    dataset = fetch_20newsgroups(subset='all', categories=categories,
-                                 shuffle=True, random_state=42)
-
-    print("%d documents" % len(dataset.data))
-    print("%d categories" % len(dataset.target_names))
-    print()
-    return dataset
+def gen_data(_mode, size):
+    # make a synthetic dataset
+    X, y = make_blobs(
+        n_samples=size, n_features=n_features, centers=1, random_state=7)
+    return X, y
 
 
-def run_composer(mode, dataset, batch_size, threads):
-    raise Exception
+def run_composer(mode, X, y, batch_size, threads):
+    import sa.annotated.sklearn as sklearn
+    force_cpu = mode == Mode.MOZART
+    tsvd = sklearn.TruncatedSVD(n_components=n_components,
+                 algorithm="arpack",
+                 n_iter=5000,
+                 tol=0.00001,
+                 random_state=random_state)
+
+    result = sklearn.fit_transform(tsvd, X)
+    result.materialize = Backend.CPU
+    sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+
+    return result
 
 
-def run_naive(
-    dataset,
-    use_hashing=DEFAULT_HASHING,
-    use_idf=DEFAULT_IDF,
-    use_lsa=DEFAULT_LSA,
-    use_minibatch=DEFAULT_MINIBATCH,
-    n_components=DEFAULT_N_COMPONENTS,
-    n_features=DEFAULT_N_FEATURES,
-):
-    print("Extracting features from the training dataset "
-          "using a sparse vectorizer")
-    t0 = time.time()
-    if use_hashing:
-        if use_idf:
-            # # Perform an IDF normalization on the output of HashingVectorizer
-            # hasher = HashingVectorizer(n_features=n_features,
-            #                            stop_words='english', alternate_sign=False,
-            #                            norm=None)
-            # vectorizer = make_pipeline(hasher, TfidfTransformer())
-            raise Exception
-        else:
-            vectorizer = HashingVectorizer(n_features=n_features,
-                                           stop_words='english',
-                                           alternate_sign=False, norm='l2')
-    else:
-        # vectorizer = TfidfVectorizer(max_df=0.5, max_features=n_features,
-        #                              min_df=2, stop_words='english',
-        #                              use_idf=use_idf)
-        raise Exception
+def run_naive(X, y):
+    tsvd_sk = skTSVD(n_components=n_components,
+                 algorithm="arpack",
+                 n_iter=5000,
+                 tol=0.00001,
+                 random_state=random_state)
 
-    X = vectorizer.fit_transform(dataset.data)
-    print("done in %fs" % (time.time() - t0))
-    print("n_samples: %d, n_features: %d" % X.shape)
-    print()
-
-    if use_lsa:
-        print("Performing dimensionality reduction using LSA")
-        t0 = time.time()
-        # Vectorizer results are normalized, which makes KMeans behave as
-        # spherical k-means for better results. Since LSA/SVD results are
-        # not normalized, we have to redo the normalization.
-        svd = TruncatedSVD(n_components)
-        normalizer = Normalizer(copy=False)
-        lsa = make_pipeline(svd, normalizer)
-
-        X = lsa.fit_transform(X)
-
-        print("done in %fs" % (time.time() - t0))
-
-        explained_variance = svd.explained_variance_ratio_.sum()
-        print("Explained variance of the SVD step: {}%".format(
-            int(explained_variance * 100)))
-
-        print()
+    result_sk = tsvd_sk.fit_transform(X)
+    return result_sk
 
 
-    # #############################################################################
-    # Do the actual clustering
+def run_cuda(X, y):
+    tsvd_cuml = cumlTSVD(n_components=n_components,
+                     algorithm="full",
+                     n_iter=50000,
+                     tol=0.00001,
+                     random_state=random_state)
 
-    labels = dataset.target
-    true_k = np.unique(labels).shape[0]
-    if use_minibatch:
-        # km = MiniBatchKMeans(n_clusters=true_k, init='k-means++', n_init=1,
-        #                      init_size=1000, batch_size=1000, verbose=True)
-        raise Exception
-    else:
-        km = KMeans(n_clusters=true_k, init='k-means++', max_iter=100, n_init=1,
-                    verbose=True)
-
-    print("Clustering sparse data with %s" % km)
-    t0 = time.time()
-    km.fit(X)
-    print("done in %0.3fs" % (time.time() - t0))
-    print()
-
-    print("Homogeneity: %0.3f" % metrics.homogeneity_score(labels, km.labels_))
-    print("Completeness: %0.3f" % metrics.completeness_score(labels, km.labels_))
-    print("V-measure: %0.3f" % metrics.v_measure_score(labels, km.labels_))
-    print("Adjusted Rand-Index: %.3f"
-          % metrics.adjusted_rand_score(labels, km.labels_))
-    print("Silhouette Coefficient: %0.3f"
-          % metrics.silhouette_score(X, km.labels_, sample_size=1000))
-
-    print()
-
-
-    if not use_hashing:
-        # print("Top terms per cluster:")
-
-        # if use_lsa:
-        #     original_space_centroids = svd.inverse_transform(km.cluster_centers_)
-        #     order_centroids = original_space_centroids.argsort()[:, ::-1]
-        # else:
-        #     order_centroids = km.cluster_centers_.argsort()[:, ::-1]
-
-        # terms = vectorizer.get_feature_names()
-        # for i in range(true_k):
-        #     print("Cluster %d:" % i, end='')
-        #     for ind in order_centroids[i, :10]:
-        #         print(' %s' % terms[ind], end='')
-        #     print()
-        raise Exception
-
-
-def run_cuda(dataset):
-    results = None
-    return results
+    X = cp.array(X)
+    result_cuml = tsvd_cuml.fit_transform(X)
+    result_cuml = np.asarray(result_cuml.as_gpu_matrix())
+    return result_cuml
 
 
 def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
@@ -187,31 +89,40 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
         Backend.GPU: gpu,
     }
 
-    # Display progress logs on stdout
-    # logging.basicConfig(level=logging.INFO,
-    #                     format='%(asctime)s %(levelname)s %(message)s')
+    # Initialize CUDA driver...
+    import cuml
+    cuml.linear_model.LinearRegression()
 
     # Get inputs
-    start = time.time()
-    dataset = gen_data(mode)
-    init_time = time.time() - start
+    start = time()
+    inputs = gen_data(mode, size)
+    init_time = time() - start
     sys.stdout.write('Initialization: {}\n'.format(init_time))
 
     # Run program
-    start = time.time()
+    start = time()
     if mode.is_composer():
-        results = run_composer(mode, dataset, batch_size, threads)
+        result = run_composer(mode, *inputs, batch_size, threads)
     elif mode == Mode.NAIVE:
-        results = run_naive(dataset)
+        result = run_naive(*inputs)
     elif mode == Mode.CUDA:
-        results = run_cuda(dataset)
+        result = run_cuda(*inputs)
     else:
         raise ValueError
-    runtime = time.time() - start
+    runtime = time() - start
 
+    naive_result = run_naive(*inputs)
     sys.stdout.write('Runtime: {}\n'.format(runtime))
     sys.stdout.write('Total: {}\n'.format(init_time + runtime))
     sys.stdout.flush()
-    print(results)
-    return init_time, runtime
 
+    # passed = np.allclose(naive_result[0], result[0], atol=0.01)
+    # print('compare tsvd: cuml vs sklearn singular_values_ {}'.format('equal' if passed else 'NOT equal'))
+    # passed = np.allclose(naive_result[1], result[1], atol=1e-2)
+    # print('compare tsvd: cuml vs sklearn components_ {}'.format('equal' if passed else 'NOT equal'))
+    # compare the reduced matrix
+    passed = np.allclose(naive_result, result, atol=0.2)
+    # larger error margin due to different algorithms: arpack vs full
+    print('compare tsvd: cuml vs sklearn transformed results %s'%('equal'if passed else 'NOT equal'))
+    assert passed
+    return init_time, runtime
