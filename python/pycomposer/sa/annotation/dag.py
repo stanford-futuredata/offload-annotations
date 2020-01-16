@@ -466,6 +466,54 @@ class LogicalPlan:
                 inst_backend = Backend.GPU
             else:
                 inst_backend = Backend.CPU
+            def finalize_backend():
+                # If function does not have an estimator, return.
+                if op.annotation.estimator is None:
+                    return False
+                # If the CPU is not supported, return.
+                if Backend.GPU not in op.supported_backends:
+                    return False
+
+                # Attain all non-intermediate and non-allocation arguments.
+                # If intermediate arguments exist, we cannot finalize.
+                values = []
+                tys = []
+                kv_args = list(enumerate(op.args)) + list(op.kwargs.items())
+                for (key, value) in kv_args:
+                    if isinstance(value, Operation):
+                        if isinstance(value.annotation, Allocation):
+                            continue
+                        else:
+                            return False
+                    values.append(value)
+                    tys.append(op.split_type_of(key))
+
+                # If any split type does not have an estimator, return.
+                for ty in tys:
+                    if ty.estimator is None:
+                        return False
+
+                # Estimate the cost for both cpu and gpu.
+                cpu_cost = 0
+                gpu_cost = 0
+                func_estimator = op.annotation.estimator
+                cpu_cost += func_estimator(tys, values, Backend.CPU)
+                gpu_cost += func_estimator(tys, values, Backend.GPU)
+                for value, ty in zip(values, tys):
+                    backend = ty.backend(value)
+                    if backend == Backend.CPU:
+                        gpu_cost += ty.estimator(value, Backend.GPU)
+                    elif backend == Backend.GPU:
+                        cpu_cost += ty.estimator(value, Backend.CPU)
+
+                print('CPU={} GPU={} op={}'.format(cpu_cost, gpu_cost, op))
+                if cpu_cost < gpu_cost:
+                    return (True, Backend.CPU)
+                return (True, inst_backend)
+
+            finalized, inst_backend = finalize_backend()
+
+            # Set the batch size
             batch_size = batch_size_dict[inst_backend]
 
             # Register the arguments if it is our first encounter. If the argument is
@@ -543,7 +591,7 @@ class LogicalPlan:
             else:
                 func = op.func
             vm.program.insts.append(Call(
-                result, func, args, kwargs, op.annotation, tys, inst_backend, batch_size))
+                result, func, args, kwargs, op.annotation, tys, inst_backend, batch_size, finalized))
 
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.

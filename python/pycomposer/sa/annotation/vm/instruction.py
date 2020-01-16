@@ -121,7 +121,7 @@ class Merge(Instruction):
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
-    def __init__(self,  target, func, args, kwargs, annotation, tys, backend, batch_size):
+    def __init__(self,  target, func, args, kwargs, annotation, tys, backend, batch_size, finalized):
         self.target = target
         # Function to call.
         self.func = func
@@ -138,7 +138,12 @@ class Call(Instruction):
         # The batch size of the instruction split.
         self.batch_size = batch_size
         # Compute estimator.
-        self.estimator = [annotation.estimator]
+        if annotation.estimator is None:
+            self.estimator = None
+        else:
+            self.estimator = [annotation.estimator]
+        # Whether the backend needs to be finalized.
+        self.finalized = finalized
 
     def __str__(self):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))
@@ -160,6 +165,9 @@ class Call(Instruction):
         return dict([ (name, context[target][-1]) for (name, target) in self.kwargs.items() ])
 
     def _finalize_backend(self, context):
+        if self.finalized:
+            return
+        self.finalized = True
         if self.backend == Backend.CPU:
             return
 
