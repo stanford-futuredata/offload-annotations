@@ -34,11 +34,13 @@ class ModelSplit(SplitType):
             sklearn.cluster.DBSCAN,
             sklearn.neighbors.KNeighborsClassifier,
             sklearn.decomposition.PCA,
+            sklearn.decomposition.TruncatedSVD,
         ]
         self.gpu_models = [
             cuml.DBSCAN,
             cuml.neighbors.KNeighborsClassifier,
             cuml.PCA,
+            cuml.decomposition.TruncatedSVD,
         ]
 
     def combine(self, values, original=None):
@@ -74,16 +76,23 @@ class ModelSplit(SplitType):
             return model()
 
 
+
     def __str__(self):
         return "ModelSplit"
 
 
 # *************************************************************************************************
 # Models
+def custom_TruncatedSVD(*args, **kwargs):
+    if 'algorithm' in kwargs and kwargs['algorithm'] == 'arpack':
+        kwargs['algorithm'] = 'full'
+    return cuml.TruncatedSVD(*args, **kwargs)
+
 DBSCAN = alloc_gpu(ModelSplit(), func=cuml.DBSCAN)(sklearn.cluster.DBSCAN)
 KNeighborsClassifier = alloc_gpu(ModelSplit(), func=cuml.neighbors.KNeighborsClassifier)(
     sklearn.neighbors.KNeighborsClassifier)
 PCA = alloc_gpu(ModelSplit(), func=cuml.PCA)(sklearn.decomposition.PCA)
+TruncatedSVD = alloc_gpu(ModelSplit(), func=custom_TruncatedSVD)(sklearn.decomposition.TruncatedSVD)
 StandardScaler = alloc(CPUModelSplit())(sklearn.preprocessing.StandardScaler)
 
 # *************************************************************************************************
