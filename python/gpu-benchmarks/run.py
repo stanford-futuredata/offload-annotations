@@ -11,26 +11,20 @@ from mode import Mode
 from workloads import *
 
 class Benchmark(enum.Enum):
-    BIRTH_ANALYSIS = 0
     BLACKSCHOLES_NUMPY = 1
-    BLACKSCHOLES_TORCH = 2
+    BLACKSCHOLES_CUPY = 2
     CRIME_INDEX = 3
     TSVD = 4
     PCA = 5
     DBSCAN = 6
-    IMAGE_PROCESSING = 7
-    BLACKSCHOLES_CUPY = 8
     HAVERSINE = 9
-    # TAXI_RIDER = 10
 
 
 def to_function(bm):
-    if bm == Benchmark.BIRTH_ANALYSIS:
-        return birth_analysis.run
-    elif bm == Benchmark.BLACKSCHOLES_NUMPY:
+    if bm == Benchmark.BLACKSCHOLES_NUMPY:
         return blackscholes_numpy.run
-    elif bm == Benchmark.BLACKSCHOLES_TORCH:
-        return blackscholes_torch.run
+    elif bm == Benchmark.BLACKSCHOLES_CUPY:
+        return blackscholes_cupy.run
     elif bm == Benchmark.CRIME_INDEX:
         return crime_index.run
     elif bm == Benchmark.TSVD:
@@ -39,12 +33,8 @@ def to_function(bm):
         return pca.run
     elif bm == Benchmark.DBSCAN:
         return dbscan.run
-    elif bm == Benchmark.BLACKSCHOLES_CUPY:
-        return blackscholes_cupy.run
     elif bm == Benchmark.HAVERSINE:
         return haversine.run
-    # elif bm == Benchmark.TAXI_RIDER:
-    #     return taxi_rider_stats.run
     else:
         raise Exception
 
