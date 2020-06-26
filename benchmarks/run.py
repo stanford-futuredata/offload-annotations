@@ -11,13 +11,13 @@ from mode import Mode
 from workloads import *
 
 class Benchmark(enum.Enum):
-    BLACKSCHOLES_NUMPY = 1
-    BLACKSCHOLES_CUPY = 2
-    CRIME_INDEX = 3
-    TSVD = 4
-    PCA = 5
-    DBSCAN = 6
-    HAVERSINE = 9
+    BLACKSCHOLES_NUMPY = 0
+    BLACKSCHOLES_CUPY = 1
+    CRIME_INDEX = 2
+    TSVD = 3
+    PCA = 4
+    DBSCAN = 5
+    HAVERSINE = 6
 
 
 def to_function(bm):
