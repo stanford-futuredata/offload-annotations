@@ -10,7 +10,7 @@ import sys
 sys.path.append("../../lib")
 sys.path.append("../../pycomposer/")
 
-import composer_pandas as pd
+import sa.annotated.pandas as pd
 
 def gen_data(size):
     values = ["1234567" for  _ in range(size)]
@@ -18,12 +18,13 @@ def gen_data(size):
 
 def datacleaning_pandas(requests):
     requests = requests.str.slice(0, 5)
+    print(type(requests))
     zero_zips = requests == "00000"
     requests = requests.mask(zero_zips, np.nan)
     requests = requests.unique()
     return requests
 
-def datacleaning_composer(requests, threads):
+def datacleaning_composer(requests, threads, piece_size):
     # Fix requests with extra digits
     requests = pd.series_str_slice(requests, 0, 5)
     requests.dontsend = True
@@ -34,7 +35,7 @@ def datacleaning_composer(requests, threads):
     requests = pd.mask(requests, zero_zips, np.nan)
     requests.dontsend = True
     requests = pd.unique(requests)
-    pd.evaluate(workers=threads)
+    pd.evaluate(workers=threads, batch_size=piece_size)
     requests = requests.value
     return requests
 
@@ -42,7 +43,7 @@ def run():
     parser = argparse.ArgumentParser(
         description="Data Cleaning"
     )
-    parser.add_argument('-s', "--size", type=int, default=26, help="Size of each array")
+    parser.add_argument('-s', "--size", type=int, default=10, help="Size of each array")
     parser.add_argument('-p', "--piece_size", type=int, default=16384*2, help="Size of each piece.")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
     parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
@@ -71,7 +72,7 @@ def run():
 
     start = time.time()
     if mode == "composer":
-        result = datacleaning_composer(inputs, threads)
+        result = datacleaning_composer(inputs, threads, piece_size)
     elif mode == "naive":
         result = datacleaning_pandas(inputs)
     end = time.time()

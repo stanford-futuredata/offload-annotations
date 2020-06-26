@@ -1,12 +1,29 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+import setuptools
 
-setup(name='pycomposer',
-      version='0.1.0',
-      description='Python Composer library',
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
+setuptools.setup(name='sa',
+      version='0.0.4',
+      description='Python split annotations package',
+      long_description=long_description,
+      long_description_content_type="text/markdown",
       author='Shoumik Palkar',
+      packages=setuptools.find_packages(),
       author_email='shoumik@cs.stanford.edu',
-      url='https://www.github.com/sppalkia/annotator',
-      packages=['cloudpickle'],
-     )
+      url='https://www.github.com/weld-project/split-annotations',
+      classifiers=[
+          "Programming Language :: Python :: 3",
+          "License :: OSI Approved :: BSD License",
+          "Operating System :: OS Independent",
+          ],
+      install_requires=[
+          'numpy',
+          'pandas',
+          'scipy',
+          'sharedmem'
+      ],
+      python_requires='>=3.6',
+      )

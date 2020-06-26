@@ -8,9 +8,11 @@ import math
 import scipy.special as ss
 import time
 
+from sa.annotation import Backend
+
 def get_data(size, composer):
     if composer:
-        import composer_numpy as np
+        import sa.annotated.numpy as np
     else:
         import numpy as np
 
@@ -19,33 +21,43 @@ def get_data(size, composer):
     t = np.ones(size, dtype="float64") * 4.0
     rate = np.ones(size, dtype="float64") * 4.0
     vol = np.ones(size, dtype="float64") * 4.0
-    
+
     return price, strike, t, rate, vol
 
-def bs(price, strike, t, rate, vol, composer, threads, piece_size):
+def get_tmp_arrays(size, composer):
+    if composer:
+        import sa.annotated.numpy as np
+    else:
+        import numpy as np
+
+    tmp = np.empty(size, dtype="float64")
+    vol_sqrt = np.empty(size, dtype="float64")
+    rsig = np.empty(size, dtype="float64")
+    d1 = np.empty(size, dtype="float64")
+    d2 = np.empty(size, dtype="float64")
+
+    # Outputs
+    call = np.empty(size, dtype="float64")
+    put = np.empty(size, dtype="float64")
+
+    return tmp, vol_sqrt, rsig, d1, d2, call, put
+
+def bs(
+    price, strike, t, rate, vol,
+    tmp, vol_sqrt, rsig, d1, d2, call, put,
+    composer, threads, gpu_piece_size, cpu_piece_size, force_cpu,
+):
 
     if composer:
-        import composer_numpy as np
+        import sa.annotated.numpy as np
+        call.materialize = Backend.CPU
+        put.materialize = Backend.CPU
     else:
         import numpy as np
 
     c05 = 3.0
     c10 = 1.5
     invsqrt2 = 1.0 / math.sqrt(2.0)
-
-    start = time.time()
-
-    tmp = np.ones(len(price), dtype="float64")
-    vol_sqrt = np.ones(len(price), dtype="float64")
-    rsig = np.ones(len(price), dtype="float64")
-    d1 = np.ones(len(price), dtype="float64")
-    d2 = np.ones(len(price), dtype="float64")
-
-    # Outputs
-    call = np.ones(len(price), dtype="float64")
-    put = np.ones(len(price), dtype="float64")
-    end = time.time()
-    print("Allocation:", end - start)
 
     start = time.time()
 
@@ -123,34 +135,29 @@ def bs(price, strike, t, rate, vol, composer, threads, piece_size):
     print("Build time:", end - start)
 
     if composer:
-        np.evaluate(workers=threads, batch_size=piece_size)
-
-    end = time.time()
-    print("Runtime:", end - start)
+        batch_size = {
+            Backend.CPU: cpu_piece_size,
+            Backend.GPU: gpu_piece_size,
+        }
+        np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+        return call.value, put.value
 
     return call, put
 
-def run():
-    parser = argparse.ArgumentParser(
-        description="Chained Adds pipelining test on a single thread."
-    )
-    parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
-    parser.add_argument('-p', "--piece_size", type=int, default=16384, help="Size of each piece.")
-    parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
-    parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
-    parser.add_argument('-m', "--mode", type=str, required=False, help="Mode (composer|naive)")
-    args = parser.parse_args()
-
+def run(args):
     size = (1 << args.size)
-    piece_size = args.piece_size
+    gpu_piece_size = 1<<args.gpu_piece_size
+    cpu_piece_size = 1<<args.cpu_piece_size
     threads = args.threads
     loglevel = args.verbosity
     mode = args.mode.strip().lower()
+    force_cpu = args.force_cpu
 
     assert threads >= 1
 
     print("Size:", size)
-    print("Piece Size:", piece_size)
+    print("GPU Piece Size:", gpu_piece_size)
+    print("CPU Piece Size:", cpu_piece_size)
     print("Threads:", threads)
     print("Log Level", loglevel)
     print("Mode:", mode)
@@ -164,12 +171,58 @@ def run():
 
     sys.stdout.write("Generating data...")
     sys.stdout.flush()
+    init_start = time.time()
     a, b, c, d, e = get_data(size, composer)
-    print("done.")
+    end = time.time()
+    print("done:", end - init_start)
 
-    call, put = bs(a, b, c, d, e, composer, threads, piece_size)
+    start = time.time()
+    tmp1, tmp2, tmp3, tmp4, tmp5, call, put = get_tmp_arrays(size, composer)
+    end = time.time()
+    print("Allocation:", end - start)
+    init_time = end - init_start
+
+    start = time.time()
+    call, put = bs(
+        a, b, c, d, e, tmp1, tmp2, tmp3, tmp4, tmp5, call, put,
+        composer, threads, gpu_piece_size, cpu_piece_size, force_cpu
+    )
+    runtime = time.time() - start
     print("Call:", call)
     print("Put:", put)
 
+    print('Runtime:', runtime)
+    return init_time, runtime
+
+def median(arr):
+    arr.sort()
+    m = int(len(arr) / 2)
+    if len(arr) % 2 == 1:
+        return arr[m]
+    else:
+        return (arr[m] + arr[m-1]) / 2
+
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(
+        description="Chained Adds pipelining test on a single thread."
+    )
+    parser.add_argument('-s', "--size", type=int, default=27, help="Size of each array")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
+    parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
+    parser.add_argument('-v', "--verbosity", type=str, default="none", help="Log level (debug|info|warning|error|critical|none)")
+    parser.add_argument('-m', "--mode", type=str, required=False, help="Mode (composer|naive)")
+    parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
+    parser.add_argument('--force_cpu', action='store_true', help='Whether to force composer to execute CPU only.')
+    args = parser.parse_args()
+
+    init_times = []
+    runtimes = []
+    for _ in range(args.trials):
+        init_time, runtime = run(args)
+        init_times.append(init_time)
+        runtimes.append(runtime)
+    if args.trials > 1:
+        print('Median Init:', median(init_times))
+        print('Median Runtime:', median(runtimes))
+        print('Median Total:', median(init_times) + median(runtimes))

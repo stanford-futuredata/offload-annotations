@@ -5,8 +5,9 @@ sys.path.append("../../lib/")
 sys.path.append("../../pycomposer/")
 
 import argparse
-import composer_pandas as pd
+import sa.annotated.pandas as pd
 import time
+from sa.annotation import Backend
 
 def analyze(top1000):
     start1 = time.time()
@@ -24,23 +25,26 @@ def analyze(top1000):
 def get_top1000(group):
     return group.sort_values(by='births', ascending=False)[0:1000]
 
-def run(filename, threads):
+def run(filename, threads, batch_size, force_cpu):
     years = range(1880, 2011)
     columns = ['year', 'sex', 'name', 'births']
 
+    start = time.time()
     sys.stdout.write("Reading data...")
     sys.stdout.flush()
     names = pd.read_csv(filename, names=columns)
-    print("done")
+    init_time = time.time() - start
+    print("done:", init_time)
 
-    print("Size of names:", len(names))
+    # print("Size of names:", len(names))
 
     e2e_start = time.time()
 
     start0 = time.time()
     grouped = pd.dfgroupby(names, ['year', 'sex'])
     top1000 = pd.gbapply(grouped, get_top1000)
-    pd.evaluate(workers=threads)
+    top1000.dontsend = False
+    pd.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
     top1000 = top1000.value
     top1000.reset_index(inplace=True, drop=True)
     print(len(top1000))
@@ -72,21 +76,52 @@ def run(filename, threads):
     print("Total time:", e2e_end - e2e_start)
 
     print(top1000['births'].sum())
+    return init_time, e2e_end - e2e_start
+
+def median(arr):
+    arr.sort()
+    m = int(len(arr) / 2)
+    if len(arr) % 2 == 1:
+        return arr[m]
+    else:
+        return (arr[m] + arr[m-1]) / 2
 
 def main():
     parser = argparse.ArgumentParser(
         description="Birth Analysis with Composer."
     )
-    parser.add_argument('-f', "--filename", type=str, default="babynames.txt", help="Input file")
+    parser.add_argument('-f', "--filename", type=str, default="../datasets/birth_analysis/_data/babynames.txt", help="Input file")
     parser.add_argument('-t', "--threads", type=int, default=1, help="Number of threads.")
+    parser.add_argument('-cpu', "--cpu_piece_size", type=int, default=14, help="Log size of each CPU piece.")
+    parser.add_argument('-gpu', "--gpu_piece_size", type=int, default=19, help="Log size of each GPU piece.")
+    parser.add_argument('--force_cpu', action='store_true', help='Whether to force composer to execute CPU only.')
+    parser.add_argument('--trials', type=int, default=1, help='Number of trials.')
     args = parser.parse_args()
 
     filename = args.filename
     threads = args.threads
+    cpu_piece_size = 1<<args.cpu_piece_size
+    gpu_piece_size = 1<<args.gpu_piece_size
+    batch_size = {
+        Backend.CPU: cpu_piece_size,
+        Backend.GPU: gpu_piece_size,
+    }
+    force_cpu = args.force_cpu
 
     print("File:", filename)
     print("Threads:", threads)
-    mi = run(filename, threads)
+    print("GPU Piece Size:", gpu_piece_size)
+    print("CPU Piece Size:", cpu_piece_size)
+    init_times = []
+    runtimes = []
+    for _ in range(args.trials):
+        init_time, runtime = run(filename, threads, batch_size, force_cpu)
+        init_times.append(init_time)
+        runtimes.append(runtime)
+    if args.trials > 1:
+        print('Median Init:', median(init_times))
+        print('Median Runtime:', median(runtimes))
+        print('Median Total:', median(init_times) + median(runtimes))
 
 
 if __name__ == "__main__":
