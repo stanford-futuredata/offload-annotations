@@ -1,3 +1,0 @@
-struct __{function_name}_callable__ {{
-{struct_field_list}
-}} __attribute__((packed));
