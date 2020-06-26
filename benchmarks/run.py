@@ -2,9 +2,8 @@ import argparse
 import enum
 import sys
 
-sys.path.append("../lib/")
 sys.path.append("../pycomposer/")
-sys.path.append(".")
+sys.path.append("./pycomposer/")
 
 from sa.annotation import Backend
 from mode import Mode

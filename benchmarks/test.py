@@ -8,9 +8,8 @@ import pandas as pd
 import cudf
 import pytest
 
-sys.path.append("../lib")
 sys.path.append("../pycomposer")
-sys.path.append('.')
+sys.path.append('./pycomposer')
 
 from mode import Mode
 from sa.annotation import Backend
@@ -338,173 +337,6 @@ class TestDBSCAN(unittest.TestCase):
         self.assertLess(noise, self.data_size * 0.3)
 
 
-class TestBirthAnalysis(unittest.TestCase):
-
-    def setUp(self):
-        self.num_years = 60
-
-    def test_naive(self):
-        names = birth_analysis.read_data(Mode.NAIVE, num_years=self.num_years)
-        self.assertIsInstance(names, pd.DataFrame)
-        self.assertEqual(len(names), 366305)
-
-        table = birth_analysis.run_naive(names)
-        self.assertIsInstance(table, pd.DataFrame)
-        self.assertEqual(len(table), self.num_years)
-        self.assertAlmostEqual(table['F'].iloc[0], 0.091954)
-        self.assertAlmostEqual(table['M'].iloc[0], 0.908046)
-
-    def test_cuda(self):
-        names = birth_analysis.read_data(Mode.CUDA, num_years=self.num_years)
-        self.assertIsInstance(names, cudf.DataFrame)
-        self.assertEqual(len(names), 366305)
-
-        table = birth_analysis.run_cuda(names)
-        self.assertIsInstance(table, pd.DataFrame)
-        self.assertEqual(len(table), self.num_years)
-        self.assertAlmostEqual(table['F'].iloc[0], 0.091954)
-        self.assertAlmostEqual(table['M'].iloc[0], 0.908046)
-
-
-class TestSGDClassifier(unittest.TestCase):
-
-    def setUp(self):
-        self.data_size = sgd_classifier.DEFAULT_SIZE
-        self.prediction_size = 1 << 14
-
-    def test_naive(self):
-        X, y, pred_data, pred_results = sgd_classifier.gen_data(
-            Mode.NAIVE, self.data_size, predictions=self.prediction_size)
-        self.assertIsInstance(X, pd.DataFrame)
-        self.assertIsInstance(y, pd.Series)
-        self.assertIsInstance(pred_data, pd.DataFrame)
-        self.assertIsInstance(pred_results, pd.Series)
-        self.assertEqual(len(X), self.data_size)
-        self.assertEqual(len(y), self.data_size)
-        self.assertEqual(len(pred_data), self.prediction_size)
-        self.assertEqual(len(pred_results), self.prediction_size)
-
-        _, pred = sgd_classifier.run_naive(X, y, pred_data)
-        self.assertIsInstance(pred, np.ndarray)
-        accuracy = sgd_classifier.accuracy(pred, pred_results)
-        self.assertGreater(accuracy, 0.8)
-
-    def test_cuda(self):
-        X, y, pred_data, pred_results = sgd_classifier.gen_data(
-            Mode.CUDA, self.data_size, predictions=self.prediction_size)
-        self.assertIsInstance(X, cudf.DataFrame)
-        self.assertIsInstance(y, cudf.Series)
-        self.assertIsInstance(pred_data, cudf.DataFrame)
-        self.assertIsInstance(pred_results, pd.Series)  # Final prediction is on CPU
-        self.assertEqual(len(X), self.data_size)
-        self.assertEqual(len(y), self.data_size)
-        self.assertEqual(len(pred_data), self.prediction_size)
-        self.assertEqual(len(pred_results), self.prediction_size)
-
-        _, pred = sgd_classifier.run_cuda(X, y, pred_data)
-        self.assertIsInstance(pred, np.ndarray)
-        accuracy = sgd_classifier.accuracy(pred, pred_results)
-        self.assertGreater(accuracy, 0.8)
-
-
-class TestBlackscholesTorch(unittest.TestCase):
-
-    def setUp(self):
-        self.data_size = 1 << 20
-        self.batch_size = {
-            Backend.CPU: blackscholes_torch.DEFAULT_CPU,
-            Backend.GPU: 1 << 16,
-        }
-        # The expected result for the given data size
-        self.expected_call = 24.0
-        self.expected_put = 18.0
-
-    def test_batch_parameters(self):
-        self.assertLess(self.batch_size[Backend.CPU], self.data_size)
-        self.assertLess(self.batch_size[Backend.GPU], self.data_size)
-
-    def validateArray(self, arr, val):
-        self.assertAlmostEqual(arr[0].item(), val, places=5)
-        self.assertAlmostEqual(arr[-1].item(), val, places=5)
-        self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
-        self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
-        self.assertAlmostEqual(arr[random.randrange(len(arr))].item(), val, places=5)
-
-    def test_get_data(self):
-        size = 2
-        for mode in Mode:
-            for array in blackscholes_torch.get_data(mode, size):
-                self.assertEqual(array.device.type, 'cpu')
-
-    def test_get_tmp_arrays(self):
-        size = 2
-        for array in blackscholes_torch.get_tmp_arrays(Mode.NAIVE, size):
-            self.assertEqual(array.device.type, 'cpu')
-        for array in blackscholes_torch.get_tmp_arrays(Mode.CUDA, size):
-            self.assertEqual(array.device.type, 'cuda')
-        for array in blackscholes_torch.get_tmp_arrays(Mode.MOZART, size):
-            self.assertIsInstance(array, dag.Operation)
-        for array in blackscholes_torch.get_tmp_arrays(Mode.BACH, size):
-            self.assertIsInstance(array, dag.Operation)
-
-    def test_naive(self):
-        inputs = blackscholes_torch.get_data(Mode.NAIVE, self.data_size)
-        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.NAIVE, self.data_size)
-        call, put = blackscholes_torch.run_naive(*inputs, *tmp_arrays)
-        self.assertEqual(call.device.type, 'cpu')
-        self.assertEqual(put.device.type, 'cpu')
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    def test_cuda_nostream(self):
-        inputs = blackscholes_torch.get_data(Mode.CUDA, self.data_size)
-        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_torch.run_cuda_nostream(*inputs, *tmp_arrays)
-        self.assertEqual(call.device.type, 'cpu')
-        self.assertEqual(put.device.type, 'cpu')
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    def test_cuda(self):
-        inputs = blackscholes_torch.get_data(Mode.CUDA, self.data_size)
-        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_torch.run_cuda(self.batch_size[Backend.GPU], *inputs, *tmp_arrays)
-        self.assertEqual(call.device.type, 'cpu')
-        self.assertEqual(put.device.type, 'cpu')
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    def test_cuda_large_stream_size(self):
-        stream_size = 1 << 21
-        self.assertGreater(stream_size, self.data_size)
-        inputs = blackscholes_torch.get_data(Mode.CUDA, self.data_size)
-        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_torch.run_cuda(stream_size, *inputs, *tmp_arrays)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    def test_mozart(self):
-        inputs = blackscholes_torch.get_data(Mode.MOZART, self.data_size)
-        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.MOZART, self.data_size)
-        call, put = blackscholes_torch.run_composer(
-            Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16)
-        self.assertEqual(call.device.type, 'cpu')
-        self.assertEqual(put.device.type, 'cpu')
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    @pytest.mark.bach
-    def test_bach(self):
-        inputs = blackscholes_torch.get_data(Mode.BACH, self.data_size)
-        tmp_arrays = blackscholes_torch.get_tmp_arrays(Mode.BACH, self.data_size)
-        call, put = blackscholes_torch.run_composer(
-            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1)
-        self.assertEqual(call.device.type, 'cpu')
-        self.assertEqual(put.device.type, 'cpu')
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-
 class TestBlackscholesNumpy(unittest.TestCase):
 
     def setUp(self):
@@ -621,7 +453,7 @@ class TestBlackscholesNumpy(unittest.TestCase):
 class TestCrimeIndex(unittest.TestCase):
 
     def setUp(self):
-        prefix = 'datasets/crime_index/test/'
+        prefix = 'benchmarks/datasets/crime_index/test/'
         filenames = ['total_population.csv', 'adult_population.csv', 'num_robberies.csv']
         self.filenames = [prefix + f for f in filenames]
         self.data_size = 1 << 20
@@ -705,9 +537,9 @@ class TestCrimeIndex(unittest.TestCase):
     @pytest.mark.bach
     def test_bach_paging(self):
         filenames = [
-            'datasets/crime_index/total_population_28.csv',
-            'datasets/crime_index/adult_population_28.csv',
-            'datasets/crime_index/num_robberies_28.csv',
+            'benchmarks/datasets/crime_index/total_population_28.csv',
+            'benchmarks/datasets/crime_index/adult_population_28.csv',
+            'benchmarks/datasets/crime_index/num_robberies_28.csv',
         ]
         batch_size = {
             Backend.CPU: crime_index.MAX_BATCH_SIZE >> 1,
