@@ -23,7 +23,7 @@ class CPUModelSplit(SplitType):
         return "CPUModelSplit"
 
 
-class ModelSplit(SplitType):
+class ModelSplit(OffloadSplitType):
 
     def __init__(self):
         self.supported_backends = [Backend.CPU, Backend.GPU]

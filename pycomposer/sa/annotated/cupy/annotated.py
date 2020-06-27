@@ -9,7 +9,7 @@ from copy import deepcopy as dc
 from sa.annotation import *
 from sa.annotation.split_types import *
 
-class NdArraySplit(SplitType):
+class NdArraySplit(OffloadSplitType):
 
     def __init__(self):
         self.slice_col = False

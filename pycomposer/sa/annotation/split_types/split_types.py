@@ -20,12 +20,8 @@ class SplitType(ABC):
 
     """
 
-    # The list of supported backends the split type can be transferred to and from.
-    supported_backends = [Backend.CPU]
     # Whether to merge the type at the end of the pipeline
     mutable = False
-    # Which backend to materialize the merged type on
-    materialize = None
 
     def __init__(self):
         """Initialize a new split type."""
@@ -86,35 +82,6 @@ class SplitType(ABC):
         """
         pass
 
-    def backend(self, value):
-        """The current backend the value is on.
-
-        Returns
-        -------
-        backend
-            The current backend the value is on.
-        """
-        return Backend.CPU
-
-    def to(self, value, backend):
-        """Transfers the split value to another backend.
-
-        Parameters
-        ----------
-
-        value : any
-            The value to transfer, originally on one of the supported backends.
-        backend : Backend
-            The supported backend to transfer the value to.
-
-        Returns
-        -------
-        new_value
-            The value, located on the given backend.
-
-        """
-        raise SplitTypeError("to must be implemented for each supported backend")
-
     def __eq__(self, other):
         """ Check whether two types are equal.
 
@@ -165,6 +132,45 @@ class SplitType(ABC):
     def _finalized(self):
         """ Returns the finalized type of this type. """
         return self
+
+
+class OffloadSplitType(SplitType):
+    """The base offload split type class.
+    """
+
+    # The list of supported backends the split type can be transferred to and from.
+    supported_backends = [Backend.CPU]
+    # Which backend to materialize the merged type on
+    materialize = None
+
+    def backend(self, value):
+        """The current backend the value is on.
+
+        Returns
+        -------
+        backend
+            The current backend the value is on.
+        """
+        return Backend.CPU
+
+    def to(self, value, backend):
+        """Transfers the split value to another backend.
+
+        Parameters
+        ----------
+
+        value : any
+            The value to transfer, originally on one of the supported backends.
+        backend : Backend
+            The supported backend to transfer the value to.
+
+        Returns
+        -------
+        new_value
+            The value, located on the given backend.
+
+        """
+        raise SplitTypeError("to must be implemented for each supported backend")
 
 
 class GenericType(SplitType):
@@ -259,7 +265,7 @@ class GenericType(SplitType):
         raise ValueError("Split called on generic split type")
 
 
-class Broadcast(SplitType):
+class Broadcast(OffloadSplitType):
     """ A split type that broadcasts values. """
     def __init__(self):
         self.supported_backends = [Backend.CPU, Backend.GPU]

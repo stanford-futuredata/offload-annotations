@@ -12,7 +12,7 @@ cuda = torch.cuda
 def ones(*args, **kwargs):
     return torch.ones(*args, **kwargs)
 
-class TorchTensorSplit(SplitType):
+class TorchTensorSplit(OffloadSplitType):
 
     def __init__(self):
         self.slice_col = False

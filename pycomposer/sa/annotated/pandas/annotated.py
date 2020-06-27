@@ -16,7 +16,7 @@ from sa.annotation import *
 from sa.annotation.split_types import *
 from sa.annotation.backend import Backend
 
-class UniqueSplit(SplitType):
+class UniqueSplit(OffloadSplitType):
     supported_backends = [Backend.CPU, Backend.GPU]
 
     """ For the result of Unique """
@@ -57,7 +57,7 @@ class UniqueSplit(SplitType):
     def __str__(self):
         return 'UniqueSplit'
 
-class DataFrameSplit(SplitType):
+class DataFrameSplit(OffloadSplitType):
     supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values, original=None):
@@ -116,7 +116,7 @@ class DataFrameSplit(SplitType):
     def __str__(self):
         return 'DataFrameSplit'
 
-class SumSplit(SplitType):
+class SumSplit(OffloadSplitType):
     supported_backends = [Backend.CPU, Backend.GPU]
 
     def combine(self, values):
