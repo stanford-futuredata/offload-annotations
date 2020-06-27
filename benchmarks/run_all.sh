@@ -84,6 +84,20 @@ dbscan () {
     done
 }
 
+pca () {
+    name="pca"
+    start=4
+    for size in $(seq $start 1 18);
+        do python run.py -b $name -m naive -s $size --trials $TRIALS >> "results/"$name"_naive"
+    done
+    for size in $(seq $start 1 12);
+        do python run.py -b $name -m cuda -s $size --trials $TRIALS >> "results/"$name"_cuda"
+    done
+    for size in $(seq $start 1 19);
+        do python run.py -b $name -m bach -s $size --trials $TRIALS >> "results/"$name"_bach"
+    done
+}
+
 blackscholes_torch
 
 # Post-processing
