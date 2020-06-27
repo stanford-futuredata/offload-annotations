@@ -121,7 +121,7 @@ class Merge(Instruction):
 
 class Call(Instruction):
     """ An instruction that calls an SA-enabled function. """
-    def __init__(self,  target, func, args, kwargs, ty, backend, batch_size):
+    def __init__(self,  target, func, args, kwargs, annotation, tys, backend, batch_size, finalized):
         self.target = target
         # Function to call.
         self.func = func
@@ -130,11 +130,20 @@ class Call(Instruction):
         # Keyword arguments: Maps { name -> target }
         self.kwargs = kwargs
         # Return split type.
-        self.ty = ty
+        self.ty = annotation.return_type
+        # Argument split types.
+        self.tys = tys
         # The backend the instruction is executed on.
         self.backend = backend
         # The batch size of the instruction split.
         self.batch_size = batch_size
+        # Compute estimator.
+        if annotation.estimator is None:
+            self.estimator = None
+        else:
+            self.estimator = [annotation.estimator]
+        # Whether the backend needs to be finalized.
+        self.finalized = finalized
 
     def __str__(self):
         args = ", ".join(map(lambda a: "v" + str(a), self.args))
@@ -155,12 +164,59 @@ class Call(Instruction):
     def get_kwargs(self, context):
         return dict([ (name, context[target][-1]) for (name, target) in self.kwargs.items() ])
 
+    def _finalize_backend(self, context):
+        if self.finalized:
+            return
+        self.finalized = True
+        if self.backend == Backend.CPU:
+            return
+
+        cpu_cost = 0
+        gpu_cost = 0
+
+        # Check if estimators exist
+        if self.estimator is None:
+            return
+        for target, ty in self.tys.items():
+            if ty.estimator is None:
+                return
+
+        # Add compute estimate
+        values = []
+        tys = []
+        for target, ty in self.tys.items():
+            values.append(context[target][-1])
+            tys.append(ty)
+        cpu_cost += self.estimator[0](tys, values, Backend.CPU)
+        gpu_cost += self.estimator[0](tys, values, Backend.GPU)
+
+        # Add transfer estimate
+        for target, ty in self.tys.items():
+            backend = ty.backend(context[target][-1])
+            if backend == Backend.CPU:
+                gpu_cost += ty.estimator(context[target][-1], Backend.GPU)
+            elif backend == Backend.GPU:
+                cpu_cost += ty.estimator(context[target][-1], Backend.CPU)
+
+        if cpu_cost < gpu_cost:
+            self.backend = Backend.CPU
+
+
+    def _transfer_args_kwargs(self, context):
+        # Transfer each argument to the operation backend
+        for target, ty in self.tys.items():
+            value = context[target][-1]
+            if ty.backend(value) != self.backend:
+                context[target][-1] = ty.to(value, self.backend)
+
     def evaluate(self, _thread, _index_range, _batch_index, _values, context):
         """
         Evaluates a function call by gathering arguments and calling the
         function.
 
         """
+        self._finalize_backend(context)
+        self._transfer_args_kwargs(context)
         args = self.get_args(context)
         kwargs = self.get_kwargs(context)
         result = self.func(*args, **kwargs)

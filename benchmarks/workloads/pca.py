@@ -170,11 +170,7 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
 
     # Initialize CUDA
     if mode == Mode.BACH or mode == Mode.CUDA:
-        import cupy as cp
-        t0 = time.time()
-        cp.ones(1 << 27)
-        sys.stdout.write('Init cuda?: {}\n'.format(time.time() - t0))
-        sys.stdout.flush()
+        cuml.LogisticRegression()
 
     # Run program
     start = time.time()

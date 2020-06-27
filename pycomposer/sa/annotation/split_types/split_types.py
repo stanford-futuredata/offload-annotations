@@ -142,6 +142,8 @@ class OffloadSplitType(SplitType):
     supported_backends = [Backend.CPU]
     # Which backend to materialize the merged type on
     materialize = None
+    # Transfer estimator function
+    estimator = None
 
     def backend(self, value):
         """The current backend the value is on.

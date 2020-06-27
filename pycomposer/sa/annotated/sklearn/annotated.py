@@ -4,6 +4,7 @@ import cuml
 
 from copy import deepcopy as dc
 from sa.annotation import *
+from sa.annotation.scheduling import *
 from sa.annotation.split_types import *
 from sa.annotated.cupy import NdArraySplit
 
@@ -25,20 +26,22 @@ class CPUModelSplit(SplitType):
 
 class ModelSplit(OffloadSplitType):
 
+    estimator = gen_linear_transfer_estimator(1, 0)
+
     def __init__(self):
         self.supported_backends = [Backend.CPU, Backend.GPU]
-        self.cpu_models = set([
+        self.cpu_models = [
             sklearn.cluster.DBSCAN,
             sklearn.neighbors.KNeighborsClassifier,
             sklearn.decomposition.PCA,
             sklearn.decomposition.TruncatedSVD,
-        ])
-        self.gpu_models = set([
+        ]
+        self.gpu_models = [
             cuml.DBSCAN,
             cuml.neighbors.KNeighborsClassifier,
             cuml.PCA,
             cuml.decomposition.TruncatedSVD,
-        ])
+        ]
 
     def combine(self, values, original=None):
         return values[0]
@@ -61,8 +64,17 @@ class ModelSplit(OffloadSplitType):
         old_backend = self.backend(value)
         if old_backend == backend:
             return value
-        else:
-            raise Exception('cannot transfer from {} to {}'.format(old_backend, backend))
+        if True:
+        # try:
+        #     sklearn.utils.validation.check_is_fitted(value)
+        #     raise Exception('cannot transfer model, already fitted')
+        # except sklearn.exceptions.NotFittedError:
+            if old_backend == Backend.CPU:
+                model = self.gpu_models[self.cpu_models.index(type(value))]
+            else:
+                model = self.cpu_models[self.gpu_models.index(type(value))]
+            return model()
+
 
 
     def __str__(self):
@@ -93,7 +105,8 @@ def fit_x(model, X):
 def fit_xy(model, X, y):
     return model.fit(X, y)
 
-@oa((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
+compute_estimator = gen_linear_compute_estimator(2, 0, 0, 14)
+@oa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), estimator=compute_estimator)
 def fit_transform(model, X):
     return model.fit_transform(X)
 

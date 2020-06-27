@@ -414,17 +414,17 @@ class LogicalPlan:
                 vm.program.insts.append(Split(valnum, ty, backend, batch_size))
             var_sizes[valnum] = batch_size
 
-        # Transfer values between backends as necessary.
-        def transfer(vm, var_locs, valnum, backend):
-            ty = vm.split_type_of(valnum)
-            assert ty is not None
-            assert valnum in var_locs
+        # # Transfer values between backends as necessary.
+        # def transfer(vm, var_locs, valnum, backend):
+        #     ty = vm.split_type_of(valnum)
+        #     assert ty is not None
+        #     assert valnum in var_locs
 
-            if var_locs[valnum] == Backend.SCALAR:
-                var_locs[valnum] = backend
-            elif var_locs[valnum] != backend:
-                vm.program.insts.append(To(valnum, ty, backend))
-                var_locs[valnum] = backend
+        #     if var_locs[valnum] == Backend.SCALAR:
+        #         var_locs[valnum] = backend
+        #     elif var_locs[valnum] != backend:
+        #         vm.program.insts.append(To(valnum, ty, backend))
+        #         var_locs[valnum] = backend
 
         def mark_backends(op, vms):
             if force_cpu:
@@ -466,6 +466,54 @@ class LogicalPlan:
                 inst_backend = Backend.GPU
             else:
                 inst_backend = Backend.CPU
+            def finalize_backend():
+                # If function does not have an estimator, return.
+                if op.annotation.estimator is None:
+                    return False
+                # If the CPU is not supported, return.
+                if Backend.GPU not in op.supported_backends:
+                    return False
+
+                # Attain all non-intermediate and non-allocation arguments.
+                # If intermediate arguments exist, we cannot finalize.
+                values = []
+                tys = []
+                kv_args = list(enumerate(op.args)) + list(op.kwargs.items())
+                for (key, value) in kv_args:
+                    if isinstance(value, Operation):
+                        if isinstance(value.annotation, Allocation):
+                            continue
+                        else:
+                            return False
+                    values.append(value)
+                    tys.append(op.split_type_of(key))
+
+                # If any split type does not have an estimator, return.
+                for ty in tys:
+                    if ty.estimator is None:
+                        return False
+
+                # Estimate the cost for both cpu and gpu.
+                cpu_cost = 0
+                gpu_cost = 0
+                func_estimator = op.annotation.estimator
+                cpu_cost += func_estimator(tys, values, Backend.CPU)
+                gpu_cost += func_estimator(tys, values, Backend.GPU)
+                for value, ty in zip(values, tys):
+                    backend = ty.backend(value)
+                    if backend == Backend.CPU:
+                        gpu_cost += ty.estimator(value, Backend.GPU)
+                    elif backend == Backend.GPU:
+                        cpu_cost += ty.estimator(value, Backend.CPU)
+
+                print('CPU={} GPU={} op={}'.format(cpu_cost, gpu_cost, op))
+                if cpu_cost < gpu_cost:
+                    return (True, Backend.CPU)
+                return (True, inst_backend)
+
+            finalized, inst_backend = finalize_backend()
+
+            # Set the batch size
             batch_size = batch_size_dict[inst_backend]
 
             # Register the arguments if it is our first encounter. If the argument is
@@ -498,12 +546,17 @@ class LogicalPlan:
                     backend = ty.backend(value)
                     var_locs[valnum] = backend
                 return valnum
+
+            # Simultaneously generate a dictionary of split types in the function call.
+            tys = {}
             for (i, arg) in enumerate(op.args):
                 valnum = register(i, arg)
                 args.append(valnum)
+                tys[valnum] = op.split_type_of(i)
             for (key, value) in op.kwargs.items():
                 valnum = register(key, value)
                 kwargs[key] = valnum
+                tys[valnum] = op.split_type_of(key)
 
             # Change the batch size with a split or merge if necessary.
             for valnum in args:
@@ -511,11 +564,11 @@ class LogicalPlan:
             for _, valnum in kwargs.items():
                 change_batch_size(vm, var_sizes, valnum, var_locs[valnum], batch_size)
 
-            # Transfer arguments between backends as necessary.
-            for valnum in args:
-                transfer(vm, var_locs, valnum, inst_backend)
-            for _, valnum in kwargs.items():
-                transfer(vm, var_locs, valnum, inst_backend)
+            # # Transfer arguments between backends as necessary.
+            # for valnum in args:
+            #     transfer(vm, var_locs, valnum, inst_backend)
+            # for _, valnum in kwargs.items():
+            #     transfer(vm, var_locs, valnum, inst_backend)
 
             # Register the valnum of the return value and its backend location
             result = vm.register_value(op, op.annotation.return_type)
@@ -538,7 +591,7 @@ class LogicalPlan:
             else:
                 func = op.func
             vm.program.insts.append(Call(
-                result, func, args, kwargs, op.annotation.return_type, inst_backend, batch_size))
+                result, func, args, kwargs, op.annotation, tys, inst_backend, batch_size, finalized))
 
         # programs: Maps Pipeline IDs to VM Programs.
         # arg_id_to_ops: Maps Arguments to ops. Store separately so we don't serialize ops.
@@ -557,7 +610,7 @@ class LogicalPlan:
                 if ty is None or not ty.mutable:
                     continue
                 if ty.materialize is not None:
-                    transfer(vms[pipeline], var_locs[pipeline], valnum, ty.materialize)
+                    vms[pipeline].program.insts.append(To(valnum, ty, ty.materialize))
             vms[pipeline].program.remove_unused_outputs(mutables[pipeline])
         print('Allocation:', sum(alloc_times))
         return sorted(list(vms.items()))

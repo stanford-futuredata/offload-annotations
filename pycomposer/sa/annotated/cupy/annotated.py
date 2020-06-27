@@ -7,9 +7,12 @@ import cudf
 
 from copy import deepcopy as dc
 from sa.annotation import *
+from sa.annotation.scheduling import *
 from sa.annotation.split_types import *
 
 class NdArraySplit(OffloadSplitType):
+
+    estimator = gen_linear_transfer_estimator(1, 0)
 
     def __init__(self):
         self.slice_col = False
