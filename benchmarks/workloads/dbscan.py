@@ -8,6 +8,7 @@ import pandas as pd
 import cuml
 import cudf
 import sklearn
+import sklearn.cluster
 
 sys.path.append("../../lib")
 sys.path.append("../../pycomposer")
@@ -17,6 +18,7 @@ from sa.annotation import Backend
 from mode import Mode
 
 DEFAULT_SIZE = 1 << 13
+DEFAULT_CPU = 1 << 22
 MAX_BATCH_SIZE = 1 << 22
 
 DEFAULT_FEATURES = 256
@@ -29,6 +31,11 @@ def gen_data(mode,
              n_features=DEFAULT_FEATURES,
              centers=DEFAULT_CENTERS,
              cluster_std=DEFAULT_CLUSTER_STD):
+    """Generate input data (included in total runtime).
+
+    Parameters include number of features, number of centers, and the
+    standard deviation of the clusters.
+    """
     X, _labels_true = sklearn.datasets.make_blobs(n_samples=size,
                                                   n_features=n_features,
                                                   centers=centers,
@@ -41,34 +48,19 @@ def gen_data(mode,
 
 
 def clusters(labels):
-    # Number of clusters in labels, ignoring noise if present.
+    """Number of clusters in labels, ignoring noise if present.
+
+    Used to validate classification results.
+    """
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
     n_noise = list(labels).count(-1)
-
-    # print('Estimated number of clusters: %d' % n_clusters_)
-    # print('Estimated number of noise points: %d' % n_noise_)
-    # print("Homogeneity: %0.3f" % sklearn.metrics.homogeneity_score(labels_true, labels))
-    # print("Completeness: %0.3f" % sklearn.metrics.completeness_score(labels_true, labels))
-    # print("V-measure: %0.3f" % sklearn.metrics.v_measure_score(labels_true, labels))
-    # print("Adjusted Rand Index: %0.3f"
-    #       % sklearn.metrics.adjusted_rand_score(labels_true, labels))
-    # print("Adjusted Mutual Information: %0.3f"
-    #       % sklearn.metrics.adjusted_mutual_info_score(labels_true, labels))
-    # print("Silhouette Coefficient: %0.3f"
-    #       % sklearn.metrics.silhouette_score(X, labels))
     return n_clusters, n_noise
 
 
-def run_composer(mode, X, eps, min_samples, batch_size, threads):
+def run_bach(X, eps, min_samples):
     import sa.annotated.cupy as np
     import sa.annotated.sklearn as sklearn
 
-    if mode == Mode.MOZART:
-        force_cpu = True
-    elif mode == Mode.BACH:
-        force_cpu = False
-    else:
-        raise Exception
     if X.shape[0] > MAX_BATCH_SIZE:
         print('WARNING: will run out of memory')
 
@@ -82,11 +74,20 @@ def run_composer(mode, X, eps, min_samples, batch_size, threads):
     labels = sklearn.labels(db)
     labels.materialize = Backend.CPU
 
-    sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    sklearn.evaluate(
+        workers=1,
+        batch_size={
+            Backend.CPU: DEFAULT_CPU,
+            Backend.GPU: MAX_BATCH_SIZE,
+        },
+        force_cpu=False,
+        paging=False,
+    )
     return labels.value
 
 
-def run_naive(X, eps, min_samples):
+def run_cpu(X, eps, min_samples):
+    # Begin computation
     t0 = time.time()
     mean = np.mean(X, axis=0)
     std = np.std(X, axis=0)
@@ -101,9 +102,12 @@ def run_naive(X, eps, min_samples):
     return labels
 
 
-def run_cuda(X, eps, min_samples):
-    t0 = time.time()
+def run_gpu(X, eps, min_samples):
+    # Transfer inputs to GPU
     X = cp.array(X)
+
+    # Begin computation
+    t0 = time.time()
     mean = cp.mean(X, axis=0)
     std = cp.std(X, axis=0)
     cp.subtract(X, mean, out=X)
@@ -114,6 +118,8 @@ def run_cuda(X, eps, min_samples):
     db = cuml.DBSCAN(eps=eps, min_samples=min_samples)
     db = db.fit(X)
     labels = db.labels_
+
+    # Transfer outputs to CPU
     labels = labels.to_pandas().to_numpy()
     return labels
 
@@ -129,7 +135,7 @@ def run(mode, size=None, _cpu=None, _gpu=None, threads=None, data_mode='file'):
     start = time.time()
     inputs = gen_data(mode, size)
     init_time = time.time() - start
-    sys.stdout.write('Initialization: {}\n'.format(init_time))
+    sys.stdout.write('Init: {}\n'.format(init_time))
 
     # This workload can't be split, so always default to the max size
     batch_size = {
@@ -139,12 +145,12 @@ def run(mode, size=None, _cpu=None, _gpu=None, threads=None, data_mode='file'):
 
     # Run program
     start = time.time()
-    if mode.is_composer():
-        labels = run_composer(mode, *inputs, batch_size, threads)
+    if mode == Mode.BACH:
+        labels = run_bach(*inputs)
     elif mode == Mode.NAIVE:
-        labels = run_naive(*inputs)
+        labels = run_cpu(*inputs)
     elif mode == Mode.CUDA:
-        labels = run_cuda(*inputs)
+        labels = run_gpu(*inputs)
     else:
         raise ValueError
     runtime = time.time() - start
@@ -154,4 +160,3 @@ def run(mode, size=None, _cpu=None, _gpu=None, threads=None, data_mode='file'):
     sys.stdout.flush()
     print('Clusters, noise:', clusters(labels))
     return init_time, runtime
-

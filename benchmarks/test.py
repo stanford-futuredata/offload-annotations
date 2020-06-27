@@ -175,20 +175,21 @@ class TestDBSCAN(unittest.TestCase):
         self.data_size = 1 << 10
         self.centers = dbscan.DEFAULT_CENTERS
 
-    def test_naive(self):
+    def test_cpu(self):
         X, eps, min_samples = dbscan.gen_data(Mode.NAIVE, self.data_size, centers=self.centers)
         self.assertIsInstance(X, np.ndarray)
-        labels = dbscan.run_naive(X, eps, min_samples)
+        labels = dbscan.run_cpu(X, eps, min_samples)
         self.assertIsInstance(labels, np.ndarray)
 
         clusters, noise = dbscan.clusters(labels)
         self.assertEqual(clusters, self.centers)
         self.assertLess(noise, self.data_size * 0.3)
 
-    def test_cuda(self):
+    @pytest.mark.cupy
+    def test_gpu(self):
         X, eps, min_samples = dbscan.gen_data(Mode.CUDA, self.data_size, centers=self.centers)
         self.assertIsInstance(X, cudf.DataFrame)
-        labels = dbscan.run_cuda(X, eps, min_samples)
+        labels = dbscan.run_gpu(X, eps, min_samples)
         self.assertIsInstance(labels, np.ndarray)
 
         clusters, noise = dbscan.clusters(labels)
@@ -203,22 +204,19 @@ class TestDBSCAN(unittest.TestCase):
 
     def validateResults(self, size, centers, cluster_std):
         inputs = dbscan.gen_data(Mode.NAIVE, size, centers=centers, cluster_std=cluster_std)
-        labels = dbscan.run_naive(*inputs)
+        labels = dbscan.run_cpu(*inputs)
         self.validateLabels(labels, size, centers)
 
         inputs = dbscan.gen_data(Mode.CUDA, size, centers=centers, cluster_std=cluster_std)
-        labels = dbscan.run_cuda(*inputs)
+        labels = dbscan.run_gpu(*inputs)
         self.validateLabels(labels, size, centers)
 
-        batch_size = { Backend.CPU: size, Backend.GPU: size }
-        inputs = dbscan.gen_data(Mode.MOZART, size, centers=centers)
-        labels = dbscan.run_composer(Mode.MOZART, *inputs, batch_size, threads=1)
+        inputs = dbscan.gen_data(Mode.BACH, size, centers=centers, cluster_std=cluster_std)
+        labels = dbscan.run_gpu(*inputs)
         self.validateLabels(labels, size, centers)
 
-        inputs = dbscan.gen_data(Mode.BACH, size, centers=centers)
-        labels = dbscan.run_composer(Mode.BACH, *inputs, batch_size, threads=1)
-        self.validateLabels(labels, size, centers)
-
+    @pytest.mark.bach
+    @pytest.mark.cupy
     def test_parameter_sensitivity(self):
         self.validateResults(self.data_size, centers=32, cluster_std=1.0)
         self.validateResults(self.data_size, centers=32, cluster_std=1.1)
@@ -226,21 +224,12 @@ class TestDBSCAN(unittest.TestCase):
         self.validateResults(self.data_size, centers=4, cluster_std=1.0)
         self.validateResults(self.data_size, centers=128, cluster_std=1.0)
 
-    def test_mozart(self):
-        X, eps, min_samples = dbscan.gen_data(Mode.MOZART, self.data_size, centers=self.centers)
-        self.assertIsInstance(X, np.ndarray)
-        labels = dbscan.run_composer(Mode.MOZART, X, eps, min_samples, None, threads=1)
-        self.assertIsInstance(labels, np.ndarray)
-
-        clusters, noise = dbscan.clusters(labels)
-        self.assertEqual(clusters, self.centers)
-        self.assertLess(noise, self.data_size * 0.3)
-
     @pytest.mark.bach
+    @pytest.mark.cupy
     def test_bach(self):
         X, eps, min_samples = dbscan.gen_data(Mode.BACH, self.data_size, centers=self.centers)
         self.assertIsInstance(X, np.ndarray)
-        labels = dbscan.run_composer(Mode.BACH, X, eps, min_samples, None, threads=1)
+        labels = dbscan.run_bach(X, eps, min_samples)
         self.assertIsInstance(labels, np.ndarray)
 
         clusters, noise = dbscan.clusters(labels)
