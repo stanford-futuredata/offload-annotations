@@ -23,6 +23,14 @@ MAX_BATCH_SIZE = 1 << 26
 
 
 def _write_data(size, filenames=filenames):
+    """Writes input files to disk.
+
+    Titled datasets/crime_index/total_population_${log(size)}.csv, etc.
+    Writes the file only if a file with the name doesn't already exist.
+
+    Parameters:
+    - size: number of rows
+    """
     for i, filename in enumerate(filenames):
         filename = '{}/{}_{}.csv'.format(prefix, filename, int(math.log2(size)))
         if os.path.exists(filename):
@@ -35,75 +43,44 @@ def _write_data(size, filenames=filenames):
         print('done.')
 
 
-def _read_data_cuda(size=None, filenames=filenames):
-    if size is None:
-        fs = filenames
-    else:
-        fs = ['{}/{}_{}.csv'.format(prefix, filename, int(math.log2(size))) for filename in filenames]
-    total_population = cudf.read_csv(fs[0], header=None).iloc[:,0]
-    adult_population = cudf.read_csv(fs[1], header=None).iloc[:,0]
-    num_robberies = cudf.read_csv(fs[2], header=None).iloc[:,0]
-    return total_population, adult_population, num_robberies
-
-
 def read_data(mode, size=None, filenames=filenames):
-    if mode == Mode.CUDA:
-        return _read_data_cuda(size, filenames)
+    """Reads data from disk.
 
-    if mode.is_composer():
-        import sa.annotated.pandas as pd
-    else:
-        import pandas as pd
-
+    Parameters:
+    - size: number of rows
+    """
     if size is None:
         fs = filenames
     else:
         fs = ['{}/{}_{}.csv'.format(prefix, filename, int(math.log2(size))) for filename in filenames]
-    total_population = pd.read_csv(fs[0], squeeze=True, header=None)
-    adult_population = pd.read_csv(fs[1], squeeze=True, header=None)
-    num_robberies = pd.read_csv(fs[2], squeeze=True, header=None)
+    if mode == Mode.CUDA:
+        total_population = cudf.read_csv(fs[0], header=None).iloc[:,0]
+        adult_population = cudf.read_csv(fs[1], header=None).iloc[:,0]
+        num_robberies = cudf.read_csv(fs[2], header=None).iloc[:,0]
+    else:
+        if mode == Mode.BACH:
+            import sa.annotated.pandas as pd
+        elif mode == Mode.NAIVE:
+            import pandas as pd
+        total_population = pd.read_csv(fs[0], squeeze=True, header=None)
+        adult_population = pd.read_csv(fs[1], squeeze=True, header=None)
+        num_robberies = pd.read_csv(fs[2], squeeze=True, header=None)
+
+    # Validate data
+    if size is not None and mode != Mode.BACH:
+        assert len(total_population) == size
+        assert len(adult_population) == size
+        assert len(num_robberies) == size
     return total_population, adult_population, num_robberies
 
 
-def _gen_data_cuda(size):
-    total_population = np.ones(size, dtype="float64") * 500000
-    adult_population = np.ones(size, dtype="float64") * 250000
-    num_robberies = np.ones(size, dtype="float64") * 1000
-    return cudf.Series(total_population), cudf.Series(adult_population), cudf.Series(num_robberies)
-
-
-def gen_data(mode, size):
-    if mode == Mode.CUDA:
-        return _gen_data_cuda(size)
-
-    if mode.is_composer():
-        import sa.annotated.pandas as pd
-    else:
-        import pandas as pd
-
-    total_population = np.ones(size, dtype="float64") * 500000
-    adult_population = np.ones(size, dtype="float64") * 250000
-    num_robberies = np.ones(size, dtype="float64") * 1000
-    return pd.Series(total_population), pd.Series(adult_population), pd.Series(num_robberies)
-
-
-def run_composer(
-    mode,
+def run_bach_cudf(
     size,
     total_population,
     adult_population,
     num_robberies,
-    batch_size,
-    threads,
 ):
     import sa.annotated.pandas as pd
-    if mode == Mode.MOZART:
-        force_cpu = True
-    elif mode == Mode.BACH:
-        force_cpu = False
-    else:
-        raise Exception
-    paging = size > MAX_BATCH_SIZE
 
     # Get all city information with total population greater than 500,000
     big_cities = pd.greater_than(total_population, 500000.0)
@@ -122,11 +99,19 @@ def run_composer(
 
     result = pd.pandasum(crime_index)
     result.materialize = Backend.CPU
-    pd.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu, paging=paging)
+    pd.evaluate(
+        workers=1,
+        batch_size={
+            Backend.CPU: DEFAULT_CPU,
+            Backend.GPU: MAX_BATCH_SIZE,
+        },
+        force_cpu=False,
+        paging=size > MAX_BATCH_SIZE,
+    )
     return result.value
 
 
-def run_naive(total_population, adult_population, num_robberies):
+def run_pandas(total_population, adult_population, num_robberies):
     big_cities = total_population > 500000
     big_cities = total_population.mask(big_cities, 0.0)
     double_pop = adult_population * 2 + big_cities - (num_robberies * 2000.0)
@@ -136,7 +121,7 @@ def run_naive(total_population, adult_population, num_robberies):
     return crime_index.sum()
 
 
-def run_cuda(total_population, adult_population, num_robberies):
+def run_cudf(total_population, adult_population, num_robberies):
     def mask(series, cond, val):
         clone = series.copy()
         clone.loc[cond] = val
@@ -151,43 +136,27 @@ def run_cuda(total_population, adult_population, num_robberies):
     return crime_index.sum()
 
 
-def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
+def run(mode, size=None, cpu=None, gpu=None, threads=1):
     # Optimal defaults
     if size == None:
         size = DEFAULT_SIZE
-    if cpu is None:
-        cpu = DEFAULT_CPU
-    if gpu is None:
-        gpu = MAX_BATCH_SIZE
-    if threads is None:
-        threads = 1
 
     # Initialize data
-    if data_mode == 'file':
-        _write_data(size)
-    batch_size = {
-        Backend.CPU: min(cpu, max(1, int(size / threads))),
-        Backend.GPU: min(gpu, MAX_BATCH_SIZE),
-    }
+    _write_data(size)
 
     # Get inputs
     start = time.time()
-    if data_mode == 'generated':
-        inputs = gen_data(mode, size)
-    elif data_mode == 'file':
-        inputs = read_data(mode, size)
-    else:
-        raise ValueError
+    inputs = read_data(mode, size)
     init_time = time.time() - start
-    print("Get {} data: {}".format(data_mode, init_time))
+    print("Init: {}".format(init_time))
 
     start = time.time()
-    if mode.is_composer():
-        result = run_composer(mode, size, *inputs, batch_size, threads)
-    elif mode == Mode.NAIVE:
-        result = run_naive(*inputs)
+    if mode == Mode.NAIVE:
+        result = run_pandas(*inputs)
     elif mode == Mode.CUDA:
-        result = run_cuda(*inputs)
+        result = run_cudf(*inputs)
+    elif mode == Mode.BACH:
+        result = run_bach_cudf(size, *inputs)
     else:
         raise ValueError
     runtime = time.time() - start

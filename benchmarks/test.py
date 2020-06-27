@@ -336,104 +336,61 @@ class TestBlackscholes(unittest.TestCase):
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+
 class TestCrimeIndex(unittest.TestCase):
 
     def setUp(self):
-        prefix = 'benchmarks/datasets/crime_index/test/'
+        prefix = 'datasets/crime_index/test/'
         filenames = ['total_population.csv', 'adult_population.csv', 'num_robberies.csv']
         self.filenames = [prefix + f for f in filenames]
         self.data_size = 1 << 20
-        self.batch_size = {
-            Backend.CPU: 1 << 16,
-            Backend.GPU: 1 << 16,
-        }
         # The expected result for the given data size
         self.expected = 5242.88
-
-    def test_batch_parameters(self):
-        self.assertLess(self.batch_size[Backend.CPU], self.data_size)
-        self.assertLess(self.batch_size[Backend.GPU], self.data_size)
 
     def test_read_data(self):
         for array in crime_index.read_data(Mode.NAIVE, filenames=self.filenames):
             self.assertIsInstance(array, pd.Series)
         for array in crime_index.read_data(Mode.CUDA, filenames=self.filenames):
             self.assertIsInstance(array, cudf.Series)
-        for array in crime_index.read_data(Mode.MOZART, filenames=self.filenames):
-            self.assertIsInstance(array, dag.Operation)
         for array in crime_index.read_data(Mode.BACH, filenames=self.filenames):
             self.assertIsInstance(array, dag.Operation)
 
-    def test_gen_data(self):
-        size = 2
-        for array in crime_index.gen_data(Mode.NAIVE, size):
+    def test_write_data(self):
+        crime_index._write_data(self.data_size)
+        for array in crime_index.read_data(Mode.NAIVE, size=self.data_size):
             self.assertIsInstance(array, pd.Series)
-        for array in crime_index.gen_data(Mode.CUDA, size):
+        for array in crime_index.read_data(Mode.CUDA, size=self.data_size):
             self.assertIsInstance(array, cudf.Series)
-        for array in crime_index.gen_data(Mode.MOZART, size):
-            self.assertIsInstance(array, dag.Operation)
-        for array in crime_index.gen_data(Mode.BACH, size):
+        for array in crime_index.read_data(Mode.BACH, size=self.data_size):
             self.assertIsInstance(array, dag.Operation)
 
-    def test_read_naive(self):
-        inputs = crime_index.read_data(Mode.NAIVE, filenames=self.filenames)
-        result = crime_index.run_naive(*inputs)
+    def test_cpu(self):
+        inputs = crime_index.read_data(Mode.NAIVE, size=self.data_size)
+        result = crime_index.run_pandas(*inputs)
+        self.assertIsInstance(result, float)
         self.assertAlmostEqual(result, self.expected)
 
-    def test_read_cuda(self):
-        inputs = crime_index.read_data(Mode.CUDA, filenames=self.filenames)
-        result = crime_index.run_cuda(*inputs)
+    def test_gpu(self):
+        inputs = crime_index.read_data(Mode.CUDA, size=self.data_size)
+        result = crime_index.run_cudf(*inputs)
+        self.assertIsInstance(result, float)
         self.assertAlmostEqual(result, self.expected)
 
-    def test_read_mozart(self):
-        inputs = crime_index.read_data(Mode.MOZART, filenames=self.filenames)
-        result = crime_index.run_composer(
-            Mode.MOZART, self.data_size, *inputs, self.batch_size, threads=16)
-        self.assertAlmostEqual(result, self.expected)
-
-    def test_read_bach(self):
-        inputs = crime_index.read_data(Mode.BACH, filenames=self.filenames)
-        result = crime_index.run_composer(
-            Mode.BACH, self.data_size, *inputs, self.batch_size, threads=1)
-        self.assertAlmostEqual(result, self.expected)
-
-    def test_gen_naive(self):
-        inputs = crime_index.gen_data(Mode.NAIVE, self.data_size)
-        result = crime_index.run_naive(*inputs)
-        self.assertAlmostEqual(result, self.expected)
-
-    def test_gen_cuda(self):
-        inputs = crime_index.gen_data(Mode.CUDA, self.data_size)
-        result = crime_index.run_cuda(*inputs)
-        self.assertAlmostEqual(result, self.expected)
-
-    def test_gen_mozart(self):
-        inputs = crime_index.gen_data(Mode.MOZART, self.data_size)
-        result = crime_index.run_composer(
-            Mode.MOZART, self.data_size, *inputs, self.batch_size, threads=16)
-        self.assertAlmostEqual(result, self.expected)
-
-    def test_gen_bach(self):
-        inputs = crime_index.gen_data(Mode.BACH, self.data_size)
-        result = crime_index.run_composer(
-            Mode.BACH, self.data_size, *inputs, self.batch_size, threads=1)
+    @pytest.mark.bach
+    def test_bach(self):
+        inputs = crime_index.read_data(Mode.BACH, size=self.data_size)
+        result = crime_index.run_bach_cudf(self.data_size, *inputs)
+        self.assertIsInstance(result, float)
         self.assertAlmostEqual(result, self.expected)
 
     @pytest.mark.paging
     @pytest.mark.bach
     def test_bach_paging(self):
-        filenames = [
-            'benchmarks/datasets/crime_index/total_population_28.csv',
-            'benchmarks/datasets/crime_index/adult_population_28.csv',
-            'benchmarks/datasets/crime_index/num_robberies_28.csv',
-        ]
-        batch_size = {
-            Backend.CPU: crime_index.MAX_BATCH_SIZE >> 1,
-            Backend.GPU: crime_index.MAX_BATCH_SIZE >> 1,
-        }
-        inputs = crime_index.read_data(Mode.BACH, filenames=filenames)
-        result = crime_index.run_composer(
-            Mode.BACH, 1 << 28, *inputs, batch_size, threads=1)
+        size = 1 << 28
+        self.assertGreater(size, crime_index.MAX_BATCH_SIZE)
+        crime_index._write_data(1 << 28)
+        inputs = crime_index.read_data(Mode.BACH, size=size)
+        result = crime_index.run_bach_cudf(size, *inputs)
         self.assertAlmostEqual(result, 1342177.28, places=3)
 
 
