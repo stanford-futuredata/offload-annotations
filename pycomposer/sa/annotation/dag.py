@@ -469,10 +469,10 @@ class LogicalPlan:
             def finalize_backend():
                 # If function does not have an estimator, return.
                 if op.annotation.estimator is None:
-                    return False
+                    return (False, inst_backend)
                 # If the CPU is not supported, return.
                 if Backend.GPU not in op.supported_backends:
-                    return False
+                    return (False, inst_backend)
 
                 # Attain all non-intermediate and non-allocation arguments.
                 # If intermediate arguments exist, we cannot finalize.
@@ -484,14 +484,14 @@ class LogicalPlan:
                         if isinstance(value.annotation, Allocation):
                             continue
                         else:
-                            return False
+                            return (False, inst_backend)
                     values.append(value)
                     tys.append(op.split_type_of(key))
 
                 # If any split type does not have an estimator, return.
                 for ty in tys:
                     if ty.estimator is None:
-                        return False
+                        return (False, inst_backend)
 
                 # Estimate the cost for both cpu and gpu.
                 cpu_cost = 0
