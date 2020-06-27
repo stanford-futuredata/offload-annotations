@@ -21,11 +21,8 @@ class TestHaversine(unittest.TestCase):
 
     def setUp(self):
         self.data_size = 1 << 16
+        # The expected result for the given data size
         self.expected = 4839.95983063
-        self.batch_size = {
-            Backend.CPU: 1 << 14,
-            Backend.GPU: 1 << 14,
-        }
 
     def validateResult(self, arr, val):
         self.assertIsInstance(arr, np.ndarray)
@@ -36,60 +33,65 @@ class TestHaversine(unittest.TestCase):
         self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
 
     def test_get_data(self):
-        size = 2
-        for array in haversine.get_data(size):
+        size = 16
+        arrays = haversine.get_data(size)
+        self.assertEqual(len(arrays), 2)
+        for array in arrays:
+            self.assertEqual(len(array), size)
             self.assertIsInstance(array, np.ndarray)
-        for array in haversine.get_tmp_arrays(Mode.NAIVE, size):
-            self.assertIsInstance(array, np.ndarray)
-        for array in haversine.get_tmp_arrays(Mode.CUDA, size, use_torch=True):
-            self.assertIsInstance(array, torch.Tensor)
-            self.assertEqual(array.device.type, 'cuda')
-        for array in haversine.get_tmp_arrays(Mode.CUDA, size, use_torch=False):
-            self.assertIsInstance(array, cp.ndarray)
 
-    def test_naive(self):
+    def test_cpu(self):
         inputs = haversine.get_data(self.data_size)
-        tmp_arrays = haversine.get_tmp_arrays(Mode.NAIVE, self.data_size)
-        im = haversine.run_naive(*inputs, *tmp_arrays)
-        self.validateResult(im, self.expected)
+        result = haversine.run_numpy(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.validateResult(result, self.expected)
 
-    def test_cuda_torch(self):
+    def test_gpu_torch(self):
         inputs = haversine.get_data(self.data_size)
-        tmp_arrays = haversine.get_tmp_arrays(Mode.CUDA, self.data_size, use_torch=True)
-        im = haversine.run_cuda_torch(*inputs, *tmp_arrays)
-        self.validateResult(im, self.expected)
-
-    def test_cuda_cupy(self):
-        inputs = haversine.get_data(self.data_size)
-        tmp_arrays = haversine.get_tmp_arrays(Mode.CUDA, self.data_size, use_torch=False)
-        im = haversine.run_cuda_cupy(*inputs, *tmp_arrays)
-        self.validateResult(im, self.expected)
-
-    @pytest.mark.skip(reason='fatal Python error')
-    def test_mozart(self):
-        inputs = haversine.get_data(self.data_size)
-        tmp_arrays = haversine.get_tmp_arrays(Mode.MOZART, self.data_size)
-        im = haversine.run_composer(
-            Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16, use_torch=None)
-        self.validateResult(im, self.expected)
+        result = haversine.run_torch(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.validateResult(result, self.expected)
 
     @pytest.mark.bach
-    @pytest.mark.skip(reason='fatal Python error')
     def test_bach_torch(self):
         inputs = haversine.get_data(self.data_size)
-        tmp_arrays = haversine.get_tmp_arrays(Mode.BACH, self.data_size, use_torch=True)
-        im = haversine.run_composer(
-            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=True)
-        self.validateResult(im, self.expected)
+        result = haversine.run_bach_torch(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.validateResult(result, self.expected)
+
+    @pytest.mark.paging
+    @pytest.mark.bach
+    def test_bach_torch_paging(self):
+        data_size = haversine.MAX_BATCH_SIZE << 2
+        inputs = haversine.get_data(data_size)
+        result = haversine.run_bach_torch(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.validateResult(result, self.expected)
+
+    @pytest.mark.cupy
+    def test_gpu_cupy(self):
+        inputs = haversine.get_data(self.data_size)
+        result = haversine.run_cupy(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.validateResult(result, self.expected)
 
     @pytest.mark.bach
-    @pytest.mark.skip(reason='fatal Python error')
+    @pytest.mark.cupy
     def test_bach_cupy(self):
         inputs = haversine.get_data(self.data_size)
-        tmp_arrays = haversine.get_tmp_arrays(Mode.BACH, self.data_size, use_torch=False)
-        im = haversine.run_composer(
-            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1, use_torch=False)
-        self.validateResult(im, self.expected)
+        result = haversine.run_bach_cupy(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.validateResult(result, self.expected)
+
+    @pytest.mark.paging
+    @pytest.mark.bach
+    @pytest.mark.cupy
+    def test_bach_cupy_paging(self):
+        data_size = haversine.MAX_BATCH_SIZE << 2
+        inputs = haversine.get_data(data_size)
+        result = haversine.run_bach_cupy(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.validateResult(result, self.expected)
 
 
 class TestPCA(unittest.TestCase):

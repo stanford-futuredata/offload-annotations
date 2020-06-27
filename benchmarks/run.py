@@ -16,7 +16,8 @@ class Benchmark(enum.Enum):
     TSVD = 3
     PCA = 4
     DBSCAN = 5
-    HAVERSINE = 6
+    HAVERSINE_TORCH = 6
+    HAVERSINE_CUPY = 7
 
 
 def to_function(bm):
@@ -32,8 +33,10 @@ def to_function(bm):
         return pca.run
     elif bm == Benchmark.DBSCAN:
         return dbscan.run
-    elif bm == Benchmark.HAVERSINE:
-        return haversine.run
+    elif bm == Benchmark.HAVERSINE_TORCH:
+        return haversine.run_torch_main
+    elif bm == Benchmark.HAVERSINE_CUPY:
+        return haversine.run_cupy_main
     else:
         raise Exception
 

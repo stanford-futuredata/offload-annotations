@@ -4,7 +4,6 @@ import math
 import sys
 import time
 import numpy as np
-import cupy as cp
 import torch
 
 sys.path.append("../../lib")
@@ -16,52 +15,50 @@ from mode import Mode
 
 DEFAULT_SIZE = 1 << 26
 DEFAULT_CPU = 1 << 13
-DEFAULT_GPU = 1 << 21
 MAX_BATCH_SIZE = 1 << 28
 
 
 def get_data(size):
+    """Input data starts on the CPU, as if it came from another
+    step in the pipeline.
+
+    Parameters:
+    - size: number of elements
+    """
+
     lats = np.ones(size, dtype='float64') * 0.0698132
     lons = np.ones(size, dtype='float64') * 0.0698132
     return lats, lons
 
 
-def _get_tmp_arrays_cuda(size, use_torch):
-    if use_torch:
-        a = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
-        dlat = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
-        dlon = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
-    else:
-        a = cp.empty(size, dtype='float64')
-        dlat = cp.empty(size, dtype='float64')
-        dlon = cp.empty(size, dtype='float64')
-    return a, dlat, dlon
+def haversine(lat2, lon2, oas=True, use_torch=True):
+    """The "original" workload.
 
-def get_tmp_arrays(mode, size, use_torch=True):
-    if mode == Mode.CUDA:
-        return _get_tmp_arrays_cuda(size, use_torch=use_torch)
-
-    if mode.is_composer() and use_torch:
-        import sa.annotated.numpy as np
-    elif mode.is_composer() and not use_torch:
-        import sa.annotated.cupy as np
+    Parameters:
+    - oas: true if using OAs, false if using the CPU library
+    - use_torch: true if torch, false if cupy (only relevant if using OAs)
+    """
+    if oas:
+        if use_torch:
+            import sa.annotated.numpy as np
+            import sa.annotated.numpy as ss
+        else:
+            import sa.annotated.cupy as np
+            import sa.annotated.cupy as ss
     else:
         import numpy as np
+        import scipy.special as ss
 
+    # Allocate output array and temporary arrays
+    size = len(lat2)
     a = np.empty(size, dtype='float64')
     dlat = np.empty(size, dtype='float64')
     dlon = np.empty(size, dtype='float64')
-    return a, dlat, dlon
 
+    if oas:
+        a.materialize = Backend.CPU
 
-def haversine(lat2, lon2, a, dlat, dlon, composer, use_torch=None):
-    if composer and use_torch:
-        import sa.annotated.numpy as np
-    elif composer and not use_torch:
-        import sa.annotated.cupy as np
-    else:
-        import numpy as np
-
+    # Begin computation
     lat1 = 0.70984286
     lon1 = 1.23892197
     MILES_CONST = 3959.0
@@ -94,45 +91,52 @@ def haversine(lat2, lon2, a, dlat, dlon, composer, use_torch=None):
     mi = c
     np.multiply(c, MILES_CONST, out=mi)
 
-
-def run_composer(mode, lat2, lon2, a, dlat, dlon, batch_size, threads, use_torch):
-    if use_torch:
-        import sa.annotated.numpy as np
+    # Materialize outputs
+    if oas:
+        np.evaluate(
+            workers=1,
+            batch_size={
+                Backend.CPU: DEFAULT_CPU,
+                Backend.GPU: MAX_BATCH_SIZE,
+            },
+            force_cpu=False,
+            paging=size > MAX_BATCH_SIZE,
+        )
+        return a.value
     else:
-        import sa.annotated.cupy as np
-
-    a.materialize = Backend.CPU
-
-    if mode == Mode.MOZART:
-        force_cpu = True
-    elif mode == Mode.BACH:
-        force_cpu = False
-    else:
-        raise Exception
-    paging = len(lat2) > MAX_BATCH_SIZE
-
-    haversine(lat2, lon2, a, dlat, dlon, composer=True, use_torch=use_torch)
-    np.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu, paging=paging)
-    return a.value
+        return a
 
 
-def run_naive(lat2, lon2, a, dlat, dlon):
-    haversine(lat2, lon2, a, dlat, dlon, composer=False)
-    return a
+def run_numpy(lats, lons):
+    return haversine(lats, lons, oas=False)
 
 
-def run_cuda_torch(lat2, lon2, a, dlat, dlon):
+def run_bach_torch(lats, lons):
+    return haversine(lats, lons, oas=True, use_torch=True)
+
+
+def run_bach_cupy(lats, lons):
+    return haversine(lats, lons, oas=True, use_torch=False)
+
+
+def run_torch(lat2, lon2):
+    import torch
+
+    # Allocate temporary arrays
+    size = len(lat2)
+    a = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+    dlat = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+    dlon = torch.empty(size, dtype=torch.float64, device=torch.device('cuda'))
+
+    # Transfer inputs to the GPU
+    lat2 = torch.from_numpy(lat2).cuda()
+    lon2 = torch.from_numpy(lon2).cuda()
+
+    # Begin computation
     lat1 = 0.70984286
     lon1 = 1.23892197
     MILES_CONST = 3959.0
 
-    t = time.time()
-    lat2 = torch.from_numpy(lat2).cuda()
-    lon2 = torch.from_numpy(lon2).cuda()
-    transfer_inputs = time.time() - t
-    print('Transfer(inputs):', transfer_inputs)
-
-    t = time.time()
     torch.sub(lat2, lat1, out=dlat)
     torch.sub(lon2, lon1, out=dlon)
 
@@ -160,28 +164,32 @@ def run_cuda_torch(lat2, lon2, a, dlat, dlon):
 
     mi = c
     torch.mul(c, MILES_CONST, out=mi)
-    print('Compute:', time.time() - t)
 
-    t = time.time()
-    mi = mi.cpu().numpy()
-    transfer_outputs = time.time() - t
-    print('Transfer(outputs):', transfer_outputs)
-    print('Transfer(total):', transfer_inputs + transfer_outputs)
-    return mi
+    # Transfer outputs back to CPU
+    torch.cuda.synchronize()
+    a = a.cpu().numpy()
+
+    return a
 
 
-def run_cuda_cupy(lat2, lon2, a, dlat, dlon):
+def run_cupy(lat2, lon2):
+    import cupy as cp
+
+    # Allocate temporary arrays
+    size = len(lat2)
+    a = cp.empty(size, dtype='float64')
+    dlat = cp.empty(size, dtype='float64')
+    dlon = cp.empty(size, dtype='float64')
+
+    # Transfer inputs to the GPU
+    lat2 = cp.array(lat2)
+    lon2 = cp.array(lon2)
+
+    # Begin computation
     lat1 = 0.70984286
     lon1 = 1.23892197
     MILES_CONST = 3959.0
 
-    t = time.time()
-    lat2 = cp.array(lat2)
-    lon2 = cp.array(lon2)
-    transfer_inputs = time.time() - t
-    print('Transfer(inputs):', transfer_inputs)
-
-    t = time.time()
     cp.subtract(lat2, lat1, out=dlat)
     cp.subtract(lon2, lon1, out=dlon)
 
@@ -209,62 +217,51 @@ def run_cuda_cupy(lat2, lon2, a, dlat, dlon):
 
     mi = c
     cp.multiply(c, MILES_CONST, out=mi)
-    print('Compute:', time.time() - t)
 
-    t = time.time()
-    mi = cp.asnumpy(mi)
-    transfer_outputs = time.time() - t
-    print('Transfer(outputs):', transfer_outputs)
-    print('Transfer(total):', transfer_inputs + transfer_outputs)
-    return mi
+    # Transfer outputs back to CPU
+    a = cp.asnumpy(a)
+
+    return a
 
 
-def run(mode, size=None, cpu=None, gpu=None, threads=None):
+def run(mode, use_torch, size, cpu, gpu, threads):
     # Optimal defaults
     if size == None:
         size = DEFAULT_SIZE
-    if cpu is None:
-        cpu = DEFAULT_CPU
-    if gpu is None:
-        gpu = DEFAULT_GPU
-    if threads is None:
-        threads = 1
-
-    if threads > 10:
-        threads -= 10
-        use_torch = True
-    else:
-        use_torch = False
-    batch_size = {
-        Backend.CPU: min(cpu, max(1, int(size / threads))),
-        Backend.GPU: min(gpu, MAX_BATCH_SIZE),
-    }
+    if mode == Mode.CUDA or mode == Mode.BACH:
+        torch.cuda.init()
+        torch.cuda.synchronize()
 
     start = time.time()
     inputs = get_data(size)
-    print('Inputs (doesn\'t count):', time.time() - start)
-
-    # Get inputs
-    start = time.time()
-    tmp_arrays = get_tmp_arrays(mode, size, use_torch=use_torch)
-    init_time = time.time() - start
-    print('Initialization:', init_time)
+    print('Inputs:', time.time() - start)
 
     start = time.time()
-    if mode.is_composer():
-        results = run_composer(mode, *inputs, *tmp_arrays, batch_size, threads, use_torch=use_torch)
-    elif mode == Mode.NAIVE:
-        results = run_naive(*inputs, *tmp_arrays)
-    elif mode == Mode.CUDA and use_torch:
-        results = run_cuda_torch(*inputs, *tmp_arrays)
-    elif mode == Mode.CUDA and not use_torch:
-        results = run_cuda_cupy(*inputs, *tmp_arrays)
+    if mode == Mode.NAIVE:
+        result = run_numpy(*inputs)
+    elif mode == Mode.CUDA:
+        if use_torch:
+            result = run_torch(*inputs)
+        else:
+            result = run_cupy(*inputs)
+    elif mode == Mode.BACH:
+        if use_torch:
+            result = run_bach_torch(*inputs)
+        else:
+            result = run_bach_cupy(*inputs)
     else:
         raise ValueError
     runtime = time.time() - start
-
-    print('Runtime:', runtime)
-    sys.stdout.write('Total: {}\n'.format(init_time + runtime))
+    sys.stdout.write('Runtime: {}\n'.format(runtime))
     sys.stdout.flush()
-    print(results)
-    return init_time, runtime
+
+    print(result)
+    return 0, runtime
+
+
+def run_torch_main(mode, size=None, cpu=None, gpu=None, threads=1):
+    return run(mode, True, size=size, cpu=cpu, gpu=gpu, threads=threads)
+
+
+def run_cupy_main(mode, size=None, cpu=None, gpu=None, threads=1):
+    return run(mode, False, size=size, cpu=cpu, gpu=gpu, threads=threads)
