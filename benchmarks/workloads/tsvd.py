@@ -26,16 +26,18 @@ n_components = 2
 random_state = 42
 
 
-def gen_data(_mode, size):
+def gen_data(size):
+    """Parameters:
+    - size: number of samples
+    """
     # make a synthetic dataset
     X, y = make_blobs(
         n_samples=size, n_features=n_features, centers=1, random_state=7)
     return X, y
 
 
-def run_composer(mode, X, y, batch_size, threads):
+def run_bach(X, y):
     import sa.annotated.sklearn as sklearn
-    force_cpu = mode == Mode.MOZART
     tsvd = sklearn.TruncatedSVD(n_components=n_components,
                  algorithm="arpack",
                  n_iter=5000,
@@ -44,12 +46,19 @@ def run_composer(mode, X, y, batch_size, threads):
 
     result = sklearn.fit_transform(tsvd, X)
     result.materialize = Backend.CPU
-    sklearn.evaluate(workers=threads, batch_size=batch_size, force_cpu=force_cpu)
+    sklearn.evaluate(
+        workers=1,
+        batch_size={
+            Backend.CPU: DEFAULT_CPU,
+            Backend.GPU: DEFAULT_GPU,
+        },
+        force_cpu=False,
+    )
 
     return result
 
 
-def run_naive(X, y):
+def run_cpu(X, y):
     tsvd_sk = skTSVD(n_components=n_components,
                  algorithm="arpack",
                  n_iter=5000,
@@ -60,34 +69,26 @@ def run_naive(X, y):
     return result_sk
 
 
-def run_cuda(X, y):
+def run_gpu(X, y):
     tsvd_cuml = cumlTSVD(n_components=n_components,
                      algorithm="full",
                      n_iter=50000,
                      tol=0.00001,
                      random_state=random_state)
 
+    # Transfer inputs to GPU
     X = cp.array(X)
     result_cuml = tsvd_cuml.fit_transform(X)
-    result_cuml = np.asarray(result_cuml.as_gpu_matrix())
-    return result_cuml
+
+    # Transfer outputs to CPU
+    result = np.asarray(result_cuml.as_gpu_matrix())
+    return result
 
 
 def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     # Optimal defaults
     if size == None:
         size = DEFAULT_SIZE
-    if cpu is None:
-        cpu = DEFAULT_CPU
-    if gpu is None:
-        gpu = DEFAULT_GPU
-    if threads is None:
-        threads = 1
-
-    batch_size = {
-        Backend.CPU: cpu,
-        Backend.GPU: gpu,
-    }
 
     # Initialize CUDA driver...
     import cuml
@@ -95,33 +96,28 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
 
     # Get inputs
     start = time()
-    inputs = gen_data(mode, size)
+    inputs = gen_data(size)
     init_time = time() - start
-    sys.stdout.write('Initialization: {}\n'.format(init_time))
+    sys.stdout.write('Init: {}\n'.format(init_time))
 
     # Run program
     start = time()
-    if mode.is_composer():
-        result = run_composer(mode, *inputs, batch_size, threads)
+    if mode == Mode.BACH:
+        result = run_bach(*inputs)
     elif mode == Mode.NAIVE:
-        result = run_naive(*inputs)
+        result = run_cpu(*inputs)
     elif mode == Mode.CUDA:
-        result = run_cuda(*inputs)
+        result = run_gpu(*inputs)
     else:
         raise ValueError
     runtime = time() - start
 
-    naive_result = run_naive(*inputs)
+    cpu_result = run_cpu(*inputs)
     sys.stdout.write('Runtime: {}\n'.format(runtime))
     sys.stdout.write('Total: {}\n'.format(init_time + runtime))
     sys.stdout.flush()
 
-    # passed = np.allclose(naive_result[0], result[0], atol=0.01)
-    # print('compare tsvd: cuml vs sklearn singular_values_ {}'.format('equal' if passed else 'NOT equal'))
-    # passed = np.allclose(naive_result[1], result[1], atol=1e-2)
-    # print('compare tsvd: cuml vs sklearn components_ {}'.format('equal' if passed else 'NOT equal'))
-    # compare the reduced matrix
-    passed = np.allclose(naive_result, result, atol=0.2)
+    passed = np.allclose(cpu_result, result, atol=0.2)
     # larger error margin due to different algorithms: arpack vs full
     print('compare tsvd: cuml vs sklearn transformed results %s'%('equal'if passed else 'NOT equal'))
     assert passed

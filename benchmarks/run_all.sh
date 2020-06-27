@@ -98,6 +98,20 @@ pca () {
     done
 }
 
+tsvd () {
+    name="tsvd"
+    start=10
+    for size in $(seq $start 1 22);
+        do python run.py -b $name -m naive -s $size --trials $TRIALS >> "results/"$name"_naive"
+    done
+    for size in $(seq $start 1 20);
+        do python run.py -b $name -m cuda -s $size --trials $TRIALS >> "results/"$name"_cuda"
+    done
+    for size in $(seq $start 1 20);
+        do python run.py -b $name -m bach -s $size --trials $TRIALS >> "results/"$name"_bach"
+    done
+}
+
 blackscholes_torch
 
 # Post-processing

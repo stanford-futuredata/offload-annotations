@@ -152,6 +152,38 @@ class TestPCA(unittest.TestCase):
         self.assertGreater(accuracy_std, accuracy)
 
 
+class TestTSVD(unittest.TestCase):
+
+    def setUp(self):
+        self.data_size = 1 << 14
+
+    def test_gen_data(self):
+        size = 1 << 10
+        X, y = tsvd.gen_data(size=size)
+        self.assertIsInstance(X, np.ndarray)
+        self.assertIsInstance(y, np.ndarray)
+        self.assertEqual(len(X), size)
+        self.assertEqual(len(y), size)
+
+    def test_cpu(self):
+        inputs = tsvd.gen_data(self.data_size)
+        result = tsvd.run_cpu(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+
+    def test_gpu(self):
+        inputs = tsvd.gen_data(self.data_size)
+        result = tsvd.run_gpu(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.assertTrue(np.allclose(run_cpu(*inputs), result, atol=0.2))
+
+    @pytest.mark.bach
+    def test_bach(self):
+        inputs = tsvd.gen_data(self.data_size)
+        result = tsvd.run_bach(*inputs)
+        self.assertIsInstance(result, np.ndarray)
+        self.assertTrue(np.allclose(run_cpu(*inputs), result, atol=0.2))
+
+
 class TestDBSCAN(unittest.TestCase):
 
     def setUp(self):
