@@ -92,97 +92,6 @@ class TestHaversine(unittest.TestCase):
         self.validateResult(im, self.expected)
 
 
-class TestBlackscholesCupy(unittest.TestCase):
-
-    def setUp(self):
-        self.data_size = 1 << 20
-        self.batch_size = {
-            Backend.CPU: 1 << 16,
-            Backend.GPU: 1 << 16,
-        }
-        # The expected result for the given data size
-        self.expected_call = 24.0
-        self.expected_put = 18.0
-
-    def validateArray(self, arr, val):
-        self.assertAlmostEqual(arr[0], val, places=5)
-        self.assertAlmostEqual(arr[-1], val, places=5)
-        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
-        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
-        self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
-
-    def test_get_data(self):
-        size = 2
-        for mode in Mode:
-            for array in blackscholes_cupy.get_data(mode, size):
-                self.assertIsInstance(array, np.ndarray)
-
-    def test_get_tmp_arrays(self):
-        size = 2
-        for array in blackscholes_cupy.get_tmp_arrays(Mode.NAIVE, size):
-            self.assertIsInstance(array, np.ndarray)
-        for array in blackscholes_cupy.get_tmp_arrays(Mode.CUDA, size):
-            self.assertIsInstance(array, cp.ndarray)
-        for array in blackscholes_cupy.get_tmp_arrays(Mode.MOZART, size):
-            self.assertIsInstance(array, dag.Operation)
-        for array in blackscholes_cupy.get_tmp_arrays(Mode.BACH, size):
-            self.assertIsInstance(array, dag.Operation)
-
-    def test_naive(self):
-        inputs = blackscholes_cupy.get_data(Mode.NAIVE, self.data_size)
-        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.NAIVE, self.data_size)
-        call, put = blackscholes_cupy.run_naive(*inputs, *tmp_arrays)
-        self.assertIsInstance(call, np.ndarray)
-        self.assertIsInstance(put, np.ndarray)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    def test_cuda(self):
-        inputs = blackscholes_cupy.get_data(Mode.CUDA, self.data_size)
-        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_cupy.run_cuda(*inputs, *tmp_arrays)
-        self.assertIsInstance(call, np.ndarray)
-        self.assertIsInstance(put, np.ndarray)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    @pytest.mark.skip(reason='fatal Python error')
-    def test_mozart(self):
-        inputs = blackscholes_cupy.get_data(Mode.MOZART, self.data_size)
-        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.MOZART, self.data_size)
-        call, put = blackscholes_cupy.run_composer(
-            Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16)
-        self.assertIsInstance(call, np.ndarray)
-        self.assertIsInstance(put, np.ndarray)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    @pytest.mark.bach
-    def test_bach(self):
-        inputs = blackscholes_cupy.get_data(Mode.BACH, self.data_size)
-        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.BACH, self.data_size)
-        call, put = blackscholes_cupy.run_composer(
-            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1)
-        self.assertIsInstance(call, np.ndarray)
-        self.assertIsInstance(put, np.ndarray)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    @pytest.mark.paging
-    @pytest.mark.bach
-    def test_bach_paging(self):
-        data_size = blackscholes_cupy.MAX_BATCH_SIZE << 2
-        batch_size = { Backend.GPU: blackscholes_cupy.MAX_BATCH_SIZE >> 1 }
-        inputs = blackscholes_cupy.get_data(Mode.BACH, data_size)
-        tmp_arrays = blackscholes_cupy.get_tmp_arrays(Mode.BACH, data_size)
-        call, put = blackscholes_cupy.run_composer(
-            Mode.BACH, *inputs, *tmp_arrays, batch_size, threads=1)
-        self.assertIsInstance(call, np.ndarray)
-        self.assertIsInstance(put, np.ndarray)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-
 class TestPCA(unittest.TestCase):
 
     def setUp(self):
@@ -337,21 +246,13 @@ class TestDBSCAN(unittest.TestCase):
         self.assertLess(noise, self.data_size * 0.3)
 
 
-class TestBlackscholesNumpy(unittest.TestCase):
+class TestBlackscholes(unittest.TestCase):
 
     def setUp(self):
         self.data_size = 1 << 20
-        self.batch_size = {
-            Backend.CPU: 1 << 16,
-            Backend.GPU: 1 << 16,
-        }
         # The expected result for the given data size
         self.expected_call = 24.0
         self.expected_put = 18.0
-
-    def test_batch_parameters(self):
-        self.assertLess(self.batch_size[Backend.CPU], self.data_size)
-        self.assertLess(self.batch_size[Backend.GPU], self.data_size)
 
     def validateArray(self, arr, val):
         self.assertAlmostEqual(arr[0], val, places=5)
@@ -361,75 +262,33 @@ class TestBlackscholesNumpy(unittest.TestCase):
         self.assertAlmostEqual(arr[random.randrange(len(arr))], val, places=5)
 
     def test_get_data(self):
-        size = 2
-        for mode in Mode:
-            for array in blackscholes_numpy.get_data(Mode.NAIVE, size):
-                self.assertIsInstance(array, np.ndarray)
-
-    def test_get_tmp_arrays(self):
-        size = 2
-        for array in blackscholes_numpy.get_tmp_arrays(Mode.NAIVE, size):
+        size = 16
+        arrays = blackscholes.get_data(size)
+        self.assertEqual(len(arrays), 5)
+        for array in arrays:
+            self.assertEqual(len(array), size)
             self.assertIsInstance(array, np.ndarray)
-        for array in blackscholes_numpy.get_tmp_arrays(Mode.CUDA, size):
-            self.assertIsInstance(array, torch.Tensor)
-            self.assertEqual(array.device.type, 'cuda')
-        for array in blackscholes_numpy.get_tmp_arrays(Mode.MOZART, size):
-            self.assertIsInstance(array, dag.Operation)
-        for array in blackscholes_numpy.get_tmp_arrays(Mode.BACH, size):
-            self.assertIsInstance(array, dag.Operation)
 
-    def test_naive(self):
-        inputs = blackscholes_numpy.get_data(Mode.NAIVE, self.data_size)
-        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.NAIVE, self.data_size)
-        call, put = blackscholes_numpy.run_naive(*inputs, *tmp_arrays)
+    def test_cpu(self):
+        inputs = blackscholes.get_data(self.data_size)
+        call, put = blackscholes.run_numpy(*inputs)
         self.assertIsInstance(call, np.ndarray)
         self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
-    def test_cuda_nostream(self):
-        inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
-        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_numpy.run_cuda_nostream(*inputs, *tmp_arrays)
-        self.assertIsInstance(call, np.ndarray)
-        self.assertIsInstance(put, np.ndarray)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    def test_cuda(self):
-        inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
-        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_numpy.run_cuda(self.batch_size[Backend.GPU], *inputs, *tmp_arrays)
-        self.assertIsInstance(call, np.ndarray)
-        self.assertIsInstance(put, np.ndarray)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    def test_cuda_large_stream_size(self):
-        stream_size = 1 << 21
-        self.assertGreater(stream_size, self.data_size)
-        inputs = blackscholes_numpy.get_data(Mode.CUDA, self.data_size)
-        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.CUDA, self.data_size)
-        call, put = blackscholes_numpy.run_cuda(stream_size, *inputs, *tmp_arrays)
-        self.validateArray(call, self.expected_call)
-        self.validateArray(put, self.expected_put)
-
-    def test_mozart(self):
-        inputs = blackscholes_numpy.get_data(Mode.MOZART, self.data_size)
-        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.MOZART, self.data_size)
-        call, put = blackscholes_numpy.run_composer(
-            Mode.MOZART, *inputs, *tmp_arrays, self.batch_size, threads=16)
+    def test_gpu_torch(self):
+        inputs = blackscholes.get_data(self.data_size)
+        call, put = blackscholes.run_torch(*inputs)
         self.assertIsInstance(call, np.ndarray)
         self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
     @pytest.mark.bach
-    def test_bach(self):
-        inputs = blackscholes_numpy.get_data(Mode.BACH, self.data_size)
-        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.BACH, self.data_size)
-        call, put = blackscholes_numpy.run_composer(
-            Mode.BACH, *inputs, *tmp_arrays, self.batch_size, threads=1)
+    def test_bach_torch(self):
+        inputs = blackscholes.get_data(self.data_size)
+        call, put = blackscholes.run_bach_torch(*inputs)
         self.assertIsInstance(call, np.ndarray)
         self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
@@ -437,18 +296,45 @@ class TestBlackscholesNumpy(unittest.TestCase):
 
     @pytest.mark.paging
     @pytest.mark.bach
-    def test_bach_paging(self):
-        data_size = blackscholes_numpy.MAX_BATCH_SIZE << 2
-        batch_size = { Backend.GPU: blackscholes_numpy.MAX_BATCH_SIZE >> 1 }
-        inputs = blackscholes_numpy.get_data(Mode.BACH, data_size)
-        tmp_arrays = blackscholes_numpy.get_tmp_arrays(Mode.BACH, data_size)
-        call, put = blackscholes_numpy.run_composer(
-            Mode.BACH, *inputs, *tmp_arrays, batch_size, threads=1)
+    def test_bach_torch_paging(self):
+        data_size = blackscholes.MAX_BATCH_SIZE << 2
+        inputs = blackscholes.get_data(data_size)
+        call, put = blackscholes.run_bach_torch(*inputs)
         self.assertIsInstance(call, np.ndarray)
         self.assertIsInstance(put, np.ndarray)
         self.validateArray(call, self.expected_call)
         self.validateArray(put, self.expected_put)
 
+    @pytest.mark.cupy
+    def test_gpu_cupy(self):
+        inputs = blackscholes.get_data(self.data_size)
+        call, put = blackscholes.run_cupy(*inputs)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+    @pytest.mark.bach
+    @pytest.mark.cupy
+    def test_bach_cupy(self):
+        inputs = blackscholes.get_data(self.data_size)
+        call, put = blackscholes.run_bach_cupy(*inputs)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
+
+    @pytest.mark.paging
+    @pytest.mark.bach
+    @pytest.mark.cupy
+    def test_bach_cupy_paging(self):
+        data_size = blackscholes.MAX_BATCH_SIZE << 2
+        inputs = blackscholes.get_data(data_size)
+        call, put = blackscholes.run_bach_cupy(*inputs)
+        self.assertIsInstance(call, np.ndarray)
+        self.assertIsInstance(put, np.ndarray)
+        self.validateArray(call, self.expected_call)
+        self.validateArray(put, self.expected_put)
 
 class TestCrimeIndex(unittest.TestCase):
 

@@ -10,7 +10,7 @@ from mode import Mode
 from workloads import *
 
 class Benchmark(enum.Enum):
-    BLACKSCHOLES_NUMPY = 0
+    BLACKSCHOLES_TORCH = 0
     BLACKSCHOLES_CUPY = 1
     CRIME_INDEX = 2
     TSVD = 3
@@ -20,10 +20,10 @@ class Benchmark(enum.Enum):
 
 
 def to_function(bm):
-    if bm == Benchmark.BLACKSCHOLES_NUMPY:
-        return blackscholes_numpy.run
+    if bm == Benchmark.BLACKSCHOLES_TORCH:
+        return blackscholes.run_torch_main
     elif bm == Benchmark.BLACKSCHOLES_CUPY:
-        return blackscholes_cupy.run
+        return blackscholes.run_cupy_main
     elif bm == Benchmark.CRIME_INDEX:
         return crime_index.run
     elif bm == Benchmark.TSVD:
@@ -52,9 +52,6 @@ def run(ntrials, bm, mode, size, cpu, gpu, threads):
     print('Benchmark:', bm.name.lower())
     print('Mode:', mode.name.lower())
     print('Size:', size)
-    print('CPU piece size:', cpu)
-    print('GPU piece size:', gpu)
-    print('Threads:', threads)
 
     bm_func = to_function(bm)
 
