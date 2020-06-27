@@ -169,47 +169,47 @@ def gbsize(grouped):
 def filter(df, column, target):
     return df[df[column] > target]
 
-@sa_gpu((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@oa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
 def divide(series, value):
     result = (series / value)
     return result
 
-@sa_gpu((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@oa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
 def multiply(series, value):
     result = (series * value)
     return result
 
-@sa_gpu((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@oa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
 def subtract(series, value):
     result = (series - value)
     return result
 
-@sa_gpu((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@oa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
 def add(series, value):
     result = (series + value)
     return result
 
-@sa_gpu((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@oa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
 def equal(series, value):
     result = (series == value)
     return result
 
-@sa_gpu((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@oa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
 def greater_than(series, value):
     result = (series >= value)
     return result
 
-@sa_gpu((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
+@oa((DataFrameSplit(), DataFrameSplit()), {}, DataFrameSplit())
 def less_than(series, value):
     result = (series < value)
     return result
 
-@sa_gpu((DataFrameSplit(),), {}, SumSplit())
+@oa((DataFrameSplit(),), {}, SumSplit())
 def pandasum(series):
     result = series.sum()
     return result
 
-@sa_gpu((DataFrameSplit(),), {}, UniqueSplit())
+@oa((DataFrameSplit(),), {}, UniqueSplit())
 def unique(series):
     result = series.unique()
     return result
@@ -224,12 +224,12 @@ def gpu_mask(series, cond, val):
     clone.loc[cond] = val
     return clone
 
-@sa_gpu((DataFrameSplit(), DataFrameSplit(), Broadcast()), {}, DataFrameSplit(), func=gpu_mask)
+@oa((DataFrameSplit(), DataFrameSplit(), Broadcast()), {}, DataFrameSplit(), func=gpu_mask)
 def mask(series, cond, val):
     result = series.mask(cond, val)
     return result
 
-@sa_gpu((DataFrameSplit(), Broadcast(), Broadcast()), {}, DataFrameSplit())
+@oa((DataFrameSplit(), Broadcast(), Broadcast()), {}, DataFrameSplit())
 def series_str_slice(series, start, end):
     result = series.str.slice(start, end)
     return result
@@ -243,7 +243,7 @@ def series_str_contains(series, target):
     result = series.str.contains(target)
     return result
 
-@alloc_gpu(DataFrameSplit(), func=cudf.Series)
+@oa_alloc(DataFrameSplit(), func=cudf.Series)
 def Series(*args, **kwargs):
     return pd.Series(*args, **kwargs)
 
@@ -253,7 +253,7 @@ def _cudf_read_csv(*args, **kwargs):
         result = result.iloc[:,0]
     return result
 
-@alloc_gpu(DataFrameSplit(), func=_cudf_read_csv)
+@oa_alloc(DataFrameSplit(), func=_cudf_read_csv)
 def read_csv(*args, **kwargs):
     result = pd.read_csv(*args, **kwargs)
     return result

@@ -90,10 +90,10 @@ _ret = NdArraySplit()
 
 
 # Binary ops.
-add         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.add)(np.add)
-subtract    = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.subtract)(np.subtract)
-multiply    = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.multiply)(np.multiply)
-divide      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.divide)(np.divide)
+add         = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.add)(np.add)
+subtract    = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.subtract)(np.subtract)
+multiply    = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.multiply)(np.multiply)
+divide      = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.divide)(np.divide)
 power       = sa(dc(_args), dc(_kwargs), dc(_ret))(np.power)
 
 _args = (NdArraySplit(),)
@@ -108,15 +108,15 @@ cp_erf = cp.core.create_ufunc(
 
 # Unary ops.
 log         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.log)
-log2        = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.log2)(np.log2)
-exp         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.exp)(np.exp)
-sin         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.sin)(np.sin)
-arcsin      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.arcsin)(np.arcsin)
-cos         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.cos)(np.cos)
-sqrt        = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.sqrt)(np.sqrt)
-erf         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp_erf)(ss.erf)
-mean        = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.mean)(np.mean)
-std         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=cp.std)(np.std)
+log2        = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.log2)(np.log2)
+exp         = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.exp)(np.exp)
+sin         = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.sin)(np.sin)
+arcsin      = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.arcsin)(np.arcsin)
+cos         = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.cos)(np.cos)
+sqrt        = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.sqrt)(np.sqrt)
+erf         = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp_erf)(ss.erf)
+mean        = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.mean)(np.mean)
+std         = oa(dc(_args), dc(_kwargs), dc(_ret), func=cp.std)(np.std)
 
 # addreduce = np.add.reduce
 addreduce = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add.reduce)
@@ -133,7 +133,7 @@ def zeros(shape, dtype=None, order='C'):
     # return result
     return np.zeros(shape, dtype, order)
 
-@alloc_gpu(NdArraySplit(), func=cp.empty)
+@oa_alloc(NdArraySplit(), func=cp.empty)
 def empty(shape, dtype=None):
     # return sharedmem.empty(shape)
     return np.empty(shape, dtype=dtype)

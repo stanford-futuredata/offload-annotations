@@ -82,23 +82,23 @@ _ret = NdArraySplit()
 
 
 # Binary ops.
-add         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.add)(np.add)
-subtract    = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.sub)(np.subtract)
-multiply    = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.mul)(np.multiply)
-divide      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.div)(np.divide)
+add         = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.add)(np.add)
+subtract    = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.sub)(np.subtract)
+multiply    = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.mul)(np.multiply)
+divide      = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.div)(np.divide)
 power       = sa(dc(_args), dc(_kwargs), dc(_ret))(np.power)
 
 _args = (NdArraySplit(),)
 
 # Unary ops.
 log         = sa(dc(_args), dc(_kwargs), dc(_ret))(np.log)
-log2        = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.log2)(np.log2)
-exp         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.exp)(np.exp)
-sin         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.sin)(np.sin)
-arcsin      = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.asin)(np.arcsin)
-cos         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.cos)(np.cos)
-sqrt        = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.sqrt)(np.sqrt)
-erf         = sa_gpu(dc(_args), dc(_kwargs), dc(_ret), func=torch.erf)(ss.erf)
+log2        = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.log2)(np.log2)
+exp         = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.exp)(np.exp)
+sin         = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.sin)(np.sin)
+arcsin      = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.asin)(np.arcsin)
+cos         = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.cos)(np.cos)
+sqrt        = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.sqrt)(np.sqrt)
+erf         = oa(dc(_args), dc(_kwargs), dc(_ret), func=torch.erf)(ss.erf)
 
 # addreduce = np.add.reduce
 addreduce = sa(dc(_args), dc(_kwargs), dc(_ret))(np.add.reduce)
@@ -124,7 +124,7 @@ def _gpu_empty(shape, dtype=None):
     }
     return torch.empty(shape, dtype=str_to_torch[dtype], device=torch.device('cuda'))
 
-@alloc_gpu(NdArraySplit(), func=_gpu_empty)
+@oa_alloc(NdArraySplit(), func=_gpu_empty)
 def empty(shape, dtype=None):
     return sharedmem.empty(shape)
     # return np.empty(shape, dtype)

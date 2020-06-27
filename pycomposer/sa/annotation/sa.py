@@ -101,7 +101,7 @@ class alloc(object):
         return _decorated
 
 
-class sa_gpu(object):
+class oa(object):
     """An annotation to indicate another function annotation is eligible for the GPU.
 
     Optionally supply a gpu function to run when executing on the gpu.
@@ -130,7 +130,7 @@ class sa_gpu(object):
         return _decorated
 
 
-class alloc_gpu(object):
+class oa_alloc(object):
     """An annotation to indicate another allocation annotation is eligible for the GPU.
 
     Optionally supply a gpu function to run when executing on the gpu.
