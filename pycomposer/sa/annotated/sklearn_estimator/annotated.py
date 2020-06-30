@@ -6,7 +6,7 @@ from copy import deepcopy as dc
 from sa.annotation import *
 from sa.annotation.scheduling import *
 from sa.annotation.split_types import *
-from sa.annotated.cupy import NdArraySplit
+from sa.annotated.cupy_estimator import NdArraySplit
 
 
 class CPUModelSplit(SplitType):
@@ -25,6 +25,8 @@ class CPUModelSplit(SplitType):
 
 
 class ModelSplit(OffloadSplitType):
+
+    estimator = gen_linear_transfer_estimator(1, 0)
 
     def __init__(self):
         self.supported_backends = [Backend.CPU, Backend.GPU]
@@ -103,7 +105,8 @@ def fit_x(model, X):
 def fit_xy(model, X, y):
     return model.fit(X, y)
 
-@oa((ModelSplit(), NdArraySplit()), {}, NdArraySplit())
+compute_estimator = gen_linear_compute_estimator(2, 0, 0, 14)
+@oa((ModelSplit(), NdArraySplit()), {}, NdArraySplit(), estimator=compute_estimator)
 def fit_transform(model, X):
     return model.fit_transform(X)
 
