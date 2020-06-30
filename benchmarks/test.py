@@ -1,11 +1,11 @@
 import random
 import sys
 import unittest
+import cudf
 import numpy as np
 import cupy as cp
 import torch
 import pandas as pd
-import cudf
 import pytest
 
 sys.path.append("../pycomposer")
@@ -174,14 +174,14 @@ class TestTSVD(unittest.TestCase):
         inputs = tsvd.gen_data(self.data_size)
         result = tsvd.run_gpu(*inputs)
         self.assertIsInstance(result, np.ndarray)
-        self.assertTrue(np.allclose(run_cpu(*inputs), result, atol=0.2))
+        self.assertTrue(np.allclose(tsvd.run_cpu(*inputs), result, atol=0.2))
 
     @pytest.mark.bach
     def test_bach(self):
         inputs = tsvd.gen_data(self.data_size)
         result = tsvd.run_bach(*inputs)
         self.assertIsInstance(result, np.ndarray)
-        self.assertTrue(np.allclose(run_cpu(*inputs), result, atol=0.2))
+        self.assertTrue(np.allclose(tsvd.run_cpu(*inputs), result, atol=0.2))
 
 
 class TestDBSCAN(unittest.TestCase):
@@ -191,8 +191,7 @@ class TestDBSCAN(unittest.TestCase):
         self.centers = dbscan.DEFAULT_CENTERS
 
     def test_cpu(self):
-        X, eps, min_samples = dbscan.gen_data(Mode.CPU, self.data_size, centers=self.centers)
-        self.assertIsInstance(X, np.ndarray)
+        X, eps, min_samples = dbscan.gen_data(self.data_size, centers=self.centers)
         labels = dbscan.run_cpu(X, eps, min_samples)
         self.assertIsInstance(labels, np.ndarray)
 
@@ -202,8 +201,7 @@ class TestDBSCAN(unittest.TestCase):
 
     @pytest.mark.cupy
     def test_gpu(self):
-        X, eps, min_samples = dbscan.gen_data(Mode.GPU, self.data_size, centers=self.centers)
-        self.assertIsInstance(X, cudf.DataFrame)
+        X, eps, min_samples = dbscan.gen_data(self.data_size, centers=self.centers)
         labels = dbscan.run_gpu(X, eps, min_samples)
         self.assertIsInstance(labels, np.ndarray)
 
@@ -218,15 +216,15 @@ class TestDBSCAN(unittest.TestCase):
         self.assertLess(noise, size * 0.3)
 
     def validateResults(self, size, centers, cluster_std):
-        inputs = dbscan.gen_data(Mode.CPU, size, centers=centers, cluster_std=cluster_std)
+        inputs = dbscan.gen_data(size, centers=centers, cluster_std=cluster_std)
         labels = dbscan.run_cpu(*inputs)
         self.validateLabels(labels, size, centers)
 
-        inputs = dbscan.gen_data(Mode.GPU, size, centers=centers, cluster_std=cluster_std)
+        inputs = dbscan.gen_data(size, centers=centers, cluster_std=cluster_std)
         labels = dbscan.run_gpu(*inputs)
         self.validateLabels(labels, size, centers)
 
-        inputs = dbscan.gen_data(Mode.BACH, size, centers=centers, cluster_std=cluster_std)
+        inputs = dbscan.gen_data(size, centers=centers, cluster_std=cluster_std)
         labels = dbscan.run_gpu(*inputs)
         self.validateLabels(labels, size, centers)
 
@@ -242,8 +240,7 @@ class TestDBSCAN(unittest.TestCase):
     @pytest.mark.bach
     @pytest.mark.cupy
     def test_bach(self):
-        X, eps, min_samples = dbscan.gen_data(Mode.BACH, self.data_size, centers=self.centers)
-        self.assertIsInstance(X, np.ndarray)
+        X, eps, min_samples = dbscan.gen_data(self.data_size, centers=self.centers)
         labels = dbscan.run_bach(X, eps, min_samples)
         self.assertIsInstance(labels, np.ndarray)
 
@@ -348,6 +345,7 @@ class TestCrimeIndex(unittest.TestCase):
     def setUp(self):
         prefix = 'datasets/crime_index/test/'
         filenames = ['total_population.csv', 'adult_population.csv', 'num_robberies.csv']
+        crime_index._write_data(1 << 20)
         self.filenames = [prefix + f for f in filenames]
         self.data_size = 1 << 20
         # The expected result for the given data size

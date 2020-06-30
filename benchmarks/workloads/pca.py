@@ -68,9 +68,11 @@ def run_bach(X_train, X_test, y_train, y_test, scaled=True):
 
     # Train models
     if scaled:
-        X_train = sklearn.fit_transform_cpu(ss, X_train)
-    X_train = sklearn.fit_transform(pca, X_train)
-    sklearn.fit_xy(knc, X_train, y_train)
+        X_train_ = sklearn.fit_transform_cpu(ss, X_train)
+    else:
+        X_train_ = X_train
+    X_train_ = sklearn.fit_transform(pca, X_train_)
+    sklearn.fit_xy(knc, X_train_, y_train)
 
     # Note: batch sizes must be max size
     sklearn.evaluate(
@@ -83,9 +85,11 @@ def run_bach(X_train, X_test, y_train, y_test, scaled=True):
     # Test models
     t0 = time.time()
     if scaled:
-        X_test = sklearn.transform_cpu(ss.value, X_test)
-    X_test = sklearn.transform(pca.value, X_test)
-    pred_test = sklearn.predict(knc.value, X_test)
+        X_test_ = sklearn.transform_cpu(ss.value, X_test)
+    else:
+        X_test_ = X_test
+    X_test_ = sklearn.transform(pca.value, X_test_)
+    pred_test = sklearn.predict(knc.value, X_test_)
     pred_test.materialize = Backend.CPU
 
     # Note: here, the batch sizes can be anything because this section can be split
@@ -111,17 +115,21 @@ def run_cpu(X_train, X_test, y_train, y_test, scaled=True):
 
     # Train models
     if scaled:
-        X_train = ss.fit_transform(X_train)
-    X_train = pca.fit_transform(X_train)
-    knc.fit(X_train, y_train)
+        X_train_ = ss.fit_transform(X_train)
+    else:
+        X_train_ = X_train
+    X_train_ = pca.fit_transform(X_train_)
+    knc.fit(X_train_, y_train)
     print('Fit(cpu):', time.time() - t0)
 
     # Test models
     t0 = time.time()
     if scaled:
-        X_test = ss.transform(X_test)
-    X_test = pca.transform(X_test)
-    pred_test = knc.predict(X_test)
+        X_test_ = ss.transform(X_test)
+    else:
+        X_test_ = X_test
+    X_test_ = pca.transform(X_test_)
+    pred_test = knc.predict(X_test_)
     print('Predict(cpu):', time.time() - t0)
     return pred_test
 
@@ -138,20 +146,24 @@ def run_gpu(X_train, X_test, y_train, y_test, scaled=True):
 
     # Train models
     if scaled:
-        X_train = ss.fit_transform(X_train)
-    X_train = cp.array(X_train)
-    X_train = pca.fit_transform(X_train)
-    y_train = cp.array(y_train)
-    knc.fit(X_train, y_train)
+        X_train_ = ss.fit_transform(X_train)
+    else:
+        X_train_ = X_train
+    X_train_ = cp.array(X_train_)
+    X_train_ = pca.fit_transform(X_train_)
+    y_train_ = cp.array(y_train)
+    knc.fit(X_train_, y_train_)
     print('Fit(gpu):', time.time() - t0)
 
     # Test models
     t0 = time.time()
     if scaled:
-        X_test = ss.transform(X_test)
-    X_test = cp.array(X_test)
-    X_test = pca.transform(X_test)
-    pred_test = knc.predict(X_test)
+        X_test_ = ss.transform(X_test)
+    else:
+        X_test_ = X_test
+    X_test_ = cp.array(X_test_)
+    X_test_ = pca.transform(X_test_)
+    pred_test = knc.predict(X_test_)
     pred_test = pred_test.to_pandas().to_numpy()
     print('Predict(gpu):', time.time() - t0)
     return pred_test

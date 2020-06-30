@@ -119,7 +119,8 @@ def run_gpu(X, eps, min_samples):
     labels = db.labels_
 
     # Transfer outputs to CPU
-    labels = labels.to_pandas().to_numpy()
+    # labels = labels.to_pandas().to_numpy()
+    labels = cp.asnumpy(labels)
     return labels
 
 
