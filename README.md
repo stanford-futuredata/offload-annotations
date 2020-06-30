@@ -1,6 +1,8 @@
 # Offload Annotations
 
-This is the main source code repository for Offload Annotations. It contains the Python source code for the Bach runtime, and the benchmarks from the USENIX ATC 2020 paper. This repository is extended from the [Split Annotations](https://github.com/weld-project/split-annotations) repository from SOSP 2019.
+This is the main source code repository for Offload Annotations. It contains the Python source code for the Bach runtime, and the benchmarks from the USENIX ATC 2020 paper. The implementation is a prototype -- use at your own risk!
+
+This repository is extended from the [Split Annotations](https://github.com/weld-project/split-annotations) repository from SOSP 2019.
 
 ## Example
 
