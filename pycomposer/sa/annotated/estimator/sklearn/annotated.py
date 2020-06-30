@@ -6,7 +6,7 @@ from copy import deepcopy as dc
 from sa.annotation import *
 from sa.annotation.scheduling import *
 from sa.annotation.split_types import *
-from sa.annotated.cupy_estimator import NdArraySplit
+from sa.annotated.estimator.numpy_cupy import NdArraySplit
 
 
 class CPUModelSplit(SplitType):

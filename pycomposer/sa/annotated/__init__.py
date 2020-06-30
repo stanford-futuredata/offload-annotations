@@ -13,7 +13,7 @@ As an example, to use the annotated version of NumPy, one can replace the follow
 
 with::
 
-  import sa.annotated.numpy as np
+  import sa.annotated.numpy_torch as np
 
 """
 

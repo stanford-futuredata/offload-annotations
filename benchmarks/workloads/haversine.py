@@ -40,11 +40,11 @@ def haversine(lat2, lon2, oas=True, use_torch=True):
     """
     if oas:
         if use_torch:
-            import sa.annotated.numpy as np
-            import sa.annotated.numpy as ss
+            import sa.annotated.numpy_torch as np
+            import sa.annotated.numpy_torch as ss
         else:
-            import sa.annotated.cupy as np
-            import sa.annotated.cupy as ss
+            import sa.annotated.numpy_cupy as np
+            import sa.annotated.numpy_cupy as ss
     else:
         import numpy as np
         import scipy.special as ss

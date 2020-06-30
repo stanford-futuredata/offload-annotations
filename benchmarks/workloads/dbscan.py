@@ -26,8 +26,7 @@ DEFAULT_CENTERS = 32
 DEFAULT_CLUSTER_STD = 1.0
 
 
-def gen_data(mode,
-             size,
+def gen_data(size,
              n_features=DEFAULT_FEATURES,
              centers=DEFAULT_CENTERS,
              cluster_std=DEFAULT_CLUSTER_STD):
@@ -58,7 +57,7 @@ def clusters(labels):
 
 
 def run_bach(X, eps, min_samples):
-    import sa.annotated.cupy as np
+    import sa.annotated.numpy_cupy as np
     import sa.annotated.sklearn as sklearn
 
     if X.shape[0] > MAX_BATCH_SIZE:
@@ -133,7 +132,7 @@ def run(mode, size=None, _cpu=None, _gpu=None, threads=None, data_mode='file'):
 
     # Get inputs
     start = time.time()
-    inputs = gen_data(mode, size)
+    inputs = gen_data(size)
     init_time = time.time() - start
     sys.stdout.write('Init: {}\n'.format(init_time))
 

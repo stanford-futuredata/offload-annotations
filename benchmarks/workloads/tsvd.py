@@ -37,7 +37,7 @@ def gen_data(size):
 
 
 def run_bach(X, y):
-    import sa.annotated.sklearn_estimator as sklearn
+    import sa.annotated.estimator.sklearn as sklearn
     tsvd = sklearn.TruncatedSVD(n_components=n_components,
                  algorithm="arpack",
                  n_iter=5000,
