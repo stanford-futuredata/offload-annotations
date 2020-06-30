@@ -45,6 +45,7 @@ ml-*
 *.stdout
 *.stderr
 prof/
+benchmarks/results/*
 
 # Ignore Python distribution stuff
 python/pycomposer/build/

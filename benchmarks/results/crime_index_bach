@@ -1,6 +1,0 @@
-Trials: 5
-Benchmark: crime_index
-Mode: bach
-Size: 8192
-Allocation: 0
-to_vm: 4.935264587402344e-05

@@ -1,5 +1,0 @@
-Trials: 5
-Benchmark: crime_index
-Mode: naive
-Size: 8192
-Init: 0.0075511932373046875
