@@ -25,7 +25,8 @@ class SplitType(ABC):
 
     def __init__(self):
         """Initialize a new split type."""
-        pass
+        self.supported_backends = [Backend.CPU]
+        self.materialize = None
 
     def __hash__(self):
         return hash(str(self))
@@ -132,6 +133,9 @@ class SplitType(ABC):
     def _finalized(self):
         """ Returns the finalized type of this type. """
         return self
+
+    def backend(self, _value):
+        return Backend.CPU
 
 
 class OffloadSplitType(SplitType):
