@@ -53,14 +53,14 @@ def read_data(mode, size=None, filenames=filenames):
         fs = filenames
     else:
         fs = ['{}/{}_{}.csv'.format(prefix, filename, int(math.log2(size))) for filename in filenames]
-    if mode == Mode.CUDA:
+    if mode == Mode.GPU:
         total_population = cudf.read_csv(fs[0], header=None).iloc[:,0]
         adult_population = cudf.read_csv(fs[1], header=None).iloc[:,0]
         num_robberies = cudf.read_csv(fs[2], header=None).iloc[:,0]
     else:
         if mode == Mode.BACH:
             import sa.annotated.pandas as pd
-        elif mode == Mode.NAIVE:
+        elif mode == Mode.CPU:
             import pandas as pd
         total_population = pd.read_csv(fs[0], squeeze=True, header=None)
         adult_population = pd.read_csv(fs[1], squeeze=True, header=None)
@@ -151,9 +151,9 @@ def run(mode, size=None, cpu=None, gpu=None, threads=1):
     print("Init: {}".format(init_time))
 
     start = time.time()
-    if mode == Mode.NAIVE:
+    if mode == Mode.CPU:
         result = run_pandas(*inputs)
-    elif mode == Mode.CUDA:
+    elif mode == Mode.GPU:
         result = run_cudf(*inputs)
     elif mode == Mode.BACH:
         result = run_bach_cudf(size, *inputs)

@@ -104,9 +104,9 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     start = time()
     if mode == Mode.BACH:
         result = run_bach(*inputs)
-    elif mode == Mode.NAIVE:
+    elif mode == Mode.CPU:
         result = run_cpu(*inputs)
-    elif mode == Mode.CUDA:
+    elif mode == Mode.GPU:
         result = run_gpu(*inputs)
     else:
         raise ValueError

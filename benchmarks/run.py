@@ -50,7 +50,7 @@ def median(arr):
         return (arr[m] + arr[m-1]) / 2
 
 
-def run(ntrials, bm, mode, size, cpu, gpu, threads):
+def run(ntrials, bm, mode, size):
     print('Trials:', ntrials)
     print('Benchmark:', bm.name.lower())
     print('Mode:', mode.name.lower())
@@ -61,7 +61,7 @@ def run(ntrials, bm, mode, size, cpu, gpu, threads):
     init_times = []
     runtimes = []
     for _ in range(ntrials):
-        init_time, runtime = bm_func(mode, size, cpu, gpu, threads)
+        init_time, runtime = bm_func(mode, size)
         init_times.append(init_time)
         runtimes.append(runtime)
     print('Median Init:', median(init_times))
@@ -73,14 +73,11 @@ if __name__ == '__main__':
     bm_names = [bm.name.lower() for bm in Benchmark]
     mode_names = [mode.name.lower() for mode in Mode]
 
-    parser = argparse.ArgumentParser('Benchmark for accelerator-aware split annotations.')
+    parser = argparse.ArgumentParser('Benchmark for offload annotations.')
     parser.add_argument('-b', '--benchmark', type=str, required=True,
         help='Benchmark name ({}) or (0-{})'.format('|'.join(bm_names), len(Benchmark) - 1))
-    parser.add_argument('-m', '--mode', type=str, required=True, help='Mode (naive|mozart|bach|cuda)')
-    parser.add_argument('-s', '--size', type=int, help='Log data size')
-    parser.add_argument('--cpu', type=int, help='Log CPU piece size')
-    parser.add_argument('--gpu', type=int, help='Log GPU piece size in bach or stream size in cuda')
-    parser.add_argument('--threads', type=int, help='Number of threads (naive only)')
+    parser.add_argument('-m', '--mode', type=str, required=True, help='Mode (cpu|gpu|bach)')
+    parser.add_argument('-s', '--size', type=int, help='Log2 data size')
     parser.add_argument('--trials', type=int, default=1, help='Number of trials')
     args = parser.parse_args()
 
@@ -102,10 +99,7 @@ if __name__ == '__main__':
 
     # Parse other arguments
     size = None if args.size is None else 1 << args.size
-    cpu = None if args.cpu is None else 1 << args.cpu
-    gpu = None if args.gpu is None else 1 << args.gpu
-    threads = args.threads
     ntrials = args.trials
     assert ntrials > 0
 
-    run(ntrials, bm, mode, size, cpu, gpu, threads)
+    run(ntrials, bm, mode, size)

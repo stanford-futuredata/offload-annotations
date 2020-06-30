@@ -2,13 +2,10 @@ import enum
 
 class Mode(enum.Enum):
     # Naive CPU implementation
-    NAIVE = 0
+    CPU = 0
     # Naive CPU optimized with Mozart, CPU-only SAs
     MOZART = 1
-    # Naive CPU optimized with Bach, accelerator-aware SAs
+    # Naive CPU optimized with Bach, accelerator-aware OAs
     BACH = 2
-    # Hand-optimized CUDA implementation
-    CUDA = 3
-
-    def is_composer(self):
-        return self in [Mode.MOZART, Mode.BACH]
+    # Hand-optimized GPU implementation
+    GPU = 3

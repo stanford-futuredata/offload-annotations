@@ -362,7 +362,7 @@ def run(mode, use_torch, size, cpu, gpu, threads):
     # Optimal defaults
     if size == None:
         size = DEFAULT_SIZE
-    if mode == Mode.CUDA or mode == Mode.BACH:
+    if mode == Mode.GPU or mode == Mode.BACH:
         torch.cuda.init()
         torch.cuda.synchronize()
 
@@ -371,9 +371,9 @@ def run(mode, use_torch, size, cpu, gpu, threads):
     print('Inputs:', time.time() - start)
 
     start = time.time()
-    if mode == Mode.NAIVE:
+    if mode == Mode.CPU:
         call, put = run_numpy(*inputs)
-    elif mode == Mode.CUDA:
+    elif mode == Mode.GPU:
         if use_torch:
             call, put = run_torch(*inputs)
         else:

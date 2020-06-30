@@ -112,7 +112,7 @@ class TestPCA(unittest.TestCase):
             self.assertEqual(len(y_test), self.test_size * size)
 
     def test_cpu(self):
-        X_train, X_test, y_train, y_test = pca.gen_data(Mode.NAIVE, size=self.data_size)
+        X_train, X_test, y_train, y_test = pca.gen_data(Mode.CPU, size=self.data_size)
         pred_test = pca.run_cpu(X_train, X_test, y_train, y_test, scaled=False)
         self.assertIsInstance(pred_test, np.ndarray)
         pred_test_std = pca.run_cpu(X_train, X_test, y_train, y_test, scaled=True)
@@ -125,7 +125,7 @@ class TestPCA(unittest.TestCase):
         self.assertGreater(accuracy_std, accuracy)
 
     def test_gpu(self):
-        X_train, X_test, y_train, y_test = pca.gen_data(Mode.CUDA, size=self.data_size)
+        X_train, X_test, y_train, y_test = pca.gen_data(Mode.GPU, size=self.data_size)
         pred_test = pca.run_gpu(X_train, X_test, y_train, y_test, scaled=False)
         self.assertIsInstance(pred_test, np.ndarray)
         pred_test_std = pca.run_gpu(X_train, X_test, y_train, y_test, scaled=True)
@@ -191,7 +191,7 @@ class TestDBSCAN(unittest.TestCase):
         self.centers = dbscan.DEFAULT_CENTERS
 
     def test_cpu(self):
-        X, eps, min_samples = dbscan.gen_data(Mode.NAIVE, self.data_size, centers=self.centers)
+        X, eps, min_samples = dbscan.gen_data(Mode.CPU, self.data_size, centers=self.centers)
         self.assertIsInstance(X, np.ndarray)
         labels = dbscan.run_cpu(X, eps, min_samples)
         self.assertIsInstance(labels, np.ndarray)
@@ -202,7 +202,7 @@ class TestDBSCAN(unittest.TestCase):
 
     @pytest.mark.cupy
     def test_gpu(self):
-        X, eps, min_samples = dbscan.gen_data(Mode.CUDA, self.data_size, centers=self.centers)
+        X, eps, min_samples = dbscan.gen_data(Mode.GPU, self.data_size, centers=self.centers)
         self.assertIsInstance(X, cudf.DataFrame)
         labels = dbscan.run_gpu(X, eps, min_samples)
         self.assertIsInstance(labels, np.ndarray)
@@ -218,11 +218,11 @@ class TestDBSCAN(unittest.TestCase):
         self.assertLess(noise, size * 0.3)
 
     def validateResults(self, size, centers, cluster_std):
-        inputs = dbscan.gen_data(Mode.NAIVE, size, centers=centers, cluster_std=cluster_std)
+        inputs = dbscan.gen_data(Mode.CPU, size, centers=centers, cluster_std=cluster_std)
         labels = dbscan.run_cpu(*inputs)
         self.validateLabels(labels, size, centers)
 
-        inputs = dbscan.gen_data(Mode.CUDA, size, centers=centers, cluster_std=cluster_std)
+        inputs = dbscan.gen_data(Mode.GPU, size, centers=centers, cluster_std=cluster_std)
         labels = dbscan.run_gpu(*inputs)
         self.validateLabels(labels, size, centers)
 
@@ -354,30 +354,30 @@ class TestCrimeIndex(unittest.TestCase):
         self.expected = 5242.88
 
     def test_read_data(self):
-        for array in crime_index.read_data(Mode.NAIVE, filenames=self.filenames):
+        for array in crime_index.read_data(Mode.CPU, filenames=self.filenames):
             self.assertIsInstance(array, pd.Series)
-        for array in crime_index.read_data(Mode.CUDA, filenames=self.filenames):
+        for array in crime_index.read_data(Mode.GPU, filenames=self.filenames):
             self.assertIsInstance(array, cudf.Series)
         for array in crime_index.read_data(Mode.BACH, filenames=self.filenames):
             self.assertIsInstance(array, dag.Operation)
 
     def test_write_data(self):
         crime_index._write_data(self.data_size)
-        for array in crime_index.read_data(Mode.NAIVE, size=self.data_size):
+        for array in crime_index.read_data(Mode.CPU, size=self.data_size):
             self.assertIsInstance(array, pd.Series)
-        for array in crime_index.read_data(Mode.CUDA, size=self.data_size):
+        for array in crime_index.read_data(Mode.GPU, size=self.data_size):
             self.assertIsInstance(array, cudf.Series)
         for array in crime_index.read_data(Mode.BACH, size=self.data_size):
             self.assertIsInstance(array, dag.Operation)
 
     def test_cpu(self):
-        inputs = crime_index.read_data(Mode.NAIVE, size=self.data_size)
+        inputs = crime_index.read_data(Mode.CPU, size=self.data_size)
         result = crime_index.run_pandas(*inputs)
         self.assertIsInstance(result, float)
         self.assertAlmostEqual(result, self.expected)
 
     def test_gpu(self):
-        inputs = crime_index.read_data(Mode.CUDA, size=self.data_size)
+        inputs = crime_index.read_data(Mode.GPU, size=self.data_size)
         result = crime_index.run_cudf(*inputs)
         self.assertIsInstance(result, float)
         self.assertAlmostEqual(result, self.expected)

@@ -169,16 +169,16 @@ def run(mode, size=None, cpu=None, gpu=None, threads=None, data_mode='file'):
     sys.stdout.write('Init: {}\n'.format(init_time))
 
     # Initialize CUDA
-    if mode == Mode.BACH or mode == Mode.CUDA:
+    if mode == Mode.BACH or mode == Mode.GPU:
         cuml.LogisticRegression()
 
     # Run program
     start = time.time()
     if mode == Mode.BACH:
         pred_test_std = run_bach(*inputs, scaled=True)
-    elif mode == Mode.NAIVE:
+    elif mode == Mode.CPU:
         pred_test_std = run_cpu(*inputs, scaled=True)
-    elif mode == Mode.CUDA:
+    elif mode == Mode.GPU:
         pred_test_std = run_gpu(*inputs, scaled=True)
     else:
         raise ValueError
