@@ -125,7 +125,7 @@ haversine_cupy
 haversine_torch
 dbscan
 tsvd
-# pca
+pca
 
 # Post-processing
 # ===============

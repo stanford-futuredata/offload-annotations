@@ -74,13 +74,12 @@ class NdArraySplit(OffloadSplitType):
             self.merge = True
             return cp.array(value)
         elif current_backend == Backend.GPU and backend == Backend.CPU:
-            if isinstance(value, cp.ndarray):
+            if isinstance(value, cp.ndarray) or isinstance(value, cudf.Series):
                 return cp.asnumpy(value)
-            else:
+            elif isinstance(value, cudf.DataFrame):
                 # Also convert back from cuDF objects
                 return np.asarray(value.as_gpu_matrix())
-        else:
-            raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
+        raise Exception('cannot transfer from {} to {}'.format(current_backend, backend))
 
     def __str__(self):
         return "NdArraySplit"

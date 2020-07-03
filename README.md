@@ -38,18 +38,18 @@ np.evaluate()
 
 ## USENIX ATC 2020 Experiments
 
-We ran experiments on a 56-CPU server (2 x Intel E5-2690 v4) with 512GB of memory, running Linux 4.4.0. The machine has a single NVIDIA Tesla P100 GPU with 16GB of memory and CUDA 10.2 installed. The experiments use [Python 3.7](https://www.python.org/downloads/) and the [Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) package manager to setup a virtual environment.
+We ran experiments on a 56-CPU server (2 x Intel E5-2690 v4) with 512GB of memory, running Linux 4.4.0. The machine has a single NVIDIA Tesla P100 GPU with 16GB of memory and CUDA 10.2 installed. The experiments use [Python 3.6](https://www.python.org/downloads/) and the [Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) package manager to setup a virtual environment.
 
 ```
-$ conda create -n oas python=3.7 --file environment.yml \
-  -c conda-forge -c rapidsai -c nvidia -c pytorch -c numba -c bioconda
+$ conda create -n oas python=3.6 --file environment.yml \
+  -c conda-forge -c rapidsai -c nvidia -c pytorch -c bioconda
 $ conda activate oas
 ```
 
 The entrypoint to any benchmark is `benchmarks/run.py`.
 
 ```
-$ benchmarks/
+$ cd benchmarks/
 $ python run.py --help
 usage: Benchmark for offload annotations. [-h] -b BENCHMARK -m MODE [-s SIZE]
                                           [--trials TRIALS]

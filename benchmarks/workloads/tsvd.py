@@ -81,8 +81,8 @@ def run_gpu(X, y):
     result_cuml = tsvd_cuml.fit_transform(X)
 
     # Transfer outputs to CPU
-    # result = np.asarray(result_cuml.as_gpu_matrix())
-    result = cp.asnumpy(result_cuml)
+    result = np.asarray(result_cuml.as_gpu_matrix())
+    # result = cp.asnumpy(result_cuml)
     return result
 
 
